@@ -1,0 +1,2 @@
+# Aswenna Agricultural Marketplace
+Aswenna is a cross-platform agricultural marketplace mobile application developed as a final year project for the BSc (Hons) in Software Engineering. The platform connects farmers, buyers, delivery partners, and retail sellers through a modern digital marketplace, enabling crop trading, order management, deliveries, and secure transactions using a scalable Laravel backend and Flutter frontend architecture.

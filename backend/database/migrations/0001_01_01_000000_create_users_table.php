@@ -13,10 +13,25 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
+            $table->string('full_name');
+            $table->string('email')->nullable()->unique();
+            $table->string('phone_number')->unique();
+            $table->string('phone_number_2')->nullable();
             $table->string('password');
+            $table->string('profile_picture_path')->nullable();
+            $table->string('national_id')->nullable()->unique();
+            $table->string('address')->nullable();
+            $table->string('city')->nullable();
+            $table->string('district')->nullable();
+            $table->string('province')->nullable();
+            $table->decimal('latitude', 10, 8)->nullable();
+            $table->decimal('longitude', 11, 8)->nullable();
+            $table->json('role')->nullable(); // Can hold multiple roles e.g. ["buyer", "retail_seller"]
+            $table->boolean('is_verified')->default(false);
+            $table->boolean('is_active')->default(true);
+            $table->timestamp('email_verified_at')->nullable();
+            $table->timestamp('phone_verified_at')->nullable();
+            $table->timestamp('last_login_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

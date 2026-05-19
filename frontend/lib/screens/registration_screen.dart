@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/login_screen.dart';
+import 'package:aswenna/services/api_service.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final String role;
@@ -480,42 +481,109 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  void _handleContinue() {
+  void _handleContinue() async {
     if (_currentStep == 1) {
       setState(() {
         _currentStep = 2;
       });
     } else {
-      // Complete workflow successfully
+      // Validate general form logic
+      if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+        return;
+      }
+
+      // Show sleek loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: AppTheme.freshGreen, size: 28),
-              SizedBox(width: 8),
-              Text('Registration Sent'),
-            ],
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
           ),
-          content: const Text(
-            'Your account setup has been submitted successfully. If verification is required, a system administrator will approve your workspace shortly.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Dismiss Dialog
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              },
-              child: const Text('Back to Login', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
         ),
       );
+
+      // Extract details
+      final result = await ApiService.registerUser(
+        fullName: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        province: _selectedProvince ?? '',
+        district: _selectedDistrict ?? '',
+        role: widget.role,
+        farmingLicense: _farmNameController.text.isNotEmpty ? _farmNameController.text : null,
+        brNumber: _bizRegController.text.isNotEmpty ? _bizRegController.text : null,
+        shopAddress: _storeAddressController.text.isNotEmpty ? _storeAddressController.text : null,
+        vehicleType: _selectedVehicleType,
+      );
+
+      // Dismiss loading indicator
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (result['success'] == true) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: AppTheme.freshGreen, size: 28),
+                  SizedBox(width: 8),
+                  Text('Success!'),
+                ],
+              ),
+              content: const Text(
+                'Your Aswenna account has been created successfully. Welcome to the Direct-to-Marketplace digital ecosystem.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Dismiss Dialog
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  },
+                  child: const Text('Back to Login', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        // Show validation or network errors
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Icon(Icons.error_outline_rounded, color: Colors.red, size: 28),
+                  SizedBox(width: 8),
+                  Text('Failed to Register'),
+                ],
+              ),
+              content: Text(
+                result['errors'] != null
+                    ? 'Registration validation failed:\n\n${result['errors'].toString()}'
+                    : result['message'] ?? 'Unable to connect to the backend server.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          );
+        }
+      }
     }
   }
 }

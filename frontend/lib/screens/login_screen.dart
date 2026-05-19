@@ -6,6 +6,7 @@ import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
 import 'package:aswenna/screens/dashboards/retailer_dashboard.dart';
 import 'package:aswenna/screens/dashboards/delivery_dashboard.dart';
 import 'package:aswenna/screens/dashboards/customer_dashboard.dart';
+import 'package:aswenna/services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -224,7 +225,96 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _handleSignIn() {
+  void _handleSignIn() async {
+    final phoneOrEmail = _identifierController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (phoneOrEmail.isEmpty || password.isEmpty) {
+      // Safe developer mock-bypass when fields are left blank
+      _navigateToMockDashboard();
+      return;
+    }
+
+    // Show loading spinner
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
+        ),
+      ),
+    );
+
+    // Call Sanctum API
+    final result = await ApiService.loginUser(
+      phoneNumber: phoneOrEmail,
+      password: password,
+    );
+
+    // Dismiss spinner
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+
+    if (result['success'] == true) {
+      final user = result['user'];
+      final List<dynamic> roles = user['role'] ?? [];
+      final primaryRole = roles.isNotEmpty ? roles[0].toString() : 'customer';
+
+      Widget targetDashboard;
+      switch (primaryRole) {
+        case 'farmer':
+          targetDashboard = const FarmerDashboard();
+          break;
+        case 'buyer':
+          targetDashboard = const BuyerDashboard();
+          break;
+        case 'retail_seller':
+          targetDashboard = const RetailerDashboard();
+          break;
+        case 'delivery_partner':
+          targetDashboard = const DeliveryDashboard();
+          break;
+        case 'customer':
+        default:
+          targetDashboard = const CustomerDashboard();
+          break;
+      }
+
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => targetDashboard),
+          (route) => false,
+        );
+      }
+    } else {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Row(
+              children: [
+                Icon(Icons.lock_person_rounded, color: Colors.red, size: 28),
+                SizedBox(width: 8),
+                Text('Auth Failure'),
+              ],
+            ),
+            content: Text(result['message'] ?? 'Invalid phone/password credential combination.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  void _navigateToMockDashboard() {
     Widget targetDashboard;
 
     switch (_selectedRoleForMock) {

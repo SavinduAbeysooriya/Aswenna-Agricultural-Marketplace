@@ -675,22 +675,84 @@
             </div>
 
             <!-- Web Admin Panel Container -->
+            <!-- Web Admin Panel Container -->
             <div id="container-admin" class="w-full hidden transition-all duration-300 transform scale-100 glass-panel rounded-3xl border border-emerald-100 shadow-xl overflow-hidden flex flex-col min-h-[750px]">
                 
-                <!-- Web Admin Header -->
-                <header class="bg-agri-deep px-6 py-4 flex justify-between items-center text-white">
-                    <div class="flex items-center space-x-3">
-                        <i class="fa-solid fa-shield-halved text-2xl text-emerald-300"></i>
-                        <div>
-                            <h2 class="text-lg font-bold">Aswenna Platform Administration Console</h2>
-                            <p class="text-xs text-emerald-100">Live operational oversight & marketplace monitoring dashboard</p>
+                <!-- Web Admin Login Screen -->
+                <div id="admin-login-view" class="flex flex-col items-center justify-center p-8 md:p-12 min-h-[680px] w-full bg-slate-50 relative overflow-hidden">
+                    <!-- Background leaf decorative graphics -->
+                    <div class="absolute -top-24 -right-24 w-64 h-64 bg-emerald-100/40 rounded-full blur-2xl"></div>
+                    <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-100/30 rounded-full blur-2xl"></div>
+
+                    <div class="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-100 shadow-xl relative z-10 space-y-6">
+                        <!-- Branding -->
+                        <div class="text-center space-y-2">
+                            <div class="w-14 h-14 bg-agri-deep text-white rounded-2xl flex items-center justify-center text-2xl mx-auto shadow-md shadow-emerald-700/10">
+                                <i class="fa-solid fa-shield-halved animate-pulse"></i>
+                            </div>
+                            <h2 class="text-2xl font-extrabold text-slate-800 tracking-tight mt-3">Aswenna Admin Portal</h2>
+                            <p class="text-xs text-slate-400">Secure Web-Based Platform Oversight System</p>
                         </div>
+
+                        <!-- Error Alert -->
+                        <div id="web-admin-error" class="hidden p-3.5 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-xs font-semibold">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Access Denied.
+                        </div>
+
+                        <!-- Login Form (Does not require prior DB registration) -->
+                        <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Username or Phone Number</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-user absolute left-4 top-3.5 text-slate-400 text-sm"></i>
+                                    <input type="text" id="web-admin-username" required value="admin" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-agri-deep focus:bg-white rounded-2xl text-sm focus:outline-none transition font-medium text-slate-800">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400 text-sm"></i>
+                                    <input type="password" id="web-admin-password" required value="adminpassword" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-agri-deep focus:bg-white rounded-2xl text-sm focus:outline-none transition font-medium text-slate-800">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Workspace Role Profile</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-user-gear absolute left-4 top-3.5 text-slate-400 text-sm"></i>
+                                    <select id="web-admin-role" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-agri-deep focus:bg-white rounded-2xl text-sm focus:outline-none transition font-semibold text-slate-800 appearance-none">
+                                        <option value="admin" selected>System Administrator (Full Oversight)</option>
+                                        <option value="farmer">Farmer Account Profile</option>
+                                        <option value="buyer">Bulk Buyer Account Profile</option>
+                                        <option value="retail_seller">Retail Store Seller</option>
+                                        <option value="delivery_partner">Courier & Delivery Partner</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="pt-2">
+                                <button type="submit" id="btn-web-login" class="w-full py-4 bg-gradient-to-r from-agri-deep to-agri-fresh text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-emerald-600/20 active:scale-[0.98] transition">
+                                    Sign In to Console
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                    <div class="flex items-center space-x-4">
-                        <span class="px-2.5 py-1 rounded bg-emerald-800 text-[10px] font-bold uppercase tracking-wider">Super Administrator</span>
-                        <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center font-bold">A</div>
-                    </div>
-                </header>
+                </div>
+
+                <!-- Web Admin Dashboard Oversight View (hidden by default) -->
+                <div id="admin-dashboard-view" class="hidden flex flex-col flex-1 w-full">
+                    <!-- Web Admin Header -->
+                    <header class="bg-agri-deep px-6 py-4 flex justify-between items-center text-white">
+                        <div class="flex items-center space-x-3">
+                            <i class="fa-solid fa-shield-halved text-2xl text-emerald-300"></i>
+                            <div>
+                                <h2 class="text-lg font-bold">Aswenna Platform Administration Console</h2>
+                                <p class="text-xs text-emerald-100">Live operational oversight & marketplace monitoring dashboard</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="px-2.5 py-1 rounded bg-emerald-800 text-[10px] font-bold uppercase tracking-wider">Super Administrator</span>
+                            <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center font-bold">A</div>
+                        </div>
+                    </header>
 
                 <div class="flex-1 flex min-h-[600px]">
                     <!-- Sidebar menu -->
@@ -812,7 +874,8 @@
                         </div>
                     </main>
                 </div>
-            </div>
+                </div> <!-- Closing admin-dashboard-view -->
+            </div> <!-- Closing container-admin -->
 
         </section>
 
@@ -945,8 +1008,51 @@
                 contMob.classList.add('hidden');
                 document.getElementById('mobile-control-panel').classList.add('opacity-25');
                 
-                // Initialize charts on admin render
-                setTimeout(initAdminChart, 100);
+                // Show Admin Login form by default, hide dashboard
+                document.getElementById('admin-login-view').classList.remove('hidden');
+                document.getElementById('admin-dashboard-view').classList.add('hidden');
+            }
+        }
+
+        // Web Admin Sign-In handling
+        function handleAdminLogin(event) {
+            if (event) event.preventDefault();
+            
+            const role = document.getElementById('web-admin-role').value;
+            const errorEl = document.getElementById('web-admin-error');
+            const btn = document.getElementById('btn-web-login');
+            
+            errorEl.classList.add('hidden');
+            
+            if (role !== 'admin') {
+                errorEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2"></i> <strong>Access Denied:</strong> Standard role user profiles ("${role.replace('_', ' ')}") are restricted to the mobile application. Web portal access is reserved for Administrators.`;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            // Show premium loading spinner
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Authenticating secure session...`;
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                // Success transition
+                document.getElementById('admin-login-view').classList.add('hidden');
+                document.getElementById('admin-dashboard-view').classList.remove('hidden');
+                
+                // Initialize charts on dashboard render
+                initAdminChart();
+                
+                // Reset button state
+                btn.innerHTML = `Sign In to Console`;
+                btn.disabled = false;
+            }, 1200);
+        }
+
+        // Web Admin Sign-Out handling
+        function handleAdminLogout() {
+            if (confirm('Are you sure you want to log out of the administration console?')) {
+                document.getElementById('admin-dashboard-view').classList.add('hidden');
+                document.getElementById('admin-login-view').classList.remove('hidden');
             }
         }
 
@@ -960,7 +1066,6 @@
             }, 500);
         }
 
-        // Operational actions inside admin
         function rejectRequest(id) {
             const row = document.getElementById(`req-row-${id}`);
             row.style.opacity = '0.3';

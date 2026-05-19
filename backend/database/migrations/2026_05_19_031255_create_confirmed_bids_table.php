@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('confirmed_bids', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('buyer_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('harvest_listing_id')->constrained('harvest_listings')->cascadeOnDelete();
+            $table->foreignId('farmer_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('bid_id')->constrained('harvest_bids')->cascadeOnDelete();
+            $table->text('notes')->nullable();
+            $table->decimal('total_amount', 10, 2);
+            $table->enum('payment_status', ['paid', 'unpaid'])->default('unpaid');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('confirmed_bids');
+    }
+};

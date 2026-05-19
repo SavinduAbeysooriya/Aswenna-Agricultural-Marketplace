@@ -11,20 +11,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:aswenna/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('Aswenna onboarding smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const AswennaApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify splash screen or landing elements load
+    expect(find.byIcon(Icons.eco_rounded), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Complete the splash screen timer and transition to the onboarding screens
+    await tester.pumpAndSettle(const Duration(seconds: 3));
   });
 }

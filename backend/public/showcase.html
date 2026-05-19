@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aswenna - Premium UI/UX Design System Showcase</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        agri: {
+                            deep: '#2E7D32',
+                            fresh: '#4CAF50',
+                            mint: '#E8F5E9',
+                            soft: '#F5F7F6',
+                            gold: '#D4A017',
+                            dark: '#1B5E20'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F5F7F6;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #E8F5E9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4CAF50;
+            border-radius: 4px;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .mobile-glow {
+            box-shadow: 0 25px 50px -12px rgba(46, 125, 50, 0.15);
+        }
+        .role-card-active {
+            border-color: #4CAF50;
+            background-color: #E8F5E9;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 antialiased overflow-x-hidden">
+
+    <!-- Header / Branding Bar -->
+    <header class="w-full bg-white border-b border-emerald-100 py-4 px-6 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-agri-deep rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-700/20">
+                <i class="fa-solid fa-leaf text-lg"></i>
+            </div>
+            <div>
+                <span class="text-2xl font-extrabold tracking-tight text-agri-deep">Aswenna</span>
+                <span class="text-xs block text-slate-500 font-medium">Sri Lanka's Premium Agri Marketplace Platform</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2 text-sm text-slate-500">
+            <span class="font-semibold text-agri-deep">View:</span>
+            <button onclick="toggleView('mobile')" id="btn-view-mobile" class="px-3 py-1.5 rounded-lg bg-agri-deep text-white font-semibold shadow-sm transition">Mobile App</button>
+            <button onclick="toggleView('admin')" id="btn-view-admin" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition">Web Admin</button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-[1700px] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Showcase Intro Column (3 Cols) -->
+        <section class="lg:col-span-3 space-y-6">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-900 flex items-center mb-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-agri-fresh mr-2"></i> UX Interactive Guide
+                </h2>
+                <p class="text-sm text-slate-600 leading-relaxed mb-4">
+                    Explore the complete <strong>Aswenna</strong> ecosystem. Toggle between the modern mobile platform and the administrative panel.
+                </p>
+                <div class="border-t border-slate-100 pt-4 space-y-3">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Design Palette</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="text-center">
+                            <div class="h-8 rounded-lg bg-agri-deep mb-1 shadow-sm"></div>
+                            <span class="text-[10px] text-slate-500 block font-medium">#2E7D32</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="h-8 rounded-lg bg-agri-fresh mb-1 shadow-sm"></div>
+                            <span class="text-[10px] text-slate-500 block font-medium">#4CAF50</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="h-8 rounded-lg bg-agri-mint border border-emerald-100 mb-1 shadow-sm"></div>
+                            <span class="text-[10px] text-slate-500 block font-medium">#E8F5E9</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="h-8 rounded-lg bg-white border border-slate-200 mb-1 shadow-sm"></div>
+                            <span class="text-[10px] text-slate-500 block font-medium">#FFFFFF</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="h-8 rounded-lg bg-agri-soft mb-1 shadow-sm"></div>
+                            <span class="text-[10px] text-slate-500 block font-medium">#F5F7F6</span>
+                        </div>
+                        <div class="text-center">
+                            <div class="h-8 rounded-lg bg-agri-gold mb-1 shadow-sm"></div>
+                            <span class="text-[10px] text-slate-500 block font-medium">#D4A017</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Simulation Control Panel -->
+            <div id="mobile-control-panel" class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center">
+                    <i class="fa-solid fa-mobile-screen-button text-agri-deep mr-2"></i> Mobile Screens Selector
+                </h2>
+                <div class="flex flex-col space-y-2">
+                    <button onclick="setMobileScreen('splash')" id="btn-scr-splash" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-agri-deep font-semibold text-sm flex items-center transition border border-transparent hover:border-emerald-100">
+                        <i class="fa-solid fa-hourglass-start w-5 mr-2"></i> 1. Splash Screen
+                    </button>
+                    <button onclick="setMobileScreen('started')" id="btn-scr-started" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-agri-deep font-semibold text-sm flex items-center transition border border-transparent hover:border-emerald-100">
+                        <i class="fa-solid fa-route w-5 mr-2"></i> 2. Get Started Screen
+                    </button>
+                    <button onclick="setMobileScreen('role')" id="btn-scr-role" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-agri-deep font-semibold text-sm flex items-center transition border border-transparent hover:border-emerald-100">
+                        <i class="fa-solid fa-users-gear w-5 mr-2"></i> 3. Role Selection
+                    </button>
+                    <button onclick="setMobileScreen('register')" id="btn-scr-register" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-agri-deep font-semibold text-sm flex items-center transition border border-transparent hover:border-emerald-100">
+                        <i class="fa-solid fa-user-plus w-5 mr-2"></i> 4. Multi-step Register
+                    </button>
+                    <button onclick="setMobileScreen('login')" id="btn-scr-login" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-agri-deep font-semibold text-sm flex items-center transition border border-transparent hover:border-emerald-100">
+                        <i class="fa-solid fa-sign-in-alt w-5 mr-2"></i> 5. Login Screen
+                    </button>
+                    <button onclick="setMobileScreen('dashboard')" id="btn-scr-dashboard" class="w-full text-left px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-agri-deep font-semibold text-sm flex items-center transition border border-transparent hover:border-emerald-100">
+                        <i class="fa-solid fa-chart-line w-5 mr-2"></i> 6. Role Dashboards
+                    </button>
+                </div>
+            </div>
+
+            <!-- Developer / Framework Tech Stack -->
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                <h2 class="text-sm font-bold text-slate-900 flex items-center mb-3">
+                    <i class="fa-solid fa-cube text-slate-400 mr-2"></i> App Tech Stack
+                </h2>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between py-1 border-b border-slate-50">
+                        <span class="text-slate-500 font-medium">Backend:</span>
+                        <span class="text-slate-800 font-bold">Laravel 11 API</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-50">
+                        <span class="text-slate-500 font-medium">Frontend:</span>
+                        <span class="text-slate-800 font-bold">Flutter Mobile</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-50">
+                        <span class="text-slate-500 font-medium">Admin Web:</span>
+                        <span class="text-slate-800 font-bold">Laravel Livewire + Blade</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-50">
+                        <span class="text-slate-500 font-medium">Authentication:</span>
+                        <span class="text-emerald-700 font-bold">Laravel Sanctum</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-slate-500 font-medium">Theme Modes:</span>
+                        <span class="text-slate-800 font-bold">Light / Dark Support</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right / Central Display Column (9 Cols) -->
+        <section class="lg:col-span-9 flex justify-center items-start min-h-[85vh]">
+            
+            <!-- Mobile App Simulator Container -->
+            <div id="container-mobile" class="w-full max-w-[430px] transition-all duration-300 transform scale-100">
+                
+                <!-- Phone Wrapper -->
+                <div class="relative mx-auto border-[12px] border-slate-900 rounded-[50px] shadow-2xl overflow-hidden aspect-[9/19] w-full max-w-[400px] bg-slate-950 mobile-glow flex flex-col">
+                    
+                    <!-- Dynamic Notch / Island -->
+                    <div class="absolute top-0 inset-x-0 h-7 bg-slate-900 flex justify-center items-center z-50">
+                        <div class="w-24 h-4 bg-black rounded-full flex justify-around px-3 items-center">
+                            <span class="w-1.5 h-1.5 bg-slate-800 rounded-full"></span>
+                            <span class="w-3 h-1 bg-slate-800 rounded-full"></span>
+                        </div>
+                    </div>
+
+                    <!-- Simulator Content Viewport -->
+                    <div class="flex-1 w-full bg-slate-50 pt-7 flex flex-col relative overflow-hidden custom-scrollbar overflow-y-auto">
+
+                        <!-- 1. SPLASH SCREEN -->
+                        <div id="screen-splash" class="absolute inset-0 bg-gradient-to-tr from-agri-dark to-agri-deep flex flex-col justify-between p-8 text-white z-40 transition-all duration-500 transform translate-x-0">
+                            <!-- Pattern Accent overlay -->
+                            <div class="absolute inset-0 opacity-10 bg-cover pointer-events-none" style="background-image: url('https://www.transparenttextures.com/patterns/leaf.png');"></div>
+                            
+                            <div></div>
+                            <div class="flex flex-col items-center justify-center space-y-4">
+                                <div class="w-24 h-24 bg-white rounded-3xl flex items-center justify-center text-agri-deep shadow-xl shadow-black/20 animate-bounce">
+                                    <i class="fa-solid fa-leaf text-5xl"></i>
+                                </div>
+                                <h1 class="text-4xl font-extrabold tracking-tight mt-4">Aswenna</h1>
+                                <p class="text-sm text-emerald-100 font-medium tracking-wide">අස්වැන්න</p>
+                            </div>
+                            <div class="text-center space-y-4 pb-8 z-10">
+                                <p class="text-sm font-semibold tracking-wider text-emerald-100 uppercase">Smart Agriculture Marketplace</p>
+                                <p class="text-xs text-emerald-200">Sri Lanka's Direct Farmer-to-Buyer Ecosystem</p>
+                                <div class="flex justify-center mt-2">
+                                    <span class="w-1.5 h-1.5 bg-white rounded-full mx-0.5 animate-ping"></span>
+                                    <span class="w-1.5 h-1.5 bg-white rounded-full mx-0.5 animate-ping [animation-delay:0.2s]"></span>
+                                    <span class="w-1.5 h-1.5 bg-white rounded-full mx-0.5 animate-ping [animation-delay:0.4s]"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. GET STARTED SCREEN -->
+                        <div id="screen-started" class="absolute inset-0 bg-white flex flex-col justify-between z-30 transition-all duration-500 transform translate-x-full">
+                            <!-- Background gradient block -->
+                            <div class="h-1/2 w-full bg-gradient-to-b from-agri-mint to-white relative flex items-center justify-center p-8">
+                                <!-- Leaf Pattern Overlay -->
+                                <div class="absolute inset-0 opacity-5 bg-cover pointer-events-none" style="background-image: url('https://www.transparenttextures.com/patterns/leaf.png');"></div>
+                                <div class="relative w-full max-w-[280px] h-full flex items-center justify-center">
+                                    <!-- Agri-Tech Modern Illustration Graphic -->
+                                    <div class="relative w-48 h-48 bg-white rounded-[40px] shadow-lg flex items-center justify-center border border-emerald-50">
+                                        <div class="absolute -top-4 -left-4 w-12 h-12 bg-emerald-100 text-agri-deep rounded-full flex items-center justify-center shadow-sm">
+                                            <i class="fa-solid fa-seedling text-lg"></i>
+                                        </div>
+                                        <div class="absolute -bottom-2 -right-4 w-16 h-16 bg-amber-50 text-agri-gold rounded-full flex items-center justify-center shadow-sm">
+                                            <i class="fa-solid fa-wheat-awn text-xl"></i>
+                                        </div>
+                                        <i class="fa-solid fa-tractor text-7xl text-agri-deep"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="px-8 pb-10 space-y-6">
+                                <div class="text-center space-y-2">
+                                    <h2 class="text-2xl font-bold text-slate-800">Welcome to Aswenna</h2>
+                                    <p class="text-sm text-slate-500 px-4">Buy, sell, bid, and deliver agricultural yields directly across Sri Lanka.</p>
+                                </div>
+                                <div class="space-y-3">
+                                    <button onclick="setMobileScreen('role')" class="w-full py-4 bg-gradient-to-r from-agri-deep to-agri-fresh text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-emerald-600/20 active:scale-[0.98] transition">
+                                        Get Started
+                                    </button>
+                                    <button onclick="setMobileScreen('login')" class="w-full py-4 text-slate-600 font-semibold hover:bg-slate-50 active:scale-[0.98] transition">
+                                        Already have an account? <span class="text-agri-deep font-bold">Login</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. ROLE SELECTION SCREEN -->
+                        <div id="screen-role" class="absolute inset-0 bg-white flex flex-col justify-between p-6 z-20 transition-all duration-500 transform translate-x-full">
+                            <div class="space-y-4">
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="setMobileScreen('started')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200">
+                                        <i class="fa-solid fa-arrow-left text-xs"></i>
+                                    </button>
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 1 of 3</span>
+                                </div>
+                                <div>
+                                    <h2 class="text-2xl font-bold text-slate-900">Who are you?</h2>
+                                    <p class="text-xs text-slate-500">Select your active role on Aswenna to proceed.</p>
+                                </div>
+
+                                <!-- Dynamic Interactive Role Grid -->
+                                <div class="grid grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+                                    
+                                    <!-- Farmer Card -->
+                                    <div onclick="selectRole('farmer')" id="role-farmer" class="border border-slate-100 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-emerald-200 transition-all duration-200 bg-slate-50">
+                                        <div class="w-10 h-10 rounded-full bg-emerald-100 text-agri-deep flex items-center justify-center mb-2">
+                                            <i class="fa-solid fa-hand-holding-hand"></i>
+                                        </div>
+                                        <span class="text-sm font-bold text-slate-800">Farmer</span>
+                                        <span class="text-[10px] text-slate-400 leading-tight mt-1">Sell crops & bid harvests</span>
+                                    </div>
+
+                                    <!-- Buyer Card -->
+                                    <div onclick="selectRole('buyer')" id="role-buyer" class="border border-slate-100 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-emerald-200 transition-all duration-200 bg-slate-50">
+                                        <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
+                                            <i class="fa-solid fa-basket-shopping"></i>
+                                        </div>
+                                        <span class="text-sm font-bold text-slate-800">Buyer</span>
+                                        <span class="text-[10px] text-slate-400 leading-tight mt-1">Purchase premium yields</span>
+                                    </div>
+
+                                    <!-- Retail Seller Card -->
+                                    <div onclick="selectRole('retail_seller')" id="role-retail_seller" class="border border-slate-100 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-emerald-200 transition-all duration-200 bg-slate-50">
+                                        <div class="w-10 h-10 rounded-full bg-amber-50 text-agri-gold flex items-center justify-center mb-2">
+                                            <i class="fa-solid fa-shop"></i>
+                                        </div>
+                                        <span class="text-sm font-bold text-slate-800">Retail Seller</span>
+                                        <span class="text-[10px] text-slate-400 leading-tight mt-1">List consumer products</span>
+                                    </div>
+
+                                    <!-- Delivery Partner Card -->
+                                    <div onclick="selectRole('delivery_partner')" id="role-delivery_partner" class="border border-slate-100 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-emerald-200 transition-all duration-200 bg-slate-50">
+                                        <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mb-2">
+                                            <i class="fa-solid fa-truck-fast"></i>
+                                        </div>
+                                        <span class="text-sm font-bold text-slate-800">Delivery</span>
+                                        <span class="text-[10px] text-slate-400 leading-tight mt-1">Fulfill crop orders</span>
+                                    </div>
+
+                                    <!-- Customer Card -->
+                                    <div onclick="selectRole('customer')" id="role-customer" class="border border-slate-100 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-emerald-200 transition-all duration-200 bg-slate-50 col-span-2">
+                                        <div class="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-2">
+                                            <i class="fa-solid fa-user-tag"></i>
+                                        </div>
+                                        <span class="text-sm font-bold text-slate-800">Customer</span>
+                                        <span class="text-[10px] text-slate-400 leading-tight mt-1">Direct buy from retailers & farmers</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button onclick="setMobileScreen('register')" id="btn-role-continue" disabled class="w-full py-4 bg-slate-200 text-slate-400 rounded-2xl font-bold cursor-not-allowed transition">
+                                Continue
+                            </button>
+                        </div>
+
+                        <!-- 4. REGISTRATION SCREEN (MULTI-STEP) -->
+                        <div id="screen-register" class="absolute inset-0 bg-white flex flex-col justify-between p-6 z-10 transition-all duration-500 transform translate-x-full">
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <button onclick="setMobileScreen('role')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200">
+                                            <i class="fa-solid fa-arrow-left text-xs"></i>
+                                        </button>
+                                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 2 of 3</span>
+                                    </div>
+                                    <span id="reg-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">Farmer</span>
+                                </div>
+
+                                <div>
+                                    <h2 class="text-xl font-bold text-slate-900">Set up your account</h2>
+                                    <!-- Progress indicator bar -->
+                                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                        <div id="reg-progress" class="bg-gradient-to-r from-agri-deep to-agri-fresh h-full w-1/2 transition-all duration-300"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Registration Form step views -->
+                                <div class="overflow-y-auto max-h-[350px] pr-1 space-y-4 custom-scrollbar">
+                                    <!-- Step 1: Common data -->
+                                    <div id="reg-step-1" class="space-y-3">
+                                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">General Information</h3>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-400 block mb-1">Full Name</label>
+                                            <input type="text" placeholder="Saman Kumara" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-400 block mb-1">Mobile Number</label>
+                                            <input type="tel" placeholder="0771234567" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-400 block mb-1">Email Address</label>
+                                            <input type="email" placeholder="saman@aswenna.lk" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="text-[10px] font-bold text-slate-400 block mb-1">Province</label>
+                                                <select class="w-full px-3 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                                    <option>Central</option>
+                                                    <option>North Central</option>
+                                                    <option>Southern</option>
+                                                    <option>Uva</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="text-[10px] font-bold text-slate-400 block mb-1">District</label>
+                                                <select class="w-full px-3 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                                    <option>Nuwara Eliya</option>
+                                                    <option>Anuradhapura</option>
+                                                    <option>Badulla</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2: Role specific (Farmer) -->
+                                    <div id="reg-step-2" class="hidden space-y-3">
+                                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Farmer Credentials</h3>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-400 block mb-1">Farm Name</label>
+                                            <input type="text" placeholder="Green Field Farm" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-400 block mb-1">Primary Crops</label>
+                                            <input type="text" placeholder="Potato, Carrot, Leeks" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="text-[10px] font-bold text-slate-400 block mb-1">Land Size (Acres)</label>
+                                                <input type="number" placeholder="2.5" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                            </div>
+                                            <div>
+                                                <label class="text-[10px] font-bold text-slate-400 block mb-1">Experience (Years)</label>
+                                                <input type="number" placeholder="8" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-400 block mb-1">Certifications (GAP/Organic)</label>
+                                            <div class="w-full h-20 border border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 text-xs hover:border-agri-fresh cursor-pointer bg-slate-50 transition">
+                                                <i class="fa-solid fa-cloud-arrow-up text-lg mb-1"></i>
+                                                <span>Upload PDF or Image</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button onclick="handleRegNext()" id="btn-reg-next" class="w-full py-4 bg-gradient-to-r from-agri-deep to-agri-fresh text-white rounded-2xl font-bold hover:shadow-lg transition">
+                                Continue
+                            </button>
+                        </div>
+
+                        <!-- 5. LOGIN SCREEN -->
+                        <div id="screen-login" class="absolute inset-0 bg-white flex flex-col justify-between p-6 z-10 transition-all duration-500 transform translate-x-full">
+                            <div class="space-y-6">
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="setMobileScreen('started')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200">
+                                        <i class="fa-solid fa-arrow-left text-xs"></i>
+                                    </button>
+                                    <span class="text-sm font-semibold text-slate-700">Login</span>
+                                </div>
+
+                                <div class="text-center space-y-1">
+                                    <div class="w-16 h-16 bg-agri-mint text-agri-deep rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+                                        <i class="fa-solid fa-leaf text-2xl"></i>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-slate-900 mt-2">Welcome Back</h2>
+                                    <p class="text-xs text-slate-500">Sign in to manage your yield marketplace</p>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-400 block mb-1">Phone Number or Email</label>
+                                        <input type="text" id="login-identifier" placeholder="0771234567" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition">
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <label class="text-[10px] font-bold text-slate-400">Password</label>
+                                            <a href="#" class="text-[10px] font-bold text-agri-deep">Forgot?</a>
+                                        </div>
+                                        <div class="relative">
+                                            <input type="password" id="login-pass" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-agri-fresh transition pr-10">
+                                            <button class="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600">
+                                                <i class="fa-solid fa-eye text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <button onclick="handleLogin()" class="w-full py-4 bg-gradient-to-r from-agri-deep to-agri-fresh text-white rounded-2xl font-bold hover:shadow-lg transition">
+                                    Sign In
+                                </button>
+                                <div class="text-center">
+                                    <span class="text-xs text-slate-400">Don't have an account? <button onclick="setMobileScreen('role')" class="text-agri-deep font-bold">Register</button></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 6. DYNAMIC ROLE DASHBOARDS -->
+                        <div id="screen-dashboard" class="absolute inset-0 bg-slate-50 flex flex-col justify-between z-10 transition-all duration-500 transform translate-x-full">
+                            
+                            <!-- Mobile Dashboard Header -->
+                            <header class="bg-white px-4 py-3 flex justify-between items-center border-b border-slate-100 shadow-sm sticky top-0 z-30">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 rounded-full bg-emerald-50 text-agri-deep flex items-center justify-center">
+                                        <i class="fa-solid fa-user text-xs"></i>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs block text-slate-400 font-medium">Hello,</span>
+                                        <span id="dash-user-name" class="text-xs font-bold text-slate-800 block">Saman Kumara</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span id="dash-role-badge" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 uppercase">Farmer</span>
+                                    <button class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">
+                                        <i class="fa-solid fa-bell text-xs"></i>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <!-- Scrollable Dashboard Content -->
+                            <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+
+                                <!-- SUB-VIEW: FARMER DASHBOARD -->
+                                <div id="dash-farmer" class="space-y-4">
+                                    <!-- Weather & Yield Widget -->
+                                    <div class="bg-gradient-to-r from-agri-deep to-agri-fresh rounded-3xl p-4 text-white shadow-sm relative overflow-hidden">
+                                        <div class="absolute inset-0 opacity-10 bg-cover" style="background-image: url('https://www.transparenttextures.com/patterns/leaf.png');"></div>
+                                        <div class="flex justify-between items-center relative z-10">
+                                            <div class="space-y-1">
+                                                <span class="text-xs text-emerald-100 font-semibold flex items-center"><i class="fa-solid fa-cloud-sun-rain mr-1.5"></i> Nuwara Eliya Weather</span>
+                                                <h3 class="text-2xl font-black">21°C</h3>
+                                                <span class="text-[10px] text-emerald-50 font-medium block">Optimal humidity. Excellent day for carrot harvest.</span>
+                                            </div>
+                                            <i class="fa-solid fa-sun-plant-wilt text-5xl text-emerald-100/30"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Analytics Cards -->
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center space-x-2">
+                                            <div class="w-8 h-8 rounded-xl bg-emerald-50 text-agri-fresh flex items-center justify-center"><i class="fa-solid fa-sack-dollar"></i></div>
+                                            <div>
+                                                <span class="text-[9px] text-slate-400 block font-semibold">Total Revenue</span>
+                                                <span class="text-xs font-bold text-slate-800">LKR 142.5K</span>
+                                            </div>
+                                        </div>
+                                        <div class="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center space-x-2">
+                                            <div class="w-8 h-8 rounded-xl bg-amber-50 text-agri-gold flex items-center justify-center"><i class="fa-solid fa-boxes-stacked"></i></div>
+                                            <div>
+                                                <span class="text-[9px] text-slate-400 block font-semibold">Active Yields</span>
+                                                <span class="text-xs font-bold text-slate-800">3 Listings</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Harvest listings / additions -->
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between items-center">
+                                            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Your Active Yields</h4>
+                                            <button class="text-xs font-bold text-agri-deep"><i class="fa-solid fa-plus-circle mr-1"></i> Add new</button>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <div class="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex justify-between items-center">
+                                                <div class="flex items-center space-x-3">
+                                                    <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">Carrot</div>
+                                                    <div>
+                                                        <span class="text-xs font-bold text-slate-800 block">Organic Nuwara Eliya Carrots</span>
+                                                        <span class="text-[10px] text-slate-400 block">Grade A • 350 kg available</span>
+                                                    </div>
+                                                </div>
+                                                <span class="text-xs font-bold text-agri-deep">LKR 180/kg</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SUB-VIEW: BUYER DASHBOARD -->
+                                <div id="dash-buyer" class="hidden space-y-4">
+                                    <!-- Search Yields -->
+                                    <div class="relative">
+                                        <input type="text" placeholder="Search crops, harvests, seeds..." class="w-full pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-100 text-xs focus:outline-none focus:border-agri-fresh transition shadow-sm">
+                                        <i class="fa-solid fa-search absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                                    </div>
+
+                                    <!-- Direct Crop Marketplace Grid -->
+                                    <div class="space-y-2">
+                                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Premium Direct Yields</h4>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <!-- Product Card 1 -->
+                                            <div class="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+                                                <div class="h-24 bg-gradient-to-tr from-emerald-100 to-emerald-50 relative flex items-center justify-center text-agri-deep">
+                                                    <i class="fa-solid fa-carrot text-4xl"></i>
+                                                    <span class="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-white text-[8px] font-bold text-agri-deep shadow-sm">Fresh Grade A</span>
+                                                </div>
+                                                <div class="p-2 space-y-1">
+                                                    <span class="text-xs font-bold text-slate-800 block truncate">Nuwara Eliya Carrots</span>
+                                                    <span class="text-[9px] text-slate-400 block">Seller: Saman K.</span>
+                                                    <div class="flex justify-between items-center pt-1">
+                                                        <span class="text-xs font-bold text-agri-deep">LKR 180/kg</span>
+                                                        <button class="w-6 h-6 rounded-full bg-agri-fresh text-white flex items-center justify-center text-xs"><i class="fa-solid fa-plus"></i></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Product Card 2 -->
+                                            <div class="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+                                                <div class="h-24 bg-gradient-to-tr from-amber-100 to-amber-50 relative flex items-center justify-center text-agri-gold">
+                                                    <i class="fa-solid fa-circle-nodes text-4xl"></i>
+                                                    <span class="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-white text-[8px] font-bold text-amber-700 shadow-sm">Bidding Active</span>
+                                                </div>
+                                                <div class="p-2 space-y-1">
+                                                    <span class="text-xs font-bold text-slate-800 block truncate">Keeri Samba Rice Yield</span>
+                                                    <span class="text-[9px] text-slate-400 block">Seller: Sunil P.</span>
+                                                    <div class="flex justify-between items-center pt-1">
+                                                        <span class="text-xs font-bold text-amber-700">Bid: LKR 190/kg</span>
+                                                        <button class="w-6 h-6 rounded-full bg-agri-gold text-white flex items-center justify-center text-xs"><i class="fa-solid fa-gavel"></i></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SUB-VIEW: RETAIL SELLER DASHBOARD -->
+                                <div id="dash-retail_seller" class="hidden space-y-4">
+                                    <!-- Store Status Overview -->
+                                    <div class="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-3">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Store Status</span>
+                                            <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold">ONLINE</span>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-2">
+                                            <div class="text-center p-2 bg-slate-50 rounded-xl">
+                                                <span class="text-[8px] text-slate-400 block">Total Sales</span>
+                                                <span class="text-xs font-bold text-slate-800">LKR 45K</span>
+                                            </div>
+                                            <div class="text-center p-2 bg-slate-50 rounded-xl">
+                                                <span class="text-[8px] text-slate-400 block">Orders</span>
+                                                <span class="text-xs font-bold text-slate-800">12</span>
+                                            </div>
+                                            <div class="text-center p-2 bg-slate-50 rounded-xl">
+                                                <span class="text-[8px] text-slate-400 block">Products</span>
+                                                <span class="text-xs font-bold text-slate-800">8</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SUB-VIEW: DELIVERY PARTNER DASHBOARD -->
+                                <div id="dash-delivery_partner" class="hidden space-y-4">
+                                    <!-- Assigned Delivery Panel -->
+                                    <div class="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-3">
+                                        <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Assigned Task</span>
+                                        <div class="p-3 bg-emerald-50 border border-emerald-100 rounded-xl space-y-2">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-xs font-bold text-agri-deep">LKR 450.00 Payout</span>
+                                                <span class="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold uppercase">Heading to Pickup</span>
+                                            </div>
+                                            <p class="text-[10px] text-slate-600"><strong>Pickup:</strong> Saman's Farm, Nuwara Eliya</p>
+                                            <p class="text-[10px] text-slate-600"><strong>Delivery:</strong> Central Supermarket, Kandy</p>
+                                            <button class="w-full py-2 bg-agri-deep text-white rounded-xl text-xs font-bold shadow-sm">Update Status</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- Mobile Bottom Navigation Bar -->
+                            <footer class="bg-white border-t border-slate-100 py-2 px-6 flex justify-between items-center sticky bottom-0 z-30">
+                                <button class="flex flex-col items-center text-agri-deep">
+                                    <i class="fa-solid fa-house text-sm"></i>
+                                    <span class="text-[8px] font-bold mt-1">Home</span>
+                                </button>
+                                <button class="flex flex-col items-center text-slate-400 hover:text-agri-deep">
+                                    <i class="fa-solid fa-basket-shopping text-sm"></i>
+                                    <span class="text-[8px] font-bold mt-1">Orders</span>
+                                </button>
+                                <button class="flex flex-col items-center text-slate-400 hover:text-agri-deep">
+                                    <i class="fa-solid fa-wallet text-sm"></i>
+                                    <span class="text-[8px] font-bold mt-1">Wallet</span>
+                                </button>
+                                <button onclick="setMobileScreen('login')" class="flex flex-col items-center text-slate-400 hover:text-rose-600">
+                                    <i class="fa-solid fa-right-from-bracket text-sm"></i>
+                                    <span class="text-[8px] font-bold mt-1">Logout</span>
+                                </button>
+                            </footer>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Web Admin Panel Container -->
+            <!-- Web Admin Panel Container -->
+            <div id="container-admin" class="w-full hidden transition-all duration-300 transform scale-100 glass-panel rounded-3xl border border-emerald-100 shadow-xl overflow-hidden flex flex-col min-h-[750px]">
+                
+                <!-- Web Admin Login Screen -->
+                <div id="admin-login-view" class="flex flex-col items-center justify-center p-8 md:p-12 min-h-[680px] w-full bg-slate-50 relative overflow-hidden">
+                    <!-- Background leaf decorative graphics -->
+                    <div class="absolute -top-24 -right-24 w-64 h-64 bg-emerald-100/40 rounded-full blur-2xl"></div>
+                    <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-100/30 rounded-full blur-2xl"></div>
+
+                    <div class="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-100 shadow-xl relative z-10 space-y-6">
+                        <!-- Branding -->
+                        <div class="text-center space-y-2">
+                            <div class="w-14 h-14 bg-agri-deep text-white rounded-2xl flex items-center justify-center text-2xl mx-auto shadow-md shadow-emerald-700/10">
+                                <i class="fa-solid fa-shield-halved animate-pulse"></i>
+                            </div>
+                            <h2 class="text-2xl font-extrabold text-slate-800 tracking-tight mt-3">Aswenna Admin Portal</h2>
+                            <p class="text-xs text-slate-400">Secure Web-Based Platform Oversight System</p>
+                        </div>
+
+                        <!-- Error Alert -->
+                        <div id="web-admin-error" class="hidden p-3.5 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-xs font-semibold">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Access Denied.
+                        </div>
+
+                        <!-- Login Form (Does not require prior DB registration) -->
+                        <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Username or Phone Number</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-user absolute left-4 top-3.5 text-slate-400 text-sm"></i>
+                                    <input type="text" id="web-admin-username" required value="admin" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-agri-deep focus:bg-white rounded-2xl text-sm focus:outline-none transition font-medium text-slate-800">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400 text-sm"></i>
+                                    <input type="password" id="web-admin-password" required value="adminpassword" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-agri-deep focus:bg-white rounded-2xl text-sm focus:outline-none transition font-medium text-slate-800">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Workspace Role Profile</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-user-gear absolute left-4 top-3.5 text-slate-400 text-sm"></i>
+                                    <select id="web-admin-role" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-agri-deep focus:bg-white rounded-2xl text-sm focus:outline-none transition font-semibold text-slate-800 appearance-none">
+                                        <option value="admin" selected>System Administrator (Full Oversight)</option>
+                                        <option value="farmer">Farmer Account Profile</option>
+                                        <option value="buyer">Bulk Buyer Account Profile</option>
+                                        <option value="retail_seller">Retail Store Seller</option>
+                                        <option value="delivery_partner">Courier & Delivery Partner</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="pt-2">
+                                <button type="submit" id="btn-web-login" class="w-full py-4 bg-gradient-to-r from-agri-deep to-agri-fresh text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-emerald-600/20 active:scale-[0.98] transition">
+                                    Sign In to Console
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Web Admin Dashboard Oversight View (hidden by default) -->
+                <div id="admin-dashboard-view" class="hidden flex flex-col flex-1 w-full">
+                    <!-- Web Admin Header -->
+                    <header class="bg-agri-deep px-6 py-4 flex justify-between items-center text-white">
+                        <div class="flex items-center space-x-3">
+                            <i class="fa-solid fa-shield-halved text-2xl text-emerald-300"></i>
+                            <div>
+                                <h2 class="text-lg font-bold">Aswenna Platform Administration Console</h2>
+                                <p class="text-xs text-emerald-100">Live operational oversight & marketplace monitoring dashboard</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="px-2.5 py-1 rounded bg-emerald-800 text-[10px] font-bold uppercase tracking-wider">Super Administrator</span>
+                            <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center font-bold">A</div>
+                        </div>
+                    </header>
+
+                <div class="flex-1 flex min-h-[600px]">
+                    <!-- Sidebar menu -->
+                    <aside class="w-64 bg-slate-900 text-slate-300 p-4 space-y-6">
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3">Main oversight</span>
+                            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-agri-deep text-white font-semibold text-sm transition">
+                                <i class="fa-solid fa-chart-pie w-5"></i>
+                                <span>Overview Dashboard</span>
+                            </a>
+                            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 font-semibold text-sm transition">
+                                <i class="fa-solid fa-users w-5 text-slate-500"></i>
+                                <span>User Management</span>
+                            </a>
+                            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 font-semibold text-sm transition">
+                                <i class="fa-solid fa-circle-check w-5 text-slate-500"></i>
+                                <span>Plantation Approvals</span>
+                            </a>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3">Finance</span>
+                            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 font-semibold text-sm transition">
+                                <i class="fa-solid fa-wallet w-5 text-slate-500"></i>
+                                <span>Commissions & Fees</span>
+                            </a>
+                            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 font-semibold text-sm transition">
+                                <i class="fa-solid fa-landmark w-5 text-slate-500"></i>
+                                <span>Withdraw Requests</span>
+                            </a>
+                        </div>
+                    </aside>
+
+                    <!-- Main operational view -->
+                    <main class="flex-1 p-6 space-y-6 bg-slate-50 overflow-y-auto max-h-[650px] custom-scrollbar">
+                        <!-- Key performance indicator cards -->
+                        <div class="grid grid-cols-4 gap-4">
+                            <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-semibold text-slate-400 uppercase">Platform Volume</span>
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-agri-deep flex items-center justify-center"><i class="fa-solid fa-chart-line text-sm"></i></div>
+                                </div>
+                                <h3 class="text-xl font-extrabold text-slate-800">LKR 2.45M</h3>
+                                <span class="text-[10px] text-emerald-600 font-bold"><i class="fa-solid fa-arrow-up mr-0.5"></i> +14.5% this week</span>
+                            </div>
+                            <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-semibold text-slate-400 uppercase">Active Farmers</span>
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-agri-deep flex items-center justify-center"><i class="fa-solid fa-wheat-awn text-sm"></i></div>
+                                </div>
+                                <h3 class="text-xl font-extrabold text-slate-800">1,240</h3>
+                                <span class="text-[10px] text-emerald-600 font-bold"><i class="fa-solid fa-arrow-up mr-0.5"></i> +32 new signs</span>
+                            </div>
+                            <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-semibold text-slate-400 uppercase">Total Deliveries</span>
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-agri-deep flex items-center justify-center"><i class="fa-solid fa-truck-fast text-sm"></i></div>
+                                </div>
+                                <h3 class="text-xl font-extrabold text-slate-800">894 Tasks</h3>
+                                <span class="text-[10px] text-emerald-600 font-bold"><i class="fa-solid fa-circle-check mr-0.5"></i> 98.4% success</span>
+                            </div>
+                            <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-semibold text-slate-400 uppercase">System Commission</span>
+                                    <div class="w-8 h-8 rounded-lg bg-amber-50 text-agri-gold flex items-center justify-center"><i class="fa-solid fa-sack-dollar text-sm"></i></div>
+                                </div>
+                                <h3 class="text-xl font-extrabold text-slate-800">LKR 184K</h3>
+                                <span class="text-[10px] text-slate-400 font-medium">Accumulated platform cut</span>
+                            </div>
+                        </div>
+
+                        <!-- Main Grid: Pending Approvals & Commissions charts -->
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            
+                            <!-- Pending Verification List -->
+                            <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-4">
+                                <div class="flex justify-between items-center border-b border-slate-50 pb-3">
+                                    <h3 class="text-sm font-bold text-slate-800 flex items-center"><i class="fa-solid fa-hourglass-half text-amber-500 mr-2"></i> Pending Crop Verification Requests</h3>
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">4 Action Required</span>
+                                </div>
+                                <div class="space-y-3">
+                                    
+                                    <!-- Request 1 -->
+                                    <div id="req-row-1" class="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center transition">
+                                        <div class="space-y-1">
+                                            <span class="text-xs font-bold text-slate-800 block">Saman Kumara (Farmer ID: #FM1044)</span>
+                                            <span class="text-[10px] text-slate-400 block">Crop: Nuwara Eliya Carrot • Quantity: 350 kg • Expected: Grade A</span>
+                                        </div>
+                                        <div class="flex space-x-2">
+                                            <button onclick="approveRequest('1')" class="px-3 py-1 bg-agri-deep hover:bg-agri-dark text-white rounded-lg text-xs font-bold transition shadow-sm">Approve</button>
+                                            <button onclick="rejectRequest('1')" class="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-bold transition">Reject</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Request 2 -->
+                                    <div id="req-row-2" class="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center transition">
+                                        <div class="space-y-1">
+                                            <span class="text-xs font-bold text-slate-800 block">Sunil Perera (Farmer ID: #FM1028)</span>
+                                            <span class="text-[10px] text-slate-400 block">Crop: Keeri Samba Rice • Quantity: 2,500 kg • Expected: Grade A</span>
+                                        </div>
+                                        <div class="flex space-x-2">
+                                            <button onclick="approveRequest('2')" class="px-3 py-1 bg-agri-deep hover:bg-agri-dark text-white rounded-lg text-xs font-bold transition shadow-sm">Approve</button>
+                                            <button onclick="rejectRequest('2')" class="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-bold transition">Reject</button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- Performance Chart -->
+                            <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-4">
+                                <div class="flex justify-between items-center border-b border-slate-50 pb-3">
+                                    <h3 class="text-sm font-bold text-slate-800 flex items-center"><i class="fa-solid fa-chart-column text-agri-deep mr-2"></i> Weekly Commission Volume Growth</h3>
+                                </div>
+                                <div class="h-48 w-full flex items-center justify-center">
+                                    <canvas id="commissionChart" class="max-h-full"></canvas>
+                                </div>
+                            </div>
+
+                        </div>
+                    </main>
+                </div>
+                </div> <!-- Closing admin-dashboard-view -->
+            </div> <!-- Closing container-admin -->
+
+        </section>
+
+    </main>
+
+    <!-- Interactive script triggers and controllers -->
+    <script>
+        let currentRole = 'farmer';
+        let currentStep = 1;
+
+        // Start animation trigger to Splash Screen transition
+        setTimeout(() => {
+            setMobileScreen('started');
+        }, 3000);
+
+        // Select Role Interactive Functionality
+        function selectRole(role) {
+            currentRole = role;
+            // Reset active states
+            document.querySelectorAll("[id^='role-']").forEach(el => {
+                el.classList.remove('role-card-active', 'border-emerald-500');
+            });
+            // Apply active class
+            document.getElementById(`role-${role}`).classList.add('role-card-active', 'border-emerald-500');
+            
+            // Enable Next Action Button
+            const btn = document.getElementById('btn-role-continue');
+            btn.disabled = false;
+            btn.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+            btn.classList.add('bg-gradient-to-r', 'from-agri-deep', 'to-agri-fresh', 'text-white', 'hover:shadow-lg');
+
+            // Set role tag on step 2 form header
+            document.getElementById('reg-badge').innerText = role.replace('_', ' ');
+        }
+
+        // Screen navigator logic
+        function setMobileScreen(screenId) {
+            // Hide all sub screens
+            const screens = ['screen-splash', 'screen-started', 'screen-role', 'screen-register', 'screen-login', 'screen-dashboard'];
+            screens.forEach(s => {
+                const el = document.getElementById(s);
+                el.classList.remove('translate-x-0');
+                el.classList.add('translate-x-full');
+            });
+
+            // Bring requested screen in
+            const currentEl = document.getElementById(`screen-${screenId}`);
+            currentEl.classList.remove('translate-x-full');
+            currentEl.classList.add('translate-x-0');
+
+            // Mark active state button on helper panel
+            document.querySelectorAll("[id^='btn-scr-']").forEach(btn => {
+                btn.classList.remove('bg-emerald-50', 'text-agri-deep');
+            });
+            const activeBtn = document.getElementById(`btn-scr-${screenId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-emerald-50', 'text-agri-deep');
+            }
+        }
+
+        // Multi Step Wizard handling
+        function handleRegNext() {
+            if (currentStep === 1) {
+                // Check if specialized options exist
+                document.getElementById('reg-step-1').classList.add('hidden');
+                document.getElementById('reg-step-2').classList.remove('hidden');
+                document.getElementById('reg-progress').style.width = '100%';
+                document.getElementById('btn-reg-next').innerText = 'Complete Registration';
+                currentStep = 2;
+            } else {
+                // Success trigger
+                alert('Success! Registration pending approval. Loading Login...');
+                // Reset form state
+                document.getElementById('reg-step-1').classList.remove('hidden');
+                document.getElementById('reg-step-2').classList.add('hidden');
+                document.getElementById('reg-progress').style.width = '50%';
+                document.getElementById('btn-reg-next').innerText = 'Continue';
+                currentStep = 1;
+                setMobileScreen('login');
+            }
+        }
+
+        // Authentication logic
+        function handleLogin() {
+            // Auto fill layout depending on chosen role
+            const nameMap = {
+                'farmer': 'Saman Kumara',
+                'buyer': 'Keeri Samba Mills Ltd',
+                'retail_seller': 'Agro Retail Mart',
+                'delivery_partner': 'Nuwara Courier Express',
+                'customer': 'Lakmal Perera'
+            };
+
+            document.getElementById('dash-user-name').innerText = nameMap[currentRole] || 'Guest User';
+            document.getElementById('dash-role-badge').innerText = currentRole.replace('_', ' ');
+
+            // Trigger corresponding view inside dashboard
+            const dashboards = ['dash-farmer', 'dash-buyer', 'dash-retail_seller', 'dash-delivery_partner'];
+            dashboards.forEach(d => {
+                document.getElementById(d).classList.add('hidden');
+            });
+            const targetDash = document.getElementById(`dash-${currentRole}`);
+            if (targetDash) {
+                targetDash.classList.remove('hidden');
+            } else {
+                // Default fallback to Buyer layout for standard customer roles
+                document.getElementById('dash-buyer').classList.remove('hidden');
+            }
+
+            setMobileScreen('dashboard');
+        }
+
+        // View toggle (Mobile vs Admin panel)
+        function toggleView(viewType) {
+            const btnMob = document.getElementById('btn-view-mobile');
+            const btnAdm = document.getElementById('btn-view-admin');
+            const contMob = document.getElementById('container-mobile');
+            const contAdm = document.getElementById('container-admin');
+
+            if (viewType === 'mobile') {
+                btnMob.className = "px-3 py-1.5 rounded-lg bg-agri-deep text-white font-semibold shadow-sm transition";
+                btnAdm.className = "px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition";
+                contMob.classList.remove('hidden');
+                contAdm.classList.add('hidden');
+                document.getElementById('mobile-control-panel').classList.remove('opacity-25');
+            } else {
+                btnAdm.className = "px-3 py-1.5 rounded-lg bg-agri-deep text-white font-semibold shadow-sm transition";
+                btnMob.className = "px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition";
+                contAdm.classList.remove('hidden');
+                contMob.classList.add('hidden');
+                document.getElementById('mobile-control-panel').classList.add('opacity-25');
+                
+                // Show Admin Login form by default, hide dashboard
+                document.getElementById('admin-login-view').classList.remove('hidden');
+                document.getElementById('admin-dashboard-view').classList.add('hidden');
+            }
+        }
+
+        // Web Admin Sign-In handling
+        function handleAdminLogin(event) {
+            if (event) event.preventDefault();
+            
+            const role = document.getElementById('web-admin-role').value;
+            const errorEl = document.getElementById('web-admin-error');
+            const btn = document.getElementById('btn-web-login');
+            
+            errorEl.classList.add('hidden');
+            
+            if (role !== 'admin') {
+                errorEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2"></i> <strong>Access Denied:</strong> Standard role user profiles ("${role.replace('_', ' ')}") are restricted to the mobile application. Web portal access is reserved for Administrators.`;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            // Show premium loading spinner
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Authenticating secure session...`;
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                // Success transition
+                document.getElementById('admin-login-view').classList.add('hidden');
+                document.getElementById('admin-dashboard-view').classList.remove('hidden');
+                
+                // Initialize charts on dashboard render
+                initAdminChart();
+                
+                // Reset button state
+                btn.innerHTML = `Sign In to Console`;
+                btn.disabled = false;
+            }, 1200);
+        }
+
+        // Web Admin Sign-Out handling
+        function handleAdminLogout() {
+            if (confirm('Are you sure you want to log out of the administration console?')) {
+                document.getElementById('admin-dashboard-view').classList.add('hidden');
+                document.getElementById('admin-login-view').classList.remove('hidden');
+            }
+        }
+
+        // Operational actions inside admin
+        function approveRequest(id) {
+            const row = document.getElementById(`req-row-${id}`);
+            row.style.opacity = '0.3';
+            setTimeout(() => {
+                row.remove();
+                alert('Crop verified and successfully listed on public marketplace!');
+            }, 500);
+        }
+
+        function rejectRequest(id) {
+            const row = document.getElementById(`req-row-${id}`);
+            row.style.opacity = '0.3';
+            setTimeout(() => {
+                row.remove();
+                alert('Verification rejected. Feedback has been dispatched.');
+            }, 500);
+        }
+
+        // Chart.js Setup
+        let chartInstance = null;
+        function initAdminChart() {
+            const ctx = document.getElementById('commissionChart').getContext('2d');
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Commissions (LKR)',
+                        data: [12000, 19000, 32000, 50000, 42000, 68000, 84000],
+                        borderColor: '#2E7D32',
+                        backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: '#F1F5F9' },
+                            ticks: { font: { family: 'Inter', size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { family: 'Inter', size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

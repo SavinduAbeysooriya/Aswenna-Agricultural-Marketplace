@@ -65,10 +65,14 @@ class GetStartedScreen extends StatelessWidget {
                         alignment: Alignment.center,
                         children: [
                           // Inner icons & tractor motif
-                          const Icon(
-                            Icons.agriculture_rounded,
-                            size: 100,
-                            color: AppTheme.deepLeafGreen,
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.contain,
+                            ),
                           ),
                           // Floating seed badge
                           Positioned(

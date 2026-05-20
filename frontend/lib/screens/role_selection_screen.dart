@@ -221,15 +221,14 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 onPressed: _selectedRole == null
                     ? null
                     : () {
-                        if (widget.registrationData != null) {
-                          _completeGoogleRegistration();
-                        } else {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => RegistrationScreen(role: _selectedRole!),
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => RegistrationScreen(
+                              role: _selectedRole!,
+                              registrationData: widget.registrationData,
                             ),
-                          );
-                        }
+                          ),
+                        );
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _selectedRole == null ? const Color(0xFFCBD5E1) : AppTheme.deepLeafGreen,
@@ -239,84 +238,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   elevation: _selectedRole == null ? 0 : 6,
                   shadowColor: AppTheme.deepLeafGreen.withOpacity(0.3),
                 ),
-                child: Text(widget.registrationData != null ? 'Complete Registration' : 'Continue'),
+                child: const Text('Continue'),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  void _completeGoogleRegistration() async {
-    // Show loading spinner
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
-        ),
-      ),
-    );
-
-    // Call API
-    final result = await ApiService.googleRegisterUser(
-      email: widget.registrationData!['email']!,
-      password: widget.registrationData!['password']!,
-      role: _selectedRole!,
-    );
-
-    if (mounted) {
-      Navigator.of(context).pop(); // dismiss spinner
-      
-      if (result['success'] == true) {
-        Widget targetDashboard;
-        switch (_selectedRole) {
-          case 'farmer':
-            targetDashboard = const FarmerDashboard();
-            break;
-          case 'buyer':
-            targetDashboard = const BuyerDashboard();
-            break;
-          case 'retail_seller':
-            targetDashboard = const RetailerDashboard();
-            break;
-          case 'delivery_partner':
-            targetDashboard = const DeliveryDashboard();
-            break;
-          case 'customer':
-          default:
-            targetDashboard = const CustomerDashboard();
-            break;
-        }
-
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => targetDashboard),
-          (route) => false,
-        );
-      } else {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            title: const Row(
-              children: [
-                Icon(Icons.error_outline_rounded, color: Colors.red, size: 28),
-                SizedBox(width: 8),
-                Text('Registration Failed'),
-              ],
-            ),
-            content: Text(result['message'] ?? 'Failed to complete registration.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        );
-      }
-    }
   }
 }

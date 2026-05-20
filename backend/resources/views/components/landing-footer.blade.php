@@ -1,5 +1,5 @@
 <!-- resources/views/components/landing-footer.blade.php -->
-<footer id="footer" class="bg-slate-900 text-slate-400 py-16 px-6 md:px-12 relative overflow-hidden mt-auto">
+<footer id="footer" class="bg-slate-900 text-slate-400 py-16 px-6 md:px-12 relative mt-auto">
     <!-- Beautiful organic wave top border decoration -->
     <div class="absolute top-0 left-0 w-full overflow-hidden leading-none transform -translate-y-1 z-10">
         <svg viewBox="0 0 1200 120" preserveAspectRatio="none" class="relative block w-full h-8 text-slate-50 fill-current">
@@ -7,9 +7,12 @@
         </svg>
     </div>
 
-    <!-- Leaf pattern background texture watermark -->
-    <div class="absolute -bottom-16 -right-16 text-slate-800/20 pointer-events-none z-0">
-        <i class="fa-solid fa-leaf text-[240px]"></i>
+    <!-- Watermark container to safely clip overflow without clipping the top wave -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <!-- Leaf pattern background texture watermark -->
+        <div class="absolute -bottom-16 -right-16 text-slate-800/20 pointer-events-none">
+            <i class="fa-solid fa-leaf text-[240px]"></i>
+        </div>
     </div>
 
     <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-12 relative z-10 pt-4">

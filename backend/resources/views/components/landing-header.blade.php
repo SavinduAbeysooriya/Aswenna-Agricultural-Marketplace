@@ -33,11 +33,11 @@
     <!-- Header Actions (Desktop) -->
     <div class="hidden lg:flex items-center space-x-3">
         <!-- Direct Admin Portal Button -->
-        <a href="{{ route('admin.login') }}" class="px-4.5 py-2.5 rounded-xl bg-white/60 hover:bg-[#E8F5E9] text-[#2E7D32] border border-white/50 hover:border-emerald-100 font-bold text-xs transition flex items-center space-x-2">
+        <a href="{{ route('admin.login') }}" class="px-6 py-2.5 rounded-xl bg-white/60 hover:bg-[#E8F5E9] text-[#2E7D32] border border-white/50 hover:border-emerald-100 font-bold text-xs transition flex items-center space-x-2">
             <i class="fa-solid fa-shield-halved"></i>
             <span>Admin Console</span>
         </a>
-        <a href="#download" class="px-5.5 py-2.5 rounded-xl bg-gradient-to-r from-[#2E7D32] to-[#4CAF50] hover:shadow-lg hover:shadow-emerald-600/20 text-white font-bold text-xs transition-all duration-200">
+        <a href="#download" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#2E7D32] to-[#4CAF50] hover:shadow-lg hover:shadow-emerald-600/20 text-white font-bold text-xs transition-all duration-200">
             Get Started
         </a>
     </div>

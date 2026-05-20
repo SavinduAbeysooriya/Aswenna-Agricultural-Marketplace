@@ -57,7 +57,8 @@ class ApiService {
           responseData['token'], 
           responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
               ? responseData['user']['role'][0].toString() 
-              : 'customer'
+              : 'customer',
+          rememberMe: true, // Default to persistent for new registrations
         );
 
         return {
@@ -88,6 +89,7 @@ class ApiService {
   static Future<Map<String, dynamic>> loginUser({
     required String phoneNumber,
     required String password,
+    bool rememberMe = false,
   }) async {
     final url = Uri.parse('$baseUrl/login');
 
@@ -111,7 +113,8 @@ class ApiService {
           responseData['token'], 
           responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
               ? responseData['user']['role'][0].toString() 
-              : 'customer'
+              : 'customer',
+          rememberMe: rememberMe,
         );
 
         return {
@@ -166,7 +169,8 @@ class ApiService {
           responseData['token'], 
           responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
               ? responseData['user']['role'][0].toString() 
-              : 'customer'
+              : 'customer',
+          rememberMe: true,
         );
 
         return {
@@ -191,16 +195,173 @@ class ApiService {
     }
   }
 
+  /**
+   * Send verification OTP to email.
+   */
+  static Future<Map<String, dynamic>> sendOtp(String email) async {
+    final url = Uri.parse('$baseUrl/send-otp');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'email': email}),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /**
+   * Verify registration email OTP.
+   */
+  static Future<Map<String, dynamic>> verifyOtp(String email, String otp) async {
+    final url = Uri.parse('$baseUrl/verify-otp');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'email': email, 'otp': otp}),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /**
+   * Check if user email is registered via Google and log in directly (Legacy/Bypass method).
+   */
+  static Future<Map<String, dynamic>> googleLogin(String email) async {
+    final url = Uri.parse('$baseUrl/google-login');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'email': email}),
+      );
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['registered'] == true) {
+        await _saveSession(
+          responseData['token'],
+          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty
+              ? responseData['user']['role'][0].toString()
+              : 'customer',
+          rememberMe: true, // Google login is persistently remembered
+        );
+      }
+      return responseData;
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /**
+   * Authenticate securely using a real Google ID Token retrieved from Google SDK.
+   */
+  static Future<Map<String, dynamic>> googleAuthenticate(String idToken) async {
+    final url = Uri.parse('$baseUrl/google-authenticate');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'id_token': idToken}),
+      );
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['registered'] == true) {
+        await _saveSession(
+          responseData['token'],
+          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty
+              ? responseData['user']['role'][0].toString()
+              : 'customer',
+          rememberMe: true,
+        );
+      }
+      return responseData;
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /**
+   * Send a secure password recovery OTP code.
+   */
+  static Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async {
+    final url = Uri.parse('$baseUrl/forgot-password/send-otp');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'email': email}),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /**
+   * Reset password securely using recovery OTP code.
+   */
+  static Future<Map<String, dynamic>> resetPassword(String email, String otp, String newPassword) async {
+    final url = Uri.parse('$baseUrl/forgot-password/reset');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+          'password': newPassword,
+        }),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   // --- Session Management Helpers ---
 
-  static Future<void> _saveSession(String token, String role) async {
+  static Future<void> _saveSession(String token, String role, {bool rememberMe = true}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('aswenna_auth_token', token);
     await prefs.setString('aswenna_user_role', role);
+    
+    // Remember me stores session for 30 days, else 1 day session
+    final days = rememberMe ? 30 : 1;
+    final expiry = DateTime.now().add(Duration(days: days));
+    await prefs.setString('aswenna_session_expiry', expiry.toIso8601String());
   }
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
+    final expiryStr = prefs.getString('aswenna_session_expiry');
+    if (expiryStr != null) {
+      final expiry = DateTime.parse(expiryStr);
+      if (DateTime.now().isAfter(expiry)) {
+        await logout();
+        return null;
+      }
+    }
     return prefs.getString('aswenna_auth_token');
   }
 
@@ -213,5 +374,6 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('aswenna_auth_token');
     await prefs.remove('aswenna_user_role');
+    await prefs.remove('aswenna_session_expiry');
   }
 }

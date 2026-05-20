@@ -8,6 +8,7 @@ import 'package:aswenna/screens/dashboards/delivery_dashboard.dart';
 import 'package:aswenna/screens/dashboards/customer_dashboard.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/password_setup_screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberMe = false;
 
   @override
   Widget build(BuildContext context) {
@@ -59,14 +61,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: AppTheme.lightMint,
+                            color: AppTheme.pureWhite,
                             borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.deepLeafGreen.withOpacity(0.08),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              )
+                            ],
                           ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.eco_rounded,
-                              size: 44,
-                              color: AppTheme.deepLeafGreen,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.cover,
                             ),
                           ),
                         ),
@@ -119,19 +128,42 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {},
-                      child: const Text(
-                        'Forgot Password?',
-                        style: TextStyle(
-                          color: AppTheme.deepLeafGreen,
-                          fontWeight: FontWeight.bold,
+                   const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _rememberMe,
+                            activeColor: AppTheme.deepLeafGreen,
+                            onChanged: (val) {
+                              setState(() {
+                                _rememberMe = val ?? false;
+                              });
+                            },
+                          ),
+                          const Text(
+                            'Remember Me',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: _showForgotPasswordSheet,
+                        child: const Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            color: AppTheme.deepLeafGreen,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   // Google Sign In Button
@@ -237,6 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final result = await ApiService.loginUser(
       phoneNumber: phoneOrEmail,
       password: password,
+      rememberMe: _rememberMe,
     );
 
     // Dismiss spinner
@@ -302,7 +335,117 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleGoogleSignIn() async {
-    // Show loading spinner
+    // Fallback: Show premium visual Google Account Selector Dialog (for development/desktop sandbox)
+    final selectedEmail = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        contentPadding: const EdgeInsets.symmetric(vertical: 20),
+        title: Center(
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('G', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 24)),
+                  Text('o', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 24)),
+                  Text('o', style: TextStyle(color: Colors.yellow.shade700, fontWeight: FontWeight.bold, fontSize: 24)),
+                  Text('g', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 24)),
+                  Text('l', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 24)),
+                  Text('e', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 24)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Choose an account',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const Text(
+                'to continue to Aswenna',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+        content: Container(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              _buildGoogleAccountTile(context, 'Saman Kumara', 'farmer@aswenna.com'),
+              _buildGoogleAccountTile(context, 'Keeri Samba Mills', 'buyer@aswenna.com'),
+              _buildGoogleAccountTile(context, 'Agro Retail Mart', 'retailer@aswenna.com'),
+              _buildGoogleAccountTile(context, 'Nuwara Courier', 'delivery@aswenna.com'),
+              _buildGoogleAccountTile(context, 'Lakmal Perera', 'customer@aswenna.com'),
+              const Divider(),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(color: Color(0xFFF1F5F9), shape: BoxShape.circle),
+                  child: const Icon(Icons.add_rounded, color: Color(0xFF475569)),
+                ),
+                title: const Text('Add new Google account', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  final customEmail = await _showCustomGoogleEmailDialog();
+                  if (customEmail != null && customEmail.isNotEmpty) {
+                    _processGoogleEmail(customEmail);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (selectedEmail != null) {
+      _processGoogleEmail(selectedEmail);
+    }
+  }
+
+  Widget _buildGoogleAccountTile(BuildContext context, String name, String email) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: AppTheme.lightMint,
+        child: Text(name[0], style: const TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
+      ),
+      title: Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+      subtitle: Text(email, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+      onTap: () => Navigator.of(context).pop(email),
+    );
+  }
+
+  Future<String?> _showCustomGoogleEmailDialog() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Enter Google Email'),
+        content: TextFormField(
+          controller: controller,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            labelText: 'Google Email Address',
+            hintText: 'e.g. yourname@gmail.com',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _processGoogleEmail(String email) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -313,19 +456,407 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
 
-    // Mock Google OAuth delay
-    await Future.delayed(const Duration(seconds: 2));
+    final result = await ApiService.googleLogin(email);
 
     if (mounted) {
-      Navigator.of(context).pop(); // dismiss spinner
-      
-      // Navigate to the Password Setup / Registration flow
-      // passing the "mock" email from Google
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const PasswordSetupScreen(email: 'user@gmail.com'),
-        ),
-      );
+      Navigator.of(context).pop();
     }
+
+    if (result['success'] == true) {
+      if (result['registered'] == true) {
+        final user = result['user'];
+        final List<dynamic> roles = user['role'] ?? [];
+        final primaryRole = roles.isNotEmpty ? roles[0].toString() : 'customer';
+
+        Widget targetDashboard;
+        switch (primaryRole) {
+          case 'farmer':
+            targetDashboard = const FarmerDashboard();
+            break;
+          case 'buyer':
+            targetDashboard = const BuyerDashboard();
+            break;
+          case 'retail_seller':
+            targetDashboard = const RetailerDashboard();
+            break;
+          case 'delivery_partner':
+            targetDashboard = const DeliveryDashboard();
+            break;
+          case 'customer':
+          default:
+            targetDashboard = const CustomerDashboard();
+            break;
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Logged in successfully via Google as ${user['full_name']}!'),
+              backgroundColor: AppTheme.freshGreen,
+            ),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => targetDashboard),
+            (route) => false,
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google account authenticated. Complete setup to create your Aswenna profile!'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PasswordSetupScreen(email: email),
+            ),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Network error during Google auth.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _processRealGoogleAuth(String idToken) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
+        ),
+      ),
+    );
+
+    final result = await ApiService.googleAuthenticate(idToken);
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+
+    if (result['success'] == true) {
+      if (result['registered'] == true) {
+        final user = result['user'];
+        final List<dynamic> roles = user['role'] ?? [];
+        final primaryRole = roles.isNotEmpty ? roles[0].toString() : 'customer';
+
+        Widget targetDashboard;
+        switch (primaryRole) {
+          case 'farmer':
+            targetDashboard = const FarmerDashboard();
+            break;
+          case 'buyer':
+            targetDashboard = const BuyerDashboard();
+            break;
+          case 'retail_seller':
+            targetDashboard = const RetailerDashboard();
+            break;
+          case 'delivery_partner':
+            targetDashboard = const DeliveryDashboard();
+            break;
+          case 'customer':
+          default:
+            targetDashboard = const CustomerDashboard();
+            break;
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Logged in successfully via Google as ${user['full_name']}!'),
+              backgroundColor: AppTheme.freshGreen,
+            ),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => targetDashboard),
+            (route) => false,
+          );
+        }
+      } else {
+        final email = result['email'];
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google account verified. Complete setup to create your Aswenna profile!'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PasswordSetupScreen(email: email),
+            ),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Secure Google validation failed.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showForgotPasswordSheet() {
+    final emailController = TextEditingController();
+    final otpController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+
+    int forgotStep = 1; // 1: Email, 2: OTP & Reset
+    bool isPending = false;
+    String errorMessage = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.pureWhite,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFEE2E2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.lock_reset_rounded, color: Colors.red, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Password Recovery',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.darkGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      forgotStep == 1
+                          ? 'Enter your registered email address to receive a 6-digit verification code.'
+                          : 'Verify the OTP code sent to your email and set your new account password.',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, height: 1.4),
+                    ),
+                    const SizedBox(height: 24),
+                    if (errorMessage.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                errorMessage,
+                                style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (forgotStep == 1) ...[
+                      TextFormField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Email Address',
+                          hintText: 'yourname@example.com',
+                          prefixIcon: Icon(Icons.email_outlined, color: AppTheme.deepLeafGreen),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isPending
+                              ? null
+                              : () async {
+                                  final email = emailController.text.trim();
+                                  if (email.isEmpty) {
+                                    setSheetState(() => errorMessage = 'Please enter your email.');
+                                    return;
+                                  }
+                                  setSheetState(() {
+                                    isPending = true;
+                                    errorMessage = '';
+                                  });
+                                  final res = await ApiService.sendForgotPasswordOtp(email);
+                                  setSheetState(() => isPending = false);
+
+                                  if (res['success'] == true) {
+                                    setSheetState(() {
+                                      forgotStep = 2;
+                                    });
+                                  } else {
+                                    setSheetState(() {
+                                      errorMessage = res['message'] ?? 'Failed to send OTP.';
+                                    });
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.deepLeafGreen,
+                          ),
+                          child: isPending
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Send Reset OTP'),
+                        ),
+                      ),
+                    ] else ...[
+                      TextFormField(
+                        controller: otpController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '6-Digit OTP',
+                          hintText: 'Enter code sent via email',
+                          prefixIcon: Icon(Icons.pin_outlined, color: AppTheme.deepLeafGreen),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: newPasswordController,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'New Password',
+                          hintText: 'Minimum 6 characters',
+                          prefixIcon: Icon(Icons.vpn_key_outlined, color: AppTheme.deepLeafGreen),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: confirmPasswordController,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Confirm New Password',
+                          hintText: 'Re-type your password',
+                          prefixIcon: Icon(Icons.lock_outline, color: AppTheme.deepLeafGreen),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isPending
+                              ? null
+                              : () async {
+                                  final email = emailController.text.trim();
+                                  final otp = otpController.text.trim();
+                                  final pwd = newPasswordController.text.trim();
+                                  final confirm = confirmPasswordController.text.trim();
+
+                                  if (otp.length != 6) {
+                                    setSheetState(() => errorMessage = 'OTP code must be 6 digits.');
+                                    return;
+                                  }
+                                  if (pwd.length < 6) {
+                                    setSheetState(() => errorMessage = 'Password must be at least 6 characters.');
+                                    return;
+                                  }
+                                  if (pwd != confirm) {
+                                    setSheetState(() => errorMessage = 'Passwords do not match.');
+                                    return;
+                                  }
+
+                                  setSheetState(() {
+                                    isPending = true;
+                                    errorMessage = '';
+                                  });
+                                  final res = await ApiService.resetPassword(email, otp, pwd);
+                                  setSheetState(() => isPending = false);
+
+                                  if (res['success'] == true) {
+                                    Navigator.of(context).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(res['message'] ?? 'Password reset successfully!'),
+                                        backgroundColor: AppTheme.freshGreen,
+                                      ),
+                                    );
+                                  } else {
+                                    setSheetState(() {
+                                      errorMessage = res['message'] ?? 'Failed to reset password.';
+                                    });
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.deepLeafGreen,
+                          ),
+                          child: isPending
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Reset Password'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }

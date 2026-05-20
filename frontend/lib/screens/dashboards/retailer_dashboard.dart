@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/login_screen.dart';
+import 'package:aswenna/services/api_service.dart';
 
 class RetailerDashboard extends StatelessWidget {
   const RetailerDashboard({super.key});
@@ -92,10 +93,12 @@ class RetailerDashboard extends StatelessWidget {
         ],
         onTap: (index) {
           if (index == 2) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (route) => false,
-            );
+            ApiService.logout().then((_) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            });
           }
         },
       ),
@@ -129,26 +132,28 @@ class RetailerDashboard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(color: AppTheme.softGray, shape: BoxShape.circle),
-                child: Icon(icon, color: AppTheme.deepLeafGreen, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                    const SizedBox(height: 4),
-                    Text(stock, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                  ],
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(color: AppTheme.softGray, shape: BoxShape.circle),
+                  child: Icon(icon, color: AppTheme.deepLeafGreen, size: 22),
                 ),
-              ),
-            ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      const SizedBox(height: 4),
+                      Text(stock, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           Text(price, style: const TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold, fontSize: 13)),
         ],

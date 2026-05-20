@@ -157,4 +157,96 @@ class AuthController extends Controller
             'user' => $user
         ], 200);
     }
+
+    /**
+     * Handle Google OAuth registration flow from mobile.
+     */
+    public function googleRegister(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6',
+            'role' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Generate a dummy phone number and extract a name since they aren't provided in this flow
+            $dummyPhone = 'G-' . time() . rand(1000, 9999);
+            $extractedName = explode('@', $request->email)[0];
+
+            $user = User::create([
+                'full_name' => ucwords(str_replace(['.', '_', '-'], ' ', $extractedName)),
+                'email' => $request->email,
+                'phone_number' => $dummyPhone,
+                'password' => $request->password, // automatically hashed
+                'role' => [$request->role],
+                'is_verified' => false,
+                'is_active' => true,
+            ]);
+
+            // Save specialized profile verification info based on role
+            $role = $request->role;
+            if ($role === 'farmer') {
+                DB::table('farmer_verification_data')->insert([
+                    'user_id' => $user->id,
+                    'total_lands' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } elseif ($role === 'retail_seller') {
+                DB::table('retail_seller_verification_data')->insert([
+                    'user_id' => $user->id,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } elseif ($role === 'delivery_partner') {
+                DB::table('delivery_partner_verification_data')->insert([
+                    'user_id' => $user->id,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // Create user wallet
+            DB::table('user_wallets')->insert([
+                'user_id' => $user->id,
+                'available_balance' => 0.00,
+                'pending_balance' => 0.00,
+                'total_earned' => 0.00,
+                'total_withdrawn' => 0.00,
+                'last_updated_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::commit();
+
+            $token = $user->createToken('aswenna_auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Google registration successful!',
+                'token' => $token,
+                'user' => $user
+            ], 201);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to complete Google registration.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

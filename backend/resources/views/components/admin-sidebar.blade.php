@@ -1,62 +1,110 @@
 <!-- resources/views/components/admin-sidebar.blade.php -->
-<aside class="w-64 bg-slate-900 text-slate-300 p-5 flex flex-col justify-between min-h-[calc(100vh-68px)] sticky top-[68px] z-30 shadow-lg border-r border-slate-800">
-    <div class="space-y-8">
+<aside id="admin-sidebar" class="w-64 bg-white border-r border-slate-200/60 flex flex-col justify-between h-screen fixed md:sticky top-0 z-40 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0 shrink-0">
+    <div class="space-y-6 p-5 overflow-y-auto h-full">
+        <!-- Logo and Title Block -->
+        <div class="flex items-center space-x-3 pb-6 border-b border-slate-100">
+            <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md shadow-emerald-500/10 border border-slate-100 overflow-hidden shrink-0">
+                <img src="{{ asset('images/logo.png') }}" alt="Aswenna Logo" class="w-full h-full object-contain p-1">
+            </div>
+            <div>
+                <h2 class="text-base font-extrabold tracking-tight text-slate-800">Aswenna <span class="text-emerald-700">Admin</span></h2>
+                <p class="text-[9px] text-slate-500 font-medium tracking-wide leading-tight">Operational oversight & approvals</p>
+            </div>
+        </div>
+
         <!-- Main stats oversight section -->
-        <div class="space-y-2">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 block">Market Oversight</span>
+        <div class="space-y-0.5">
+            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-3 block mb-2">Market Oversight</span>
             
-            <a href="#" class="flex items-center space-x-3 px-3 py-3 rounded-xl bg-[#2E7D32] text-white font-bold text-sm transition shadow-md shadow-emerald-950/20">
-                <i class="fa-solid fa-chart-pie text-base w-5"></i>
+            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs transition-all shadow-sm">
+                <div class="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-inner group-hover:scale-105 transition-transform">
+                    <i class="fa-solid fa-chart-pie text-xs"></i>
+                </div>
                 <span>Overview Dashboard</span>
             </a>
             
-            <a href="#" class="flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white font-semibold text-sm transition">
-                <i class="fa-solid fa-users text-base w-5"></i>
+            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
+                    <i class="fa-solid fa-users text-xs"></i>
+                </div>
                 <span>User Management</span>
             </a>
             
-            <a href="#" class="flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white font-semibold text-sm transition">
-                <i class="fa-solid fa-circle-check text-base w-5"></i>
+            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
+                    <i class="fa-solid fa-seedling text-xs"></i>
+                </div>
                 <span>Plantation Approvals</span>
-                <span class="ml-auto w-5 h-5 bg-amber-500 text-slate-950 font-bold text-[10px] rounded-full flex items-center justify-center animate-pulse">4</span>
+                <span class="ml-auto w-5 h-5 bg-amber-100 text-amber-700 font-bold text-[10px] rounded-full flex items-center justify-center shadow-inner">4</span>
             </a>
         </div>
 
         <!-- Finance Oversight -->
-        <div class="space-y-2">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 block">Financial Treasury</span>
+        <div class="space-y-0.5 pt-2">
+            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-3 block mb-2">Financial Treasury</span>
             
-            <a href="#" class="flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white font-semibold text-sm transition">
-                <i class="fa-solid fa-wallet text-base w-5"></i>
+            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
+                    <i class="fa-solid fa-wallet text-xs"></i>
+                </div>
                 <span>Escrow & Commissions</span>
             </a>
             
-            <a href="#" class="flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white font-semibold text-sm transition">
-                <i class="fa-solid fa-landmark text-base w-5"></i>
+            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
+                    <i class="fa-solid fa-landmark text-xs"></i>
+                </div>
                 <span>Withdraw Requests</span>
-                <span class="ml-auto px-2 py-0.5 bg-emerald-500/20 text-[#4CAF50] font-bold text-[9px] rounded-lg">Active</span>
+                <span class="ml-auto px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-[9px] rounded-lg">Active</span>
             </a>
         </div>
 
         <!-- Audit & Logs -->
-        <div class="space-y-2">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 block">Audit Trails</span>
+        <div class="space-y-0.5 pt-2">
+            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-3 block mb-2">Audit Trails</span>
             
-            <a href="#" class="flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white font-semibold text-sm transition">
-                <i class="fa-solid fa-clock-rotate-left text-base w-5"></i>
+            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
+                    <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+                </div>
                 <span>Platform Activity Logs</span>
             </a>
         </div>
     </div>
 
     <!-- Sidebar footer Actions (Logout form) -->
-    <div class="pt-6 border-t border-slate-850">
-        <form action="{{ route('admin.logout') }}" method="POST" onsubmit="return confirm('Confirm secure logout from the Aswenna Administration Console?');">
+    <div class="p-3 border-t border-slate-100 bg-slate-50/50">
+        <form id="admin-logout-form" action="{{ route('admin.logout') }}" method="POST">
             @csrf
-            <button type="submit" class="w-full flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-rose-950/20 text-rose-400 hover:text-rose-300 font-bold text-sm transition border border-transparent hover:border-rose-900/30">
-                <i class="fa-solid fa-right-from-bracket text-base w-5"></i>
+            <button type="button" onclick="confirmAdminLogout()" class="group w-full flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-rose-50 text-slate-500 hover:text-rose-600 font-bold text-xs transition-all border border-transparent hover:border-rose-100">
+                <div class="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-rose-100 flex items-center justify-center text-slate-400 group-hover:text-rose-500 transition-colors">
+                    <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                </div>
                 <span>Logout Console</span>
             </button>
         </form>
     </div>
+
+    <script>
+        function confirmAdminLogout() {
+            Swal.fire({
+                title: 'Confirm Logout',
+                text: "Are you sure you want to securely logout from the Aswenna Administration Console?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: 'Yes, logout!',
+                customClass: {
+                    popup: 'rounded-3xl shadow-2xl border border-slate-100',
+                    confirmButton: 'rounded-xl font-bold shadow-md shadow-rose-500/20 px-6 py-2.5',
+                    cancelButton: 'rounded-xl font-bold px-6 py-2.5'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('admin-logout-form').submit();
+                }
+            });
+        }
+    </script>
 </aside>

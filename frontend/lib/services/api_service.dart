@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Use http://10.0.2.2:8000/api for Android Emulator to access local host
@@ -52,6 +53,13 @@ class ApiService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       
       if (response.statusCode == 201 || response.statusCode == 200) {
+        await _saveSession(
+          responseData['token'], 
+          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
+              ? responseData['user']['role'][0].toString() 
+              : 'customer'
+        );
+
         return {
           'success': true,
           'message': responseData['message'] ?? 'Registration successful!',
@@ -99,6 +107,13 @@ class ApiService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
+        await _saveSession(
+          responseData['token'], 
+          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
+              ? responseData['user']['role'][0].toString() 
+              : 'customer'
+        );
+
         return {
           'success': true,
           'message': responseData['message'] ?? 'Login successful!',
@@ -118,5 +133,85 @@ class ApiService {
         'error': e.toString(),
       };
     }
+  }
+
+  /**
+   * Complete Google OAuth registration.
+   */
+  static Future<Map<String, dynamic>> googleRegisterUser({
+    required String email,
+    required String password,
+    required String role,
+  }) async {
+    final url = Uri.parse('$baseUrl/google-register');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'role': role,
+        }),
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        await _saveSession(
+          responseData['token'], 
+          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
+              ? responseData['user']['role'][0].toString() 
+              : 'customer'
+        );
+
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Google registration successful!',
+          'token': responseData['token'],
+          'user': responseData['user'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Failed to register via Google.',
+          'errors': responseData['errors'],
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error: Failed to connect to $baseUrl.',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  // --- Session Management Helpers ---
+
+  static Future<void> _saveSession(String token, String role) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('aswenna_auth_token', token);
+    await prefs.setString('aswenna_user_role', role);
+  }
+
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('aswenna_auth_token');
+  }
+
+  static Future<String?> getUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('aswenna_user_role');
+  }
+
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('aswenna_auth_token');
+    await prefs.remove('aswenna_user_role');
   }
 }

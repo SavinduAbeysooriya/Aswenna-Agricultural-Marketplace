@@ -7,6 +7,7 @@ import 'package:aswenna/screens/dashboards/retailer_dashboard.dart';
 import 'package:aswenna/screens/dashboards/delivery_dashboard.dart';
 import 'package:aswenna/screens/dashboards/customer_dashboard.dart';
 import 'package:aswenna/services/api_service.dart';
+import 'package:aswenna/screens/password_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  String _selectedRoleForMock = 'farmer'; // Mock selection for quick dev testing
 
   @override
   Widget build(BuildContext context) {
@@ -134,44 +134,27 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Mock Selector for Quick testing (Very helpful for developer showcase)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.pureWhite,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppTheme.deepLeafGreen.withOpacity(0.08)),
+                  // Google Sign In Button
+                  ElevatedButton(
+                    onPressed: _handleGoogleSignIn,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black87,
+                      shadowColor: Colors.black12,
+                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade300),
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
-                          'Developer Quick-Login Dashboard Selector:',
-                          style: TextStyle(
-                            color: AppTheme.deepLeafGreen,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedRoleForMock,
-                            isExpanded: true,
-                            items: const [
-                              DropdownMenuItem(value: 'farmer', child: Text('Farmer (Saman Kumara)')),
-                              DropdownMenuItem(value: 'buyer', child: Text('Buyer (Keeri Samba Mills)')),
-                              DropdownMenuItem(value: 'retail_seller', child: Text('Retail Seller (Agro Retail)')),
-                              DropdownMenuItem(value: 'delivery_partner', child: Text('Delivery Partner (Nuwara Courier)')),
-                              DropdownMenuItem(value: 'customer', child: Text('Customer (Lakmal Perera)')),
-                            ],
-                            onChanged: (val) {
-                              setState(() {
-                                _selectedRoleForMock = val!;
-                              });
-                            },
-                          ),
-                        ),
+                        // A simple text "G" for google logo if asset doesn't exist, or use a basic icon
+                        Text('G', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 18)),
+                        const SizedBox(width: 12),
+                        const Text('Continue with Google', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                       ],
                     ),
                   ),
@@ -230,8 +213,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
 
     if (phoneOrEmail.isEmpty || password.isEmpty) {
-      // Safe developer mock-bypass when fields are left blank
-      _navigateToMockDashboard();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your phone number and password.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -314,31 +301,31 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _navigateToMockDashboard() {
-    Widget targetDashboard;
-
-    switch (_selectedRoleForMock) {
-      case 'farmer':
-        targetDashboard = const FarmerDashboard();
-        break;
-      case 'buyer':
-        targetDashboard = const BuyerDashboard();
-        break;
-      case 'retail_seller':
-        targetDashboard = const RetailerDashboard();
-        break;
-      case 'delivery_partner':
-        targetDashboard = const DeliveryDashboard();
-        break;
-      case 'customer':
-      default:
-        targetDashboard = const CustomerDashboard();
-        break;
-    }
-
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => targetDashboard),
-      (route) => false,
+  void _handleGoogleSignIn() async {
+    // Show loading spinner
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
+        ),
+      ),
     );
+
+    // Mock Google OAuth delay
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (mounted) {
+      Navigator.of(context).pop(); // dismiss spinner
+      
+      // Navigate to the Password Setup / Registration flow
+      // passing the "mock" email from Google
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const PasswordSetupScreen(email: 'user@gmail.com'),
+        ),
+      );
+    }
   }
 }

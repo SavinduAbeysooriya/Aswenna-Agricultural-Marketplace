@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/get_started_screen.dart';
+import 'package:aswenna/services/api_service.dart';
+import 'package:aswenna/screens/dashboards/farmer_dashboard.dart';
+import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
+import 'package:aswenna/screens/dashboards/retailer_dashboard.dart';
+import 'package:aswenna/screens/dashboards/delivery_dashboard.dart';
+import 'package:aswenna/screens/dashboards/customer_dashboard.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -32,20 +38,56 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    // Redirect after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const GetStartedScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-        );
+    // Check for saved session after splash animation
+    _checkSessionAndNavigate();
+  }
+
+  Future<void> _checkSessionAndNavigate() async {
+    // Wait for the splash animation to play
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+
+    final token = await ApiService.getToken();
+    final role = await ApiService.getUserRole();
+
+    Widget destination;
+
+    if (token != null && token.isNotEmpty && role != null && role.isNotEmpty) {
+      // User has a saved session — route to their dashboard
+      switch (role) {
+        case 'farmer':
+          destination = const FarmerDashboard();
+          break;
+        case 'buyer':
+          destination = const BuyerDashboard();
+          break;
+        case 'retail_seller':
+          destination = const RetailerDashboard();
+          break;
+        case 'delivery_partner':
+          destination = const DeliveryDashboard();
+          break;
+        case 'customer':
+        default:
+          destination = const CustomerDashboard();
+          break;
       }
-    });
+    } else {
+      // No saved session — go to onboarding
+      destination = const GetStartedScreen();
+    }
+
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => destination,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 800),
+        ),
+      );
+    }
   }
 
   @override

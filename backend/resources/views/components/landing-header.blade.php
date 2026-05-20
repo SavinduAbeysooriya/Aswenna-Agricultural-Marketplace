@@ -22,14 +22,14 @@
     
     <!-- Navigation Links (Desktop) -->
     <nav class="hidden lg:flex items-center space-x-8 text-xs md:text-sm font-bold text-slate-650">
-        <a href="#hero" class="hover:text-[#2E7D32] transition">Home</a>
-        <a href="#features" class="hover:text-[#2E7D32] transition">Features</a>
-        <a href="#roles" class="hover:text-[#2E7D32] transition">Ecosystem</a>
-        <a href="#app-showcase" class="hover:text-[#2E7D32] transition">App Previews</a>
-        <a href="#faq" class="hover:text-[#2E7D32] transition">About</a>
-        <a href="#contact" class="hover:text-[#2E7D32] transition">Contact</a>
+        <a href="{{ route('landing') }}" class="hover:text-[#2E7D32] transition">Home</a>
+        <a href="{{ request()->routeIs('landing') ? '#features' : route('landing') . '#features' }}" class="hover:text-[#2E7D32] transition">Features</a>
+        <a href="{{ request()->routeIs('landing') ? '#roles' : route('landing') . '#roles' }}" class="hover:text-[#2E7D32] transition">Ecosystem</a>
+        <a href="{{ request()->routeIs('landing') ? '#app-showcase' : route('landing') . '#app-showcase' }}" class="hover:text-[#2E7D32] transition">App Previews</a>
+        <a href="{{ request()->routeIs('landing') ? '#faq' : route('landing') . '#faq' }}" class="hover:text-[#2E7D32] transition">About</a>
+        <a href="{{ request()->routeIs('landing') ? '#contact' : route('landing') . '#contact' }}" class="hover:text-[#2E7D32] transition">Contact</a>
     </nav>
-
+    
     <!-- Header Actions (Desktop) -->
     <div class="hidden lg:flex items-center space-x-3">
         <!-- Direct Admin Portal Button -->
@@ -56,12 +56,12 @@
          x-transition:leave-start="opacity-100 translate-y-0 scale-100"
          x-transition:leave-end="opacity-0 -translate-y-4 scale-95"
          class="absolute top-[110%] left-0 w-full bg-white/95 backdrop-blur-xl border border-white/60 shadow-2xl rounded-3xl py-6 px-8 flex flex-col space-y-4 z-40 lg:hidden">
-        <a href="#hero" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">Home</a>
-        <a href="#features" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">Features</a>
-        <a href="#roles" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">Marketplace Ecosystem</a>
-        <a href="#app-showcase" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">App Preview</a>
-        <a href="#faq" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">About & FAQ</a>
-        <a href="#contact" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">Contact</a>
+        <a href="{{ route('landing') }}" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">Home</a>
+        <a href="{{ request()->routeIs('landing') ? '#features' : route('landing') . '#features' }}" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">Features</a>
+        <a href="{{ request()->routeIs('landing') ? '#roles' : route('landing') . '#roles' }}" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">Marketplace Ecosystem</a>
+        <a href="{{ request()->routeIs('landing') ? '#app-showcase' : route('landing') . '#app-showcase' }}" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">App Preview</a>
+        <a href="{{ request()->routeIs('landing') ? '#faq' : route('landing') . '#faq' }}" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">About & FAQ</a>
+        <a href="{{ request()->routeIs('landing') ? '#contact' : route('landing') . '#contact' }}" @click="mobileMenuOpen = false" class="text-slate-700 hover:text-[#2E7D32] font-bold text-sm py-1 border-b border-slate-50">Contact</a>
         
         <div class="pt-4 flex flex-col sm:flex-row gap-3">
             <a href="{{ route('admin.login') }}" @click="mobileMenuOpen = false" class="flex-1 text-center px-5 py-3 rounded-2xl bg-[#E8F5E9] text-[#2E7D32] font-bold text-xs flex items-center justify-center space-x-2">

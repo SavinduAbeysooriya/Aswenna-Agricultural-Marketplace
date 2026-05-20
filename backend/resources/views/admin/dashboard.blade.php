@@ -6,8 +6,10 @@
     <title>Aswenna - Admin Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;950&display=swap" rel="stylesheet">
+    <!-- SweetAlert2 for modern premium notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Google Fonts: Inter & Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;950&family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- FontAwesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js for analytics -->
@@ -28,6 +30,7 @@
                     },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
+                        poppins: ['Poppins', 'sans-serif'],
                     }
                 }
             }
@@ -200,7 +203,12 @@
             row.style.opacity = '0.3';
             setTimeout(() => {
                 row.remove();
-                alert('Success: Crop yield verified and listed in the public marketplace database!');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Crop Verified',
+                    text: 'Crop yield verified and listed in the public marketplace database!',
+                    confirmButtonColor: '#2E7D32'
+                });
             }, 600);
         }
 
@@ -209,7 +217,12 @@
             row.style.opacity = '0.3';
             setTimeout(() => {
                 row.remove();
-                alert('Success: Verification request rejected. Feedback dispatched to the farmer.');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Request Rejected',
+                    text: 'Verification request rejected. Feedback dispatched to the farmer.',
+                    confirmButtonColor: '#2E7D32'
+                });
             }, 600);
         }
 

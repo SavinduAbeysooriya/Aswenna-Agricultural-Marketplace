@@ -29,7 +29,7 @@
             <!-- Newsletter Sign up -->
             <div class="pt-4 space-y-2">
                 <h4 class="text-xs font-bold text-white uppercase tracking-wider">Marketplace Newsletter</h4>
-                <form onsubmit="event.preventDefault(); alert('Subscribed successfully!');" class="flex gap-2">
+                <form onsubmit="event.preventDefault(); Swal.fire({ icon: 'success', title: 'Subscribed!', text: 'You have subscribed to our newsletter successfully.', confirmButtonColor: '#2E7D32' });" class="flex gap-2">
                     <input type="email" required placeholder="Enter email" class="w-full bg-slate-800 border border-slate-700 text-xs px-3 py-2 rounded-lg text-slate-300 focus:outline-none focus:border-[#4CAF50]">
                     <button type="submit" class="px-3 bg-gradient-to-r from-[#2E7D32] to-[#4CAF50] text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-emerald-600/10 transition"><i class="fa-solid fa-paper-plane"></i></button>
                 </form>

@@ -6,8 +6,12 @@
     <title>Aswenna - Forgot Password</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Alpine.js for lightweight state management -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- SweetAlert2 for modern premium notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Google Fonts: Inter & Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- FontAwesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -26,6 +30,7 @@
                     },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
+                        poppins: ['Poppins', 'sans-serif'],
                     }
                 }
             }
@@ -38,7 +43,7 @@
     <x-landing-header />
 
     <!-- Main Content Container with Organic Accents -->
-    <main class="flex-1 flex items-center justify-center py-16 px-6 relative overflow-hidden">
+    <main class="flex-1 flex items-center justify-center pt-28 md:pt-36 pb-16 px-6 relative overflow-hidden">
         <!-- Background Leaf Blurs -->
         <div class="absolute -top-40 -right-40 w-96 h-96 bg-emerald-100/40 rounded-full blur-3xl pointer-events-none"></div>
         <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-emerald-100/30 rounded-full blur-3xl pointer-events-none"></div>
@@ -91,6 +96,33 @@
 
     <!-- Landing Footer Component -->
     <x-landing-footer />
+
+    <!-- SweetAlert2 session notification listener -->
+    @if (session('status'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: "{{ session('status') }}",
+                confirmButtonColor: '#2E7D32'
+            });
+        });
+    </script>
+    @endif
+
+    @if ($errors->any())
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            Swal.fire({
+                icon: 'error',
+                title: 'Request Failed',
+                html: `{!! implode('<br>', $errors->all()) !!}`,
+                confirmButtonColor: '#2E7D32'
+            });
+        });
+    </script>
+    @endif
 
 </body>
 </html>

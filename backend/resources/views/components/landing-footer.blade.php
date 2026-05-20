@@ -1,5 +1,5 @@
 <!-- resources/views/components/landing-footer.blade.php -->
-<footer id="footer" class="bg-slate-900 text-slate-400 py-16 px-6 md:px-12 relative overflow-hidden mt-auto">
+<footer id="footer" class="bg-slate-900 text-slate-400 py-16 px-6 md:px-12 relative mt-auto">
     <!-- Beautiful organic wave top border decoration -->
     <div class="absolute top-0 left-0 w-full overflow-hidden leading-none transform -translate-y-1 z-10">
         <svg viewBox="0 0 1200 120" preserveAspectRatio="none" class="relative block w-full h-8 text-slate-50 fill-current">
@@ -7,9 +7,12 @@
         </svg>
     </div>
 
-    <!-- Leaf pattern background texture watermark -->
-    <div class="absolute -bottom-16 -right-16 text-slate-800/20 pointer-events-none z-0">
-        <i class="fa-solid fa-leaf text-[240px]"></i>
+    <!-- Watermark container to safely clip overflow without clipping the top wave -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <!-- Leaf pattern background texture watermark -->
+        <div class="absolute -bottom-16 -right-16 text-slate-800/20 pointer-events-none">
+            <i class="fa-solid fa-leaf text-[240px]"></i>
+        </div>
     </div>
 
     <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-12 relative z-10 pt-4">
@@ -26,7 +29,7 @@
             <!-- Newsletter Sign up -->
             <div class="pt-4 space-y-2">
                 <h4 class="text-xs font-bold text-white uppercase tracking-wider">Marketplace Newsletter</h4>
-                <form onsubmit="event.preventDefault(); alert('Subscribed successfully!');" class="flex gap-2">
+                <form onsubmit="event.preventDefault(); Swal.fire({ icon: 'success', title: 'Subscribed!', text: 'You have subscribed to our newsletter successfully.', confirmButtonColor: '#2E7D32' });" class="flex gap-2">
                     <input type="email" required placeholder="Enter email" class="w-full bg-slate-800 border border-slate-700 text-xs px-3 py-2 rounded-lg text-slate-300 focus:outline-none focus:border-[#4CAF50]">
                     <button type="submit" class="px-3 bg-gradient-to-r from-[#2E7D32] to-[#4CAF50] text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-emerald-600/10 transition"><i class="fa-solid fa-paper-plane"></i></button>
                 </form>

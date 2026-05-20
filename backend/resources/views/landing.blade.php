@@ -14,6 +14,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Alpine.js for lightweight state management -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- SweetAlert2 for modern premium notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
         tailwind.config = {
@@ -740,7 +742,7 @@
             <!-- Form card (7 cols) -->
             <div class="lg:col-span-7 p-8 md:p-12 space-y-6">
                 <h4 class="text-lg font-bold text-slate-800">Send Us a Message</h4>
-                <form onsubmit="event.preventDefault(); alert('Inquiry submitted successfully!');" class="space-y-4">
+                <form onsubmit="event.preventDefault(); Swal.fire({ icon: 'success', title: 'Message Sent', text: 'Thank you! Your message has been sent successfully.', confirmButtonColor: '#2E7D32' });" class="space-y-4">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="space-y-1">
                             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Your Name</label>

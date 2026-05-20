@@ -20,6 +20,7 @@ Route::get('/', [AdminWebController::class, 'landing'])->name('landing');
 // Secure Administration Portal Authentication & 2FA Gates
 Route::get('/admin/login', [AdminWebController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [AdminWebController::class, 'loginSubmit'])->name('admin.login.submit');
+Route::post('/admin/login/google', [AdminWebController::class, 'googleLoginSubmit'])->name('admin.google.callback');
 
 // Secure Two-Factor Authentication OTP Verification
 Route::get('/admin/login/otp', [AdminWebController::class, 'showOtp'])->name('admin.login.otp');

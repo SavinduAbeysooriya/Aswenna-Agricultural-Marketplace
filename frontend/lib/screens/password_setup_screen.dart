@@ -4,8 +4,9 @@ import 'package:aswenna/screens/role_selection_screen.dart';
 
 class PasswordSetupScreen extends StatefulWidget {
   final String email;
+  final String googleName;
 
-  const PasswordSetupScreen({super.key, required this.email});
+  const PasswordSetupScreen({super.key, required this.email, this.googleName = ''});
 
   @override
   State<PasswordSetupScreen> createState() => _PasswordSetupScreenState();
@@ -138,6 +139,7 @@ class _PasswordSetupScreenState extends State<PasswordSetupScreen> {
             'email': widget.email,
             'password': _passwordController.text,
             'auth_provider': 'google',
+            if (widget.googleName.isNotEmpty) 'name': widget.googleName,
           },
         ),
       ),

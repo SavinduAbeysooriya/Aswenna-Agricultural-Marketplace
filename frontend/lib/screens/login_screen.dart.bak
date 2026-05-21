@@ -1,5 +1,4 @@
-import 'dart:async';
-import 'dart:io' show Platform;
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/role_selection_screen.dart';
@@ -11,10 +10,6 @@ import 'package:aswenna/screens/dashboards/customer_dashboard.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/password_setup_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
-const String _googleServerClientId =
-    '365861807638-qouuf7mif5qa6j64jnpvm09c1ikbp4hr.apps.googleusercontent.com';
-const String _googleIosClientId = _googleServerClientId;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -50,10 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 40.0,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -77,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: AppTheme.deepLeafGreen.withOpacity(0.08),
                                 blurRadius: 16,
                                 offset: const Offset(0, 8),
-                              ),
+                              )
                             ],
                           ),
                           child: ClipRRect(
@@ -114,10 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _identifierController,
                     decoration: const InputDecoration(
                       labelText: 'Phone Number or Email',
-                      prefixIcon: Icon(
-                        Icons.phone_iphone_rounded,
-                        color: AppTheme.deepLeafGreen,
-                      ),
+                      prefixIcon: Icon(Icons.phone_iphone_rounded, color: AppTheme.deepLeafGreen),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -126,15 +115,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      prefixIcon: const Icon(
-                        Icons.lock_rounded,
-                        color: AppTheme.deepLeafGreen,
-                      ),
+                      prefixIcon: const Icon(Icons.lock_rounded, color: AppTheme.deepLeafGreen),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
                           color: AppTheme.deepLeafGreen.withOpacity(0.6),
                         ),
                         onPressed: () {
@@ -145,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -201,22 +185,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // A simple text "G" for google logo if asset doesn't exist, or use a basic icon
-                        Text(
-                          'G',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
+                        Text('G', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 18)),
                         const SizedBox(width: 12),
-                        const Text(
-                          'Continue with Google',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
+                        const Text('Continue with Google', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                       ],
                     ),
                   ),
@@ -309,10 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (result['success'] == true) {
       if (result['requires_otp'] == true) {
-        _showLoginOtpVerificationSheet(
-          result['email'] ?? phoneOrEmail,
-          _rememberMe,
-        );
+        _showLoginOtpVerificationSheet(result['email'] ?? phoneOrEmail, _rememberMe);
         return;
       }
       final user = result['user'];
@@ -322,9 +290,7 @@ class _LoginScreenState extends State<LoginScreen> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             title: const Row(
               children: [
                 Icon(Icons.lock_person_rounded, color: Colors.red, size: 28),
@@ -332,17 +298,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text('Auth Failure'),
               ],
             ),
-            content: Text(
-              result['message'] ??
-                  'Invalid phone/password credential combination.',
-            ),
+            content: Text(result['message'] ?? 'Invalid phone/password credential combination.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text(
-                  'OK',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -351,10 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _navigateToDashboard(
-    Map<String, dynamic> user, {
-    String? successMessage,
-  }) {
+  void _navigateToDashboard(Map<String, dynamic> user, {String? successMessage}) {
     final List<dynamic> roles = user['role'] ?? [];
     final primaryRole = roles.isNotEmpty ? roles[0].toString() : 'customer';
 
@@ -416,14 +373,27 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  bool _googleInitialized = false;
+
+  Future<GoogleSignInAccount?> _signInWithGoogle() async {
+    if (!_googleInitialized) {
+      await GoogleSignIn.instance.initialize(
+        serverClientId: '365861807638-qouuf7mif5qa6j64jnpvm09c1ikbp4hr.apps.googleusercontent.com',
+      );
+      _googleInitialized = true;
+    }
+    return await GoogleSignIn.instance.authenticate();
+  }
+
   void _handleGoogleSignIn() async {
     bool loaderShown = false;
     try {
-      final googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.initialize(
-        clientId: Platform.isIOS ? _googleIosClientId : null,
-        serverClientId: _googleServerClientId,
+      final googleSignIn = GoogleSignIn(
+        serverClientId: '365861807638-qouuf7mif5qa6j64jnpvm09c1ikbp4hr.apps.googleusercontent.com',
       );
+
+      // Sign out first to force account picker
+      await googleSignIn.signOut();
 
       if (!mounted) return;
 
@@ -438,47 +408,22 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       loaderShown = true;
 
-      final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (mounted && loaderShown) {
         Navigator.of(context).pop();
         loaderShown = false;
       }
 
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      if (googleUser == null) return; // User cancelled
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final String? idToken = googleAuth.idToken;
 
       if (idToken != null && idToken.isNotEmpty) {
         _processRealGoogleAuth(idToken);
       } else {
         _processGoogleEmail(googleUser.email);
-      }
-    } on GoogleSignInException catch (error) {
-      if (mounted && loaderShown) {
-        Navigator.of(context).pop();
-        loaderShown = false;
-      }
-      debugPrint('Google Sign-In failed: $error');
-      if (error.code == GoogleSignInExceptionCode.canceled) {
-        if (mounted && _looksLikeAndroidReauthFailure(error)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Google Sign-In is not configured correctly for this Android app. Check the SHA fingerprint and google-services.json.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_googleSignInMessage(error)),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     } catch (error) {
       if (mounted && loaderShown) {
@@ -495,18 +440,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     }
-  }
-
-  String _googleSignInMessage(GoogleSignInException error) {
-    if (error.code == GoogleSignInExceptionCode.clientConfigurationError) {
-      return 'Google Sign-In is not configured for this device yet.';
-    }
-    return 'Google Sign-In failed. Please try again.';
-  }
-
-  bool _looksLikeAndroidReauthFailure(GoogleSignInException error) {
-    return Platform.isAndroid &&
-        (error.description?.contains('Account reauth failed') ?? false);
   }
 
   void _processGoogleEmail(String email) async {
@@ -535,16 +468,13 @@ class _LoginScreenState extends State<LoginScreen> {
         final user = result['user'];
         _navigateToDashboard(
           user,
-          successMessage:
-              'Logged in successfully via Google as ${user['full_name']}!',
+          successMessage: 'Logged in successfully via Google as ${user['full_name']}!',
         );
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Google account authenticated. Complete setup to create your Aswenna profile!',
-              ),
+              content: Text('Google account authenticated. Complete setup to create your Aswenna profile!'),
               backgroundColor: Colors.blue,
             ),
           );
@@ -559,9 +489,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              result['message'] ?? 'Network error during Google auth.',
-            ),
+            content: Text(result['message'] ?? 'Network error during Google auth.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -588,27 +516,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (result['success'] == true) {
       if (result['requires_otp'] == true) {
-        _showLoginOtpVerificationSheet(
-          result['email'] ?? result['user']?['email'] ?? 'Google User',
-          true,
-        );
+        _showLoginOtpVerificationSheet(result['email'] ?? result['user']?['email'] ?? 'Google User', true);
         return;
       }
       if (result['registered'] == true) {
         final user = result['user'];
         _navigateToDashboard(
           user,
-          successMessage:
-              'Logged in successfully via Google as ${user['full_name']}!',
+          successMessage: 'Logged in successfully via Google as ${user['full_name']}!',
         );
       } else {
         final email = result['email'];
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Google account verified. Complete setup to create your Aswenna profile!',
-              ),
+              content: Text('Google account verified. Complete setup to create your Aswenna profile!'),
               backgroundColor: Colors.blue,
             ),
           );
@@ -623,9 +545,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              result['message'] ?? 'Secure Google validation failed.',
-            ),
+            content: Text(result['message'] ?? 'Secure Google validation failed.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -659,10 +579,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: AppTheme.pureWhite,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 32,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -686,11 +603,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Color(0xFFFEE2E2),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.lock_reset_rounded,
-                            color: Colors.red,
-                            size: 24,
-                          ),
+                          child: const Icon(Icons.lock_reset_rounded, color: Colors.red, size: 24),
                         ),
                         const SizedBox(width: 12),
                         const Text(
@@ -708,19 +621,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       forgotStep == 1
                           ? 'Enter your registered email address to receive a 6-digit verification code.'
                           : 'Verify the OTP code sent to your email and set your new account password.',
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, height: 1.4),
                     ),
                     const SizedBox(height: 24),
                     if (errorMessage.isNotEmpty) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFEF2F2),
                           borderRadius: BorderRadius.circular(12),
@@ -728,20 +634,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.error_outline_rounded,
-                              color: Colors.red,
-                              size: 18,
-                            ),
+                            const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 errorMessage,
-                                style: const TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -756,10 +654,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Email Address',
                           hintText: 'yourname@example.com',
-                          prefixIcon: Icon(
-                            Icons.email_outlined,
-                            color: AppTheme.deepLeafGreen,
-                          ),
+                          prefixIcon: Icon(Icons.email_outlined, color: AppTheme.deepLeafGreen),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -771,20 +666,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               : () async {
                                   final email = emailController.text.trim();
                                   if (email.isEmpty) {
-                                    setSheetState(
-                                      () => errorMessage =
-                                          'Please enter your email.',
-                                    );
+                                    setSheetState(() => errorMessage = 'Please enter your email.');
                                     return;
                                   }
                                   setSheetState(() {
                                     isPending = true;
                                     errorMessage = '';
                                   });
-                                  final res =
-                                      await ApiService.sendForgotPasswordOtp(
-                                        email,
-                                      );
+                                  final res = await ApiService.sendForgotPasswordOtp(email);
                                   setSheetState(() => isPending = false);
 
                                   if (res['success'] == true) {
@@ -793,9 +682,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     });
                                   } else {
                                     setSheetState(() {
-                                      errorMessage =
-                                          res['message'] ??
-                                          'Failed to send OTP.';
+                                      errorMessage = res['message'] ?? 'Failed to send OTP.';
                                     });
                                   }
                                 },
@@ -808,9 +695,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
                               : const Text('Send Reset OTP'),
@@ -823,10 +708,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: const InputDecoration(
                           labelText: '6-Digit OTP',
                           hintText: 'Enter code sent via email',
-                          prefixIcon: Icon(
-                            Icons.pin_outlined,
-                            color: AppTheme.deepLeafGreen,
-                          ),
+                          prefixIcon: Icon(Icons.pin_outlined, color: AppTheme.deepLeafGreen),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -836,10 +718,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: const InputDecoration(
                           labelText: 'New Password',
                           hintText: 'Minimum 6 characters',
-                          prefixIcon: Icon(
-                            Icons.vpn_key_outlined,
-                            color: AppTheme.deepLeafGreen,
-                          ),
+                          prefixIcon: Icon(Icons.vpn_key_outlined, color: AppTheme.deepLeafGreen),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -849,10 +728,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Confirm New Password',
                           hintText: 'Re-type your password',
-                          prefixIcon: Icon(
-                            Icons.lock_outline,
-                            color: AppTheme.deepLeafGreen,
-                          ),
+                          prefixIcon: Icon(Icons.lock_outline, color: AppTheme.deepLeafGreen),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -865,28 +741,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                   final email = emailController.text.trim();
                                   final otp = otpController.text.trim();
                                   final pwd = newPasswordController.text.trim();
-                                  final confirm = confirmPasswordController.text
-                                      .trim();
+                                  final confirm = confirmPasswordController.text.trim();
 
                                   if (otp.length != 6) {
-                                    setSheetState(
-                                      () => errorMessage =
-                                          'OTP code must be 6 digits.',
-                                    );
+                                    setSheetState(() => errorMessage = 'OTP code must be 6 digits.');
                                     return;
                                   }
                                   if (pwd.length < 6) {
-                                    setSheetState(
-                                      () => errorMessage =
-                                          'Password must be at least 6 characters.',
-                                    );
+                                    setSheetState(() => errorMessage = 'Password must be at least 6 characters.');
                                     return;
                                   }
                                   if (pwd != confirm) {
-                                    setSheetState(
-                                      () => errorMessage =
-                                          'Passwords do not match.',
-                                    );
+                                    setSheetState(() => errorMessage = 'Passwords do not match.');
                                     return;
                                   }
 
@@ -894,29 +760,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                     isPending = true;
                                     errorMessage = '';
                                   });
-                                  final res = await ApiService.resetPassword(
-                                    email,
-                                    otp,
-                                    pwd,
-                                  );
+                                  final res = await ApiService.resetPassword(email, otp, pwd);
                                   setSheetState(() => isPending = false);
 
                                   if (res['success'] == true) {
                                     Navigator.of(context).pop();
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(
-                                          res['message'] ??
-                                              'Password reset successfully!',
-                                        ),
+                                        content: Text(res['message'] ?? 'Password reset successfully!'),
                                         backgroundColor: AppTheme.freshGreen,
                                       ),
                                     );
                                   } else {
                                     setSheetState(() {
-                                      errorMessage =
-                                          res['message'] ??
-                                          'Failed to reset password.';
+                                      errorMessage = res['message'] ?? 'Failed to reset password.';
                                     });
                                   }
                                 },
@@ -929,9 +786,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
                               : const Text('Reset Password'),
@@ -1067,9 +922,7 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
       widget.onSuccess(result['user']);
     } else {
       setState(() {
-        _errorMessage =
-            result['message'] ??
-            'Verification mismatch. Please check the code.';
+        _errorMessage = result['message'] ?? 'Verification mismatch. Please check the code.';
       });
     }
   }
@@ -1150,14 +1003,11 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
               ),
             ),
             const SizedBox(height: 24),
-
+            
             // Status and alerts
             if (_errorMessage.isNotEmpty) ...[
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(12),
@@ -1165,20 +1015,12 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      color: Colors.red,
-                      size: 18,
-                    ),
+                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _errorMessage,
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -1189,10 +1031,7 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
 
             if (_successMessage.isNotEmpty) ...[
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(12),
@@ -1200,20 +1039,12 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.check_circle_outline_rounded,
-                      color: AppTheme.freshGreen,
-                      size: 18,
-                    ),
+                    const Icon(Icons.check_circle_outline_rounded, color: AppTheme.freshGreen, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _successMessage,
-                        style: const TextStyle(
-                          color: AppTheme.darkGreen,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(color: AppTheme.darkGreen, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -1235,7 +1066,7 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
                 color: AppTheme.darkGreen,
               ),
               decoration: InputDecoration(
-                hintText: '••••••',
+                hintText: 'â€¢â€¢â€¢â€¢â€¢â€¢',
                 hintStyle: TextStyle(
                   color: Colors.grey[300],
                   fontSize: 32,
@@ -1244,22 +1075,17 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
                 counterText: '',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide(
-                    color: AppTheme.deepLeafGreen.withOpacity(0.2),
-                  ),
+                  borderSide: BorderSide(color: AppTheme.deepLeafGreen.withOpacity(0.2)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
-                  borderSide: const BorderSide(
-                    color: AppTheme.freshGreen,
-                    width: 2.5,
-                  ),
+                  borderSide: const BorderSide(color: AppTheme.freshGreen, width: 2.5),
                 ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 18),
               ),
             ),
             const SizedBox(height: 24),
-
+            
             // Verify Button
             SizedBox(
               width: double.infinity,
@@ -1280,9 +1106,7 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
                         width: 24,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
                     : const Text(
@@ -1302,11 +1126,7 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (_cooldownSeconds > 0) ...[
-                  Icon(
-                    Icons.hourglass_empty_rounded,
-                    size: 14,
-                    color: Colors.grey[500],
-                  ),
+                  Icon(Icons.hourglass_empty_rounded, size: 14, color: Colors.grey[500]),
                   const SizedBox(width: 4),
                   Text(
                     'Resend code in ${_cooldownSeconds}s',
@@ -1323,18 +1143,12 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
                           width: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.0,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppTheme.deepLeafGreen,
-                            ),
+                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
                           ),
                         )
                       : TextButton.icon(
                           onPressed: _handleResend,
-                          icon: const Icon(
-                            Icons.refresh_rounded,
-                            size: 16,
-                            color: AppTheme.deepLeafGreen,
-                          ),
+                          icon: const Icon(Icons.refresh_rounded, size: 16, color: AppTheme.deepLeafGreen),
                           label: const Text(
                             'Resend Code',
                             style: TextStyle(
@@ -1354,3 +1168,4 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
     );
   }
 }
+

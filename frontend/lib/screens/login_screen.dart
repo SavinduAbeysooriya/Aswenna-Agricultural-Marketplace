@@ -374,7 +374,74 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleGoogleSignIn() async {
-    // Fallback: Show premium visual Google Account Selector Dialog (for development/desktop sandbox)
+    bool loaderShown = false;
+    try {
+      // Initialize the singleton instance with the correct serverClientId for Android
+      await GoogleSignIn.instance.initialize(
+        serverClientId: '365861807638-qouuf7mif5qa6j64jnpvm09c1ikbp4hr.apps.googleusercontent.com',
+      );
+
+      if (!mounted) return;
+
+      // Show loading spinner
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
+          ),
+        ),
+      );
+      loaderShown = true;
+
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await GoogleSignIn.instance.authenticate();
+      
+      // Dismiss visual loader
+      if (mounted && loaderShown) {
+        Navigator.of(context).pop();
+        loaderShown = false;
+      }
+
+      if (googleUser == null) {
+        // User cancelled sign in
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      if (idToken != null && idToken.isNotEmpty) {
+        _processRealGoogleAuth(idToken);
+      } else {
+        // Fallback to email validation if ID token is empty
+        _processGoogleEmail(googleUser.email);
+      }
+    } catch (error) {
+        // Dismiss loader if showing
+        if (mounted && loaderShown) {
+          Navigator.of(context).pop();
+          loaderShown = false;
+        }
+
+        debugPrint('Native Google Sign-In failed: $error');
+
+        // Show error to user and provide fallback selector
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google Sign-In failed. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          // Offer manual Google account selection as fallback
+          _showFallbackGoogleSelector();
+        }
+    }
+  }
+
+  void _showFallbackGoogleSelector() async {
     final selectedEmail = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -396,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Choose an account',
+                'Choose a Google account',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
               ),
               const Text(

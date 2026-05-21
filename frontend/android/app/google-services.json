@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "161969332625",
+    "project_id": "aswenna-7fde5",
+    "storage_bucket": "aswenna-7fde5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:161969332625:android:87de9c6512d6a27041ba30",
+        "android_client_info": {
+          "package_name": "com.aswenna.aswenna"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuxt0YKkrh_xTHiDOabS2-Wn-HogeXjrY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

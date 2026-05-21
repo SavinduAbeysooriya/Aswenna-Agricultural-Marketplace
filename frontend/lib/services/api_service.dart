@@ -109,6 +109,15 @@ class ApiService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
+        if (responseData['requires_otp'] == true) {
+          return {
+            'success': true,
+            'requires_otp': true,
+            'email': responseData['email'],
+            'message': responseData['message'] ?? '2FA verification required.',
+          };
+        }
+
         await _saveSession(
           responseData['token'], 
           responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
@@ -251,6 +260,9 @@ class ApiService {
       );
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       if (response.statusCode == 200 && responseData['registered'] == true) {
+        if (responseData['requires_otp'] == true) {
+          return responseData;
+        }
         await _saveSession(
           responseData['token'],
           responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty
@@ -281,6 +293,9 @@ class ApiService {
       );
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       if (response.statusCode == 200 && responseData['registered'] == true) {
+        if (responseData['requires_otp'] == true) {
+          return responseData;
+        }
         await _saveSession(
           responseData['token'],
           responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty
@@ -376,4 +391,84 @@ class ApiService {
     await prefs.remove('aswenna_user_role');
     await prefs.remove('aswenna_session_expiry');
   }
+
+  /**
+   * Verify login OTP and authenticate user session.
+   */
+  static Future<Map<String, dynamic>> loginVerifyOtp({
+    required String email,
+    required String otp,
+    bool rememberMe = false,
+  }) async {
+    final url = Uri.parse('$baseUrl/login/verify-otp');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+        }),
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        await _saveSession(
+          responseData['token'], 
+          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
+              ? responseData['user']['role'][0].toString() 
+              : 'customer',
+          rememberMe: rememberMe,
+        );
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'OTP verified successfully!',
+          'token': responseData['token'],
+          'user': responseData['user'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Invalid OTP code.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to verify OTP: $e',
+      };
+    }
+  }
+
+  /**
+   * Resend login 2FA OTP.
+   */
+  static Future<Map<String, dynamic>> sendLoginOtp({
+    required String email,
+  }) async {
+    final url = Uri.parse('$baseUrl/login/send-otp');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+        }),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to resend OTP: $e',
+      };
+    }
+  }
 }
+

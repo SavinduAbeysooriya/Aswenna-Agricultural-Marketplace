@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/role_selection_screen.dart';
@@ -278,36 +279,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (result['success'] == true) {
+      if (result['requires_otp'] == true) {
+        _showLoginOtpVerificationSheet(result['email'] ?? phoneOrEmail, _rememberMe);
+        return;
+      }
       final user = result['user'];
-      final List<dynamic> roles = user['role'] ?? [];
-      final primaryRole = roles.isNotEmpty ? roles[0].toString() : 'customer';
-
-      Widget targetDashboard;
-      switch (primaryRole) {
-        case 'farmer':
-          targetDashboard = const FarmerDashboard();
-          break;
-        case 'buyer':
-          targetDashboard = const BuyerDashboard();
-          break;
-        case 'retail_seller':
-          targetDashboard = const RetailerDashboard();
-          break;
-        case 'delivery_partner':
-          targetDashboard = const DeliveryDashboard();
-          break;
-        case 'customer':
-        default:
-          targetDashboard = const CustomerDashboard();
-          break;
-      }
-
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => targetDashboard),
-          (route) => false,
-        );
-      }
+      _navigateToDashboard(user);
     } else {
       if (mounted) {
         showDialog(
@@ -332,6 +309,68 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     }
+  }
+
+  void _navigateToDashboard(Map<String, dynamic> user, {String? successMessage}) {
+    final List<dynamic> roles = user['role'] ?? [];
+    final primaryRole = roles.isNotEmpty ? roles[0].toString() : 'customer';
+
+    Widget targetDashboard;
+    switch (primaryRole) {
+      case 'farmer':
+        targetDashboard = const FarmerDashboard();
+        break;
+      case 'buyer':
+        targetDashboard = const BuyerDashboard();
+        break;
+      case 'retail_seller':
+        targetDashboard = const RetailerDashboard();
+        break;
+      case 'delivery_partner':
+        targetDashboard = const DeliveryDashboard();
+        break;
+      case 'customer':
+      default:
+        targetDashboard = const CustomerDashboard();
+        break;
+    }
+
+    if (mounted) {
+      if (successMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(successMessage),
+            backgroundColor: AppTheme.freshGreen,
+          ),
+        );
+      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => targetDashboard),
+        (route) => false,
+      );
+    }
+  }
+
+  void _showLoginOtpVerificationSheet(String email, bool rememberMe) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return _LoginOtpSheet(
+          email: email,
+          rememberMe: rememberMe,
+          onSuccess: (user) {
+            _navigateToDashboard(
+              user,
+              successMessage: 'Two-Factor Verification Successful!',
+            );
+          },
+        );
+      },
+    );
   }
 
   void _handleGoogleSignIn() async {
@@ -463,43 +502,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (result['success'] == true) {
+      if (result['requires_otp'] == true) {
+        _showLoginOtpVerificationSheet(result['email'] ?? email, true);
+        return;
+      }
       if (result['registered'] == true) {
         final user = result['user'];
-        final List<dynamic> roles = user['role'] ?? [];
-        final primaryRole = roles.isNotEmpty ? roles[0].toString() : 'customer';
-
-        Widget targetDashboard;
-        switch (primaryRole) {
-          case 'farmer':
-            targetDashboard = const FarmerDashboard();
-            break;
-          case 'buyer':
-            targetDashboard = const BuyerDashboard();
-            break;
-          case 'retail_seller':
-            targetDashboard = const RetailerDashboard();
-            break;
-          case 'delivery_partner':
-            targetDashboard = const DeliveryDashboard();
-            break;
-          case 'customer':
-          default:
-            targetDashboard = const CustomerDashboard();
-            break;
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Logged in successfully via Google as ${user['full_name']}!'),
-              backgroundColor: AppTheme.freshGreen,
-            ),
-          );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => targetDashboard),
-            (route) => false,
-          );
-        }
+        _navigateToDashboard(
+          user,
+          successMessage: 'Logged in successfully via Google as ${user['full_name']}!',
+        );
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -545,43 +557,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (result['success'] == true) {
+      if (result['requires_otp'] == true) {
+        _showLoginOtpVerificationSheet(result['email'] ?? result['user']?['email'] ?? 'Google User', true);
+        return;
+      }
       if (result['registered'] == true) {
         final user = result['user'];
-        final List<dynamic> roles = user['role'] ?? [];
-        final primaryRole = roles.isNotEmpty ? roles[0].toString() : 'customer';
-
-        Widget targetDashboard;
-        switch (primaryRole) {
-          case 'farmer':
-            targetDashboard = const FarmerDashboard();
-            break;
-          case 'buyer':
-            targetDashboard = const BuyerDashboard();
-            break;
-          case 'retail_seller':
-            targetDashboard = const RetailerDashboard();
-            break;
-          case 'delivery_partner':
-            targetDashboard = const DeliveryDashboard();
-            break;
-          case 'customer':
-          default:
-            targetDashboard = const CustomerDashboard();
-            break;
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Logged in successfully via Google as ${user['full_name']}!'),
-              backgroundColor: AppTheme.freshGreen,
-            ),
-          );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => targetDashboard),
-            (route) => false,
-          );
-        }
+        _navigateToDashboard(
+          user,
+          successMessage: 'Logged in successfully via Google as ${user['full_name']}!',
+        );
       } else {
         final email = result['email'];
         if (mounted) {
@@ -857,6 +842,371 @@ class _LoginScreenState extends State<LoginScreen> {
           },
         );
       },
+    );
+  }
+}
+
+class _LoginOtpSheet extends StatefulWidget {
+  final String email;
+  final bool rememberMe;
+  final Function(Map<String, dynamic> user) onSuccess;
+
+  const _LoginOtpSheet({
+    required this.email,
+    required this.rememberMe,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_LoginOtpSheet> createState() => _LoginOtpSheetState();
+}
+
+class _LoginOtpSheetState extends State<_LoginOtpSheet> {
+  final _otpController = TextEditingController();
+  bool _isPending = false;
+  bool _isResending = false;
+  String _errorMessage = '';
+  String _successMessage = '';
+  int _cooldownSeconds = 30;
+  Timer? _cooldownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _successMessage = 'Verification code sent to ${widget.email}';
+    _startCooldown();
+  }
+
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  void _startCooldown() {
+    setState(() {
+      _cooldownSeconds = 30;
+    });
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (_cooldownSeconds > 0) {
+          _cooldownSeconds--;
+        } else {
+          _cooldownTimer?.cancel();
+        }
+      });
+    });
+  }
+
+  Future<void> _handleResend() async {
+    if (_cooldownSeconds > 0 || _isResending) return;
+
+    setState(() {
+      _isResending = true;
+      _errorMessage = '';
+      _successMessage = '';
+    });
+
+    final res = await ApiService.sendLoginOtp(email: widget.email);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isResending = false;
+    });
+
+    if (res['success'] == true) {
+      setState(() {
+        _successMessage = 'New code sent successfully!';
+      });
+      _startCooldown();
+    } else {
+      setState(() {
+        _errorMessage = res['message'] ?? 'Failed to resend verification code.';
+      });
+    }
+  }
+
+  Future<void> _handleVerify() async {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6) {
+      setState(() {
+        _errorMessage = 'Please enter a 6-digit OTP code.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isPending = true;
+      _errorMessage = '';
+    });
+
+    final result = await ApiService.loginVerifyOtp(
+      email: widget.email,
+      otp: otp,
+      rememberMe: widget.rememberMe,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isPending = false;
+    });
+
+    if (result['success'] == true) {
+      Navigator.of(context).pop(); // Close sheet
+      widget.onSuccess(result['user']);
+    } else {
+      setState(() {
+        _errorMessage = result['message'] ?? 'Verification mismatch. Please check the code.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+        decoration: const BoxDecoration(
+          color: AppTheme.pureWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 48,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Pulsing Lock Icon Badge
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.freshGreen.withOpacity(0.15),
+                    AppTheme.deepLeafGreen.withOpacity(0.08),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_person_rounded,
+                color: AppTheme.deepLeafGreen,
+                size: 34,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Security Verification',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.darkGreen,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Aswenna takes security seriously. Enter the 6-digit One-Time Password sent to your email:',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              widget.email,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppTheme.deepLeafGreen,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Status and alerts
+            if (_errorMessage.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade100),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMessage,
+                        style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            if (_successMessage.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFA7F3D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline_rounded, color: AppTheme.freshGreen, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _successMessage,
+                        style: const TextStyle(color: AppTheme.darkGreen, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // OTP Input
+            TextFormField(
+              controller: _otpController,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 14,
+                color: AppTheme.darkGreen,
+              ),
+              decoration: InputDecoration(
+                hintText: '••••••',
+                hintStyle: TextStyle(
+                  color: Colors.grey[300],
+                  fontSize: 32,
+                  letterSpacing: 14,
+                ),
+                counterText: '',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide(color: AppTheme.deepLeafGreen.withOpacity(0.2)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: const BorderSide(color: AppTheme.freshGreen, width: 2.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 18),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Verify Button
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _isPending ? null : _handleVerify,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.deepLeafGreen,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  shadowColor: AppTheme.deepLeafGreen.withOpacity(0.2),
+                  elevation: 6,
+                ),
+                child: _isPending
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Verify & Proceed',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Resend timer section
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_cooldownSeconds > 0) ...[
+                  Icon(Icons.hourglass_empty_rounded, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Resend code in ${_cooldownSeconds}s',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ] else ...[
+                  _isResending
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.0,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
+                          ),
+                        )
+                      : TextButton.icon(
+                          onPressed: _handleResend,
+                          icon: const Icon(Icons.refresh_rounded, size: 16, color: AppTheme.deepLeafGreen),
+                          label: const Text(
+                            'Resend Code',
+                            style: TextStyle(
+                              color: AppTheme.deepLeafGreen,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
     );
   }
 }

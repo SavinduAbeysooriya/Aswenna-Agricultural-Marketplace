@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\AuthController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login/verify-otp', [AuthController::class, 'loginVerifyOtp']);
+Route::post('/login/send-otp', [AuthController::class, 'sendLoginOtp']);
 Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/google-login', [AuthController::class, 'googleLogin']);

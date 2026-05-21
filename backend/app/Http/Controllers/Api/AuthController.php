@@ -815,4 +815,139 @@ class AuthController extends Controller
             ], 200);
         }
     }
+
+    /**
+     * Return the authenticated farmer's complete profile details.
+     */
+    public function farmerProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('farmer', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This profile is only available for farmer accounts.'
+            ], 403);
+        }
+
+        $farmerVerification = DB::table('farmer_verification_data')
+            ->where('user_id', $user->id)
+            ->first();
+
+        $documents = DB::table('user_verification_documents')
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'profile' => [
+                'user' => $user,
+                'farmer_verification' => $farmerVerification,
+                'documents' => $documents,
+            ],
+        ], 200);
+    }
+
+    /**
+     * Update the authenticated farmer's editable profile details.
+     */
+    public function updateFarmerProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('farmer', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This profile is only available for farmer accounts.'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'full_name' => 'required|string|max:255',
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
+            'phone_number' => 'required|string|unique:users,phone_number,' . $user->id,
+            'phone_number_2' => 'nullable|string|max:50',
+            'national_id' => 'nullable|string|max:100|unique:users,national_id,' . $user->id,
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'district' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'farming_license_number' => 'nullable|string|max:255',
+            'organic_certificate_number' => 'nullable|string|max:255',
+            'organic_certificate_expiry' => 'nullable|date',
+            'gap_certificate_number' => 'nullable|string|max:255',
+            'gap_certificate_expiry' => 'nullable|date',
+            'total_lands' => 'nullable|integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors occurred.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $user->update([
+                'full_name' => $request->full_name,
+                'email' => $request->email,
+                'phone_number' => $request->phone_number,
+                'phone_number_2' => $request->phone_number_2,
+                'national_id' => $request->national_id,
+                'address' => $request->address,
+                'city' => $request->city,
+                'district' => $request->district,
+                'province' => $request->province,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+            ]);
+
+            DB::table('farmer_verification_data')->updateOrInsert(
+                ['user_id' => $user->id],
+                [
+                    'farming_license_number' => $request->farming_license_number,
+                    'organic_certificate_number' => $request->organic_certificate_number,
+                    'organic_certificate_expiry' => $request->organic_certificate_expiry,
+                    'gap_certificate_number' => $request->gap_certificate_number,
+                    'gap_certificate_expiry' => $request->gap_certificate_expiry,
+                    'total_lands' => $request->total_lands ?? 0,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+
+            DB::commit();
+
+            return $this->farmerProfile($request);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update farmer profile.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

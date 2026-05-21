@@ -15,6 +15,8 @@ Route::post('/google-login', [AuthController::class, 'googleLogin']);
 Route::post('/google-authenticate', [AuthController::class, 'googleAuthenticate']);
 Route::post('/forgot-password/send-otp', [AuthController::class, 'forgotPasswordSendOtp']);
 Route::post('/forgot-password/reset', [AuthController::class, 'forgotPasswordReset']);
+Route::middleware('auth:sanctum')->get('/farmer/profile', [AuthController::class, 'farmerProfile']);
+Route::middleware('auth:sanctum')->put('/farmer/profile', [AuthController::class, 'updateFarmerProfile']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

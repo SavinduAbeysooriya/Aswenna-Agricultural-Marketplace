@@ -1,12 +1,13 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/registration_screen.dart';
-import 'package:aswenna/services/api_service.dart';
-import 'package:aswenna/screens/dashboards/farmer_dashboard.dart';
-import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
-import 'package:aswenna/screens/dashboards/retailer_dashboard.dart';
-import 'package:aswenna/screens/dashboards/delivery_dashboard.dart';
-import 'package:aswenna/screens/dashboards/customer_dashboard.dart';
+import 'package:aswenna/screens/password_setup_screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+const String _googleServerClientId =
+    '365861807638-qouuf7mif5qa6j64jnpvm09c1ikbp4hr.apps.googleusercontent.com';
+const String _googleIosClientId = _googleServerClientId;
 
 class RoleSelectionScreen extends StatefulWidget {
   final Map<String, String>? registrationData;
@@ -56,7 +57,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     {
       'id': 'customer',
       'title': 'Customer',
-      'description': 'Purchase agricultural items directly for household consumption.',
+      'description':
+          'Purchase agricultural items directly for household consumption.',
       'icon': Icons.person_pin_rounded,
       'color': const Color(0xFFBE123C), // Rose-700
       'bgColor': const Color(0xFFFFEBEE),
@@ -113,7 +115,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 child: ListView.separated(
                   physics: const BouncingScrollPhysics(),
                   itemCount: _roles.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final role = _roles[index];
                     final isSelected = _selectedRole == role['id'];
@@ -132,7 +135,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                           color: AppTheme.pureWhite,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: isSelected ? AppTheme.freshGreen : Colors.transparent,
+                            color: isSelected
+                                ? AppTheme.freshGreen
+                                : Colors.transparent,
                             width: 2.5,
                           ),
                           boxShadow: [
@@ -170,7 +175,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                                   Text(
                                     role['title'],
                                     style: TextStyle(
-                                      color: isSelected ? AppTheme.deepLeafGreen : const Color(0xFF0F172A),
+                                      color: isSelected
+                                          ? AppTheme.deepLeafGreen
+                                          : const Color(0xFF0F172A),
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -194,9 +201,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                               height: 24,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isSelected ? AppTheme.freshGreen : Colors.transparent,
+                                color: isSelected
+                                    ? AppTheme.freshGreen
+                                    : Colors.transparent,
                                 border: Border.all(
-                                  color: isSelected ? AppTheme.freshGreen : const Color(0xFFCBD5E1),
+                                  color: isSelected
+                                      ? AppTheme.freshGreen
+                                      : const Color(0xFFCBD5E1),
                                   width: 2.0,
                                 ),
                               ),
@@ -231,8 +242,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         );
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _selectedRole == null ? const Color(0xFFCBD5E1) : AppTheme.deepLeafGreen,
-                  foregroundColor: _selectedRole == null ? const Color(0xFF94A3B8) : AppTheme.pureWhite,
+                  backgroundColor: _selectedRole == null
+                      ? const Color(0xFFCBD5E1)
+                      : AppTheme.deepLeafGreen,
+                  foregroundColor: _selectedRole == null
+                      ? const Color(0xFF94A3B8)
+                      : AppTheme.pureWhite,
                   disabledBackgroundColor: const Color(0xFFCBD5E1),
                   disabledForegroundColor: const Color(0xFF94A3B8),
                   elevation: _selectedRole == null ? 0 : 6,
@@ -240,10 +255,155 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 ),
                 child: const Text('Continue'),
               ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Expanded(child: Divider()),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'or',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                    ),
+                  ),
+                  const Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _handleGoogleSignUp,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  shadowColor: Colors.black12,
+                  elevation: 2,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'G',
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Continue with Google',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _handleGoogleSignUp() async {
+    bool loaderShown = false;
+    try {
+      final googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize(
+        clientId: Platform.isIOS ? _googleIosClientId : null,
+        serverClientId: _googleServerClientId,
+      );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
+          ),
+        ),
+      );
+      loaderShown = true;
+
+      final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
+
+      if (mounted && loaderShown) {
+        Navigator.of(context).pop();
+        loaderShown = false;
+      }
+
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => PasswordSetupScreen(
+              email: googleUser.email,
+              googleName: googleUser.displayName ?? '',
+            ),
+          ),
+        );
+      }
+    } on GoogleSignInException catch (error) {
+      if (mounted && loaderShown) {
+        Navigator.of(context).pop();
+        loaderShown = false;
+      }
+      debugPrint('Google Sign-Up failed: $error');
+      if (error.code == GoogleSignInExceptionCode.canceled) {
+        if (mounted && _looksLikeAndroidReauthFailure(error)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Google Sign-In is not configured correctly for this Android app. Check the SHA fingerprint and google-services.json.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_googleSignInMessage(error)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted && loaderShown) {
+        Navigator.of(context).pop();
+        loaderShown = false;
+      }
+      debugPrint('Google Sign-Up failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google Sign-In failed: ${error.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _googleSignInMessage(GoogleSignInException error) {
+    if (error.code == GoogleSignInExceptionCode.clientConfigurationError) {
+      return 'Google Sign-In is not configured for this device yet.';
+    }
+    return 'Google Sign-In failed. Please try again.';
+  }
+
+  bool _looksLikeAndroidReauthFailure(GoogleSignInException error) {
+    return Platform.isAndroid &&
+        (error.description?.contains('Account reauth failed') ?? false);
   }
 }

@@ -37,6 +37,10 @@
 	<string>365861807638-qouuf7mif5qa6j64jnpvm09c1ikbp4hr.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>
 	<string>365861807638-qouuf7mif5qa6j64jnpvm09c1ikbp4hr.apps.googleusercontent.com</string>
+	<key>GoogleMapsAPIKey</key>
+	<string>YOUR_GOOGLE_MAPS_API_KEY</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Aswenna uses your location to pin your farm on the profile map.</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>

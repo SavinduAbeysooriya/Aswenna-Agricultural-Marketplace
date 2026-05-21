@@ -51,12 +51,13 @@ class ApiService {
       );
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
-      
+
       if (response.statusCode == 201 || response.statusCode == 200) {
         await _saveSession(
-          responseData['token'], 
-          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
-              ? responseData['user']['role'][0].toString() 
+          responseData['token'],
+          responseData['user']['role'] != null &&
+                  responseData['user']['role'].isNotEmpty
+              ? responseData['user']['role'][0].toString()
               : 'customer',
           rememberMe: true, // Default to persistent for new registrations
         );
@@ -77,7 +78,8 @@ class ApiService {
     } catch (e) {
       return {
         'success': false,
-        'message': 'Network connection error: Failed to connect to $baseUrl. Make sure the Laravel server is running.',
+        'message':
+            'Network connection error: Failed to connect to $baseUrl. Make sure the Laravel server is running.',
         'error': e.toString(),
       };
     }
@@ -100,10 +102,7 @@ class ApiService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'phone_number': phoneNumber,
-          'password': password,
-        }),
+        body: jsonEncode({'phone_number': phoneNumber, 'password': password}),
       );
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
@@ -119,9 +118,10 @@ class ApiService {
         }
 
         await _saveSession(
-          responseData['token'], 
-          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
-              ? responseData['user']['role'][0].toString() 
+          responseData['token'],
+          responseData['user']['role'] != null &&
+                  responseData['user']['role'].isNotEmpty
+              ? responseData['user']['role'][0].toString()
               : 'customer',
           rememberMe: rememberMe,
         );
@@ -164,34 +164,33 @@ class ApiService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-          'role': role,
-        }),
+        body: jsonEncode({'email': email, 'password': password, 'role': role}),
       );
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         await _saveSession(
-          responseData['token'], 
-          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
-              ? responseData['user']['role'][0].toString() 
+          responseData['token'],
+          responseData['user']['role'] != null &&
+                  responseData['user']['role'].isNotEmpty
+              ? responseData['user']['role'][0].toString()
               : 'customer',
           rememberMe: true,
         );
 
         return {
           'success': true,
-          'message': responseData['message'] ?? 'Google registration successful!',
+          'message':
+              responseData['message'] ?? 'Google registration successful!',
           'token': responseData['token'],
           'user': responseData['user'],
         };
       } else {
         return {
           'success': false,
-          'message': responseData['message'] ?? 'Failed to register via Google.',
+          'message':
+              responseData['message'] ?? 'Failed to register via Google.',
           'errors': responseData['errors'],
         };
       }
@@ -227,7 +226,10 @@ class ApiService {
   /**
    * Verify registration email OTP.
    */
-  static Future<Map<String, dynamic>> verifyOtp(String email, String otp) async {
+  static Future<Map<String, dynamic>> verifyOtp(
+    String email,
+    String otp,
+  ) async {
     final url = Uri.parse('$baseUrl/verify-otp');
     try {
       final response = await http.post(
@@ -265,7 +267,8 @@ class ApiService {
         }
         await _saveSession(
           responseData['token'],
-          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty
+          responseData['user']['role'] != null &&
+                  responseData['user']['role'].isNotEmpty
               ? responseData['user']['role'][0].toString()
               : 'customer',
           rememberMe: true, // Google login is persistently remembered
@@ -298,7 +301,8 @@ class ApiService {
         }
         await _saveSession(
           responseData['token'],
-          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty
+          responseData['user']['role'] != null &&
+                  responseData['user']['role'].isNotEmpty
               ? responseData['user']['role'][0].toString()
               : 'customer',
           rememberMe: true,
@@ -313,7 +317,9 @@ class ApiService {
   /**
    * Send a secure password recovery OTP code.
    */
-  static Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async {
+  static Future<Map<String, dynamic>> sendForgotPasswordOtp(
+    String email,
+  ) async {
     final url = Uri.parse('$baseUrl/forgot-password/send-otp');
     try {
       final response = await http.post(
@@ -333,7 +339,11 @@ class ApiService {
   /**
    * Reset password securely using recovery OTP code.
    */
-  static Future<Map<String, dynamic>> resetPassword(String email, String otp, String newPassword) async {
+  static Future<Map<String, dynamic>> resetPassword(
+    String email,
+    String otp,
+    String newPassword,
+  ) async {
     final url = Uri.parse('$baseUrl/forgot-password/reset');
     try {
       final response = await http.post(
@@ -342,11 +352,7 @@ class ApiService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'email': email,
-          'otp': otp,
-          'password': newPassword,
-        }),
+        body: jsonEncode({'email': email, 'otp': otp, 'password': newPassword}),
       );
       return jsonDecode(response.body);
     } catch (e) {
@@ -354,13 +360,104 @@ class ApiService {
     }
   }
 
+  /**
+   * Fetch the authenticated farmer's complete profile details.
+   */
+  static Future<Map<String, dynamic>> getFarmerProfile() async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+
+    final url = Uri.parse('$baseUrl/farmer/profile');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to load farmer profile.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to load farmer profile.',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /**
+   * Update the authenticated farmer's editable profile details.
+   */
+  static Future<Map<String, dynamic>> updateFarmerProfile(
+    Map<String, dynamic> data,
+  ) async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+
+    final url = Uri.parse('$baseUrl/farmer/profile');
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+
+      return {
+        'success': false,
+        'message':
+            responseData['message'] ?? 'Failed to update farmer profile.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to update farmer profile.',
+        'error': e.toString(),
+      };
+    }
+  }
+
   // --- Session Management Helpers ---
 
-  static Future<void> _saveSession(String token, String role, {bool rememberMe = true}) async {
+  static Future<void> _saveSession(
+    String token,
+    String role, {
+    bool rememberMe = true,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('aswenna_auth_token', token);
     await prefs.setString('aswenna_user_role', role);
-    
+
     // Remember me stores session for 30 days, else 1 day session
     final days = rememberMe ? 30 : 1;
     final expiry = DateTime.now().add(Duration(days: days));
@@ -408,19 +505,17 @@ class ApiService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'email': email,
-          'otp': otp,
-        }),
+        body: jsonEncode({'email': email, 'otp': otp}),
       );
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200 && responseData['success'] == true) {
         await _saveSession(
-          responseData['token'], 
-          responseData['user']['role'] != null && responseData['user']['role'].isNotEmpty 
-              ? responseData['user']['role'][0].toString() 
+          responseData['token'],
+          responseData['user']['role'] != null &&
+                  responseData['user']['role'].isNotEmpty
+              ? responseData['user']['role'][0].toString()
               : 'customer',
           rememberMe: rememberMe,
         );
@@ -437,10 +532,7 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Failed to verify OTP: $e',
-      };
+      return {'success': false, 'message': 'Failed to verify OTP: $e'};
     }
   }
 
@@ -458,17 +550,11 @@ class ApiService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'email': email,
-        }),
+        body: jsonEncode({'email': email}),
       );
       return jsonDecode(response.body);
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Failed to resend OTP: $e',
-      };
+      return {'success': false, 'message': 'Failed to resend OTP: $e'};
     }
   }
 }
-

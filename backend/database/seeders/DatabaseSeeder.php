@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\CropGrowthStage;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -110,5 +111,28 @@ class DatabaseSeeder extends Seeder
                 'province' => 'Western',
             ]
         );
+
+        // 7. Seed Default Crop Growth Stages
+        $defaultStages = [
+            'land_preparation',
+            'sowing_planting',
+            'germination',
+            'seedling',
+            'vegetative_early',
+            'vegetative_mid',
+            'vegetative_late',
+            'flowering_bud_formation',
+            'flowering_full_bloom',
+            'fruit_set',
+            'fruit_development',
+            'maturation_ripening',
+            'harvest_ongoing',
+            'harvest_complete',
+            'fallow'
+        ];
+
+        foreach ($defaultStages as $stageName) {
+            CropGrowthStage::firstOrCreate(['name' => $stageName]);
+        }
     }
 }

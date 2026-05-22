@@ -503,6 +503,139 @@ class ApiService {
   }
 
   /**
+   * Fetch approved crops list for selection (farmer-facing).
+   */
+  static Future<Map<String, dynamic>> getApprovedCrops() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/crops');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Failed to load crops.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCropGrowthStages() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/crop-growth-stages');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load growth stages.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCultivationLogs() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load logs.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> addCultivationLog(Map<String, dynamic> data) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 201 && responseData['success'] == true) return responseData;
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to add log.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateCultivationLog(int id, Map<String, dynamic> data) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs/$id');
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && responseData['success'] == true) return responseData;
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to update log.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteCultivationLog(int id) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs/$id');
+    try {
+      final response = await http.delete(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && responseData['success'] == true) return responseData;
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to delete log.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /**
    * Register a new land parcel for the authenticated farmer.
    */
   static Future<Map<String, dynamic>> addFarmerLand(
@@ -510,6 +643,7 @@ class ApiService {
     List<String> imagePaths = const [],
     List<String> documentPaths = const [],
     List<String> documentTitles = const [],
+    List<int> cropIds = const [],
   }) async {
     final token = await getToken();
     if (token == null) return {'success': false, 'message': 'Session expired.'};
@@ -523,6 +657,9 @@ class ApiService {
       data.forEach((key, value) {
         if (value != null) request.fields[key] = value.toString();
       });
+      for (var i = 0; i < cropIds.length; i++) {
+        request.fields['crop_ids[$i]'] = cropIds[i].toString();
+      }
       for (final path in imagePaths) {
         if (path.isNotEmpty) {
           request.files.add(await http.MultipartFile.fromPath('land_images[]', path));
@@ -557,6 +694,7 @@ class ApiService {
     List<String> documentTitles = const [],
     List<String> keepImagePaths = const [],
     List<Map<String, dynamic>> keepDocuments = const [],
+    List<int> cropIds = const [],
   }) async {
     final token = await getToken();
     if (token == null) return {'success': false, 'message': 'Session expired.'};
@@ -574,6 +712,10 @@ class ApiService {
       data.forEach((key, value) {
         if (value != null) request.fields[key] = value.toString();
       });
+
+      for (var i = 0; i < cropIds.length; i++) {
+        request.fields['crop_ids[$i]'] = cropIds[i].toString();
+      }
 
       for (var i = 0; i < keepImagePaths.length; i++) {
         final path = keepImagePaths[i].toString();
@@ -631,6 +773,14 @@ class ApiService {
       return path;
     }
     if (path.startsWith('/')) return '$appUrl$path';
+    // Common Laravel patterns:
+    // - DB stores "storage/..." already (public URL path)
+    // - DB stores "public/..." (storage disk path)
+    if (path.startsWith('storage/')) return '$appUrl/$path';
+    if (path.startsWith('public/')) {
+      final withoutPublic = path.substring('public/'.length);
+      return '$appUrl/storage/$withoutPublic';
+    }
     return '$appUrl/storage/$path';
   }
 

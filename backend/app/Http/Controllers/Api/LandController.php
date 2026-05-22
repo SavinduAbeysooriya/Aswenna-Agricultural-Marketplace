@@ -7,10 +7,21 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Exception;
 
 class LandController extends Controller
 {
+    private function landCrops(int $landId)
+    {
+        return DB::table('land_crops')
+            ->join('crops', 'land_crops.crop_id', '=', 'crops.id')
+            ->where('land_crops.land_id', $landId)
+            ->select('crops.id as crop_id', 'crops.cropname', 'land_crops.text')
+            ->orderBy('crops.cropname')
+            ->get();
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -22,6 +33,7 @@ class LandController extends Controller
             ->map(function ($land) {
                 $land->land_images = json_decode($land->land_images ?? '[]', true) ?: [];
                 $land->land_documents = json_decode($land->land_documents_paths_and_document_titles ?? '[]', true) ?: [];
+                $land->crops = $this->landCrops($land->id);
                 return $land;
             });
 
@@ -39,6 +51,11 @@ class LandController extends Controller
             'latitude'       => 'nullable|numeric|between:-90,90',
             'longitude'      => 'nullable|numeric|between:-180,180',
             'notes'          => 'nullable|string|max:1000',
+            'crop_ids'       => 'nullable|array',
+            'crop_ids.*'     => [
+                'integer',
+                Rule::exists('crops', 'id')->where('status', 'approved'),
+            ],
             'land_images.*'  => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
             'land_document_files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -90,6 +107,19 @@ class LandController extends Controller
                 'updated_at'          => now(),
             ]);
 
+            $cropIds = $request->input('crop_ids', []);
+            if (is_array($cropIds) && count($cropIds) > 0) {
+                foreach (array_unique($cropIds) as $cropId) {
+                    DB::table('land_crops')->insert([
+                        'land_id' => $landId,
+                        'crop_id' => $cropId,
+                        'text' => null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
             // Increment total_lands in farmer_verification_data
             DB::table('farmer_verification_data')
                 ->where('user_id', $user->id)
@@ -100,6 +130,7 @@ class LandController extends Controller
             $land = DB::table('lands')->find($landId);
             $land->land_images = json_decode($land->land_images ?? '[]', true) ?: [];
             $land->land_documents = json_decode($land->land_documents_paths_and_document_titles ?? '[]', true) ?: [];
+            $land->crops = $this->landCrops($landId);
 
             return response()->json(['success' => true, 'land' => $land], 201);
         } catch (Exception $e) {
@@ -127,6 +158,7 @@ class LandController extends Controller
 
         $land->land_images = json_decode($land->land_images ?? '[]', true) ?: [];
         $land->land_documents = json_decode($land->land_documents_paths_and_document_titles ?? '[]', true) ?: [];
+        $land->crops = $this->landCrops($land->id);
 
         return response()->json(['success' => true, 'land' => $land], 200);
     }
@@ -151,6 +183,11 @@ class LandController extends Controller
             'latitude'       => 'nullable|numeric|between:-90,90',
             'longitude'      => 'nullable|numeric|between:-180,180',
             'notes'          => 'nullable|string|max:1000',
+            'crop_ids'       => 'nullable|array',
+            'crop_ids.*'     => [
+                'integer',
+                Rule::exists('crops', 'id')->where('status', 'approved'),
+            ],
             'land_images.*'  => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
             'land_document_files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -232,11 +269,26 @@ class LandController extends Controller
                     'updated_at'          => now(),
                 ]);
 
+            $cropIds = $request->input('crop_ids', []);
+            if (is_array($cropIds)) {
+                DB::table('land_crops')->where('land_id', $id)->delete();
+                foreach (array_unique($cropIds) as $cropId) {
+                    DB::table('land_crops')->insert([
+                        'land_id' => $id,
+                        'crop_id' => $cropId,
+                        'text' => null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
             DB::commit();
 
             $updatedLand = DB::table('lands')->find($id);
             $updatedLand->land_images = json_decode($updatedLand->land_images ?? '[]', true) ?: [];
             $updatedLand->land_documents = json_decode($updatedLand->land_documents_paths_and_document_titles ?? '[]', true) ?: [];
+            $updatedLand->crops = $this->landCrops($id);
 
             return response()->json([
                 'success' => true,

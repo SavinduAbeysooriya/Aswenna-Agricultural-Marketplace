@@ -4,6 +4,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LandController;
+use App\Http\Controllers\Api\CropController;
+use App\Http\Controllers\Api\DailyCultivationLogController;
+use App\Http\Controllers\Api\CropGrowthStageController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
@@ -20,10 +23,17 @@ Route::middleware('auth:sanctum')->get('/farmer/profile', [AuthController::class
 Route::middleware('auth:sanctum')->put('/farmer/profile', [AuthController::class, 'updateFarmerProfile']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/crops', [CropController::class, 'index']);
+    Route::get('/crop-growth-stages', [CropGrowthStageController::class, 'index']);
     Route::get('/farmer/lands', [LandController::class, 'index']);
     Route::post('/farmer/lands', [LandController::class, 'store']);
     Route::get('/farmer/lands/{id}', [LandController::class, 'show']);
     Route::put('/farmer/lands/{id}', [LandController::class, 'update']);
+
+    Route::get('/farmer/cultivation-logs', [DailyCultivationLogController::class, 'index']);
+    Route::post('/farmer/cultivation-logs', [DailyCultivationLogController::class, 'store']);
+    Route::put('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'update']);
+    Route::delete('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'destroy']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

@@ -39,6 +39,13 @@
                     <span class="ml-auto min-w-5 h-5 px-1 bg-amber-100 text-amber-700 font-bold text-[10px] rounded-full flex items-center justify-center shadow-inner">{{ $pendingCropCount }}</span>
                 @endif
             </a>
+
+            <a href="{{ route('admin.crop-growth-stages') }}" class="group flex items-center space-x-3 px-3 py-2 rounded-xl {{ request()->routeIs('admin.crop-growth-stages*') ? 'bg-emerald-50 text-emerald-700 font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold' }} text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg {{ request()->routeIs('admin.crop-growth-stages*') ? 'bg-emerald-100 text-emerald-600 shadow-inner' : 'bg-transparent group-hover:bg-white text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm' }} flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-bars-progress text-xs"></i>
+                </div>
+                <span>Growth Stages</span>
+            </a>
         </div>
 
         <!-- Finance Oversight -->

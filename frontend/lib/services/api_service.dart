@@ -481,6 +481,71 @@ class ApiService {
     }
   }
 
+  /**
+   * Fetch all lands registered by the authenticated farmer.
+   */
+  static Future<Map<String, dynamic>> getFarmerLands() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/lands');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load lands.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /**
+   * Register a new land parcel for the authenticated farmer.
+   */
+  static Future<Map<String, dynamic>> addFarmerLand(
+    Map<String, dynamic> data, {
+    List<String> imagePaths = const [],
+    List<String> documentPaths = const [],
+    List<String> documentTitles = const [],
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/lands');
+    try {
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+      data.forEach((key, value) {
+        if (value != null) request.fields[key] = value.toString();
+      });
+      for (final path in imagePaths) {
+        if (path.isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath('land_images[]', path));
+        }
+      }
+      for (var i = 0; i < documentPaths.length; i++) {
+        final path = documentPaths[i];
+        final title = i < documentTitles.length ? documentTitles[i] : '';
+        request.fields['land_documents[$i][title]'] = title;
+        if (path.isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath('land_document_files[$i]', path));
+        }
+      }
+      final streamed = await request.send();
+      final body = await streamed.stream.bytesToString();
+      final responseData = jsonDecode(body) as Map<String, dynamic>;
+      if (streamed.statusCode == 201 && responseData['success'] == true) return responseData;
+      return {'success': false, 'message': responseData['message'] ?? 'Failed to add land.', 'errors': responseData['errors']};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   static String? fileUrl(dynamic value) {
     if (value == null) return null;
     final path = value.toString().trim();

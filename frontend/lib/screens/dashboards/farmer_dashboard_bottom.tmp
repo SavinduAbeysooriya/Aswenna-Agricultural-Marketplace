@@ -1,0 +1,48 @@
+class _LandDocumentEdit {
+  final TextEditingController titleController;
+  String? filePath;
+
+  _LandDocumentEdit() : titleController = TextEditingController();
+
+  void dispose() => titleController.dispose();
+}
+
+class _InfoRow {
+  final String label;
+  final String value;
+
+  const _InfoRow(this.label, this.value);
+}
+
+class _VerificationDocumentItem {
+  final String title;
+  final String number;
+  final String path;
+  final String expiry;
+
+  const _VerificationDocumentItem({
+    required this.title,
+    this.number = '-',
+    this.path = '-',
+    this.expiry = '-',
+  });
+
+  bool get hasAnyData => number != '-' || path != '-' || expiry != '-';
+}
+
+class _FarmerCertificateEdit {
+  final TextEditingController titleController;
+  final String existingPath;
+  final String existingUrl;
+  String? filePath;
+
+  _FarmerCertificateEdit({
+    String title = '',
+    this.existingPath = '',
+    this.existingUrl = '',
+  }) : titleController = TextEditingController(text: title);
+
+  void dispose() {
+    titleController.dispose();
+  }
+}

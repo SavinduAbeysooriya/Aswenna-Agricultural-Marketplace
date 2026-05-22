@@ -8,6 +8,7 @@ import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
 import 'package:aswenna/screens/crop_picker_screen.dart';
+import 'package:aswenna/screens/cultivation_logs/cultivation_logs_screen.dart';
 import 'package:aswenna/services/api_service.dart';
 
 class FarmerDashboard extends StatefulWidget {
@@ -151,6 +152,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             _buildLandsTab(),
             _buildYieldsTab(),
             _buildWalletTab(),
+            const CultivationLogsScreen(),
           ],
         ),
       ),
@@ -892,6 +894,10 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         BottomNavigationBarItem(
           icon: Icon(Icons.wallet_rounded),
           label: 'Wallet',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.note_alt_rounded),
+          label: 'Logs',
         ),
       ],
       onTap: (index) {

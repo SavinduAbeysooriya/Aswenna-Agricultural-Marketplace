@@ -526,6 +526,115 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getCropGrowthStages() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/crop-growth-stages');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load growth stages.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCultivationLogs() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load logs.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> addCultivationLog(Map<String, dynamic> data) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 201 && responseData['success'] == true) return responseData;
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to add log.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateCultivationLog(int id, Map<String, dynamic> data) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs/$id');
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && responseData['success'] == true) return responseData;
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to update log.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteCultivationLog(int id) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs/$id');
+    try {
+      final response = await http.delete(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && responseData['success'] == true) return responseData;
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to delete log.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   /**
    * Register a new land parcel for the authenticated farmer.
    */

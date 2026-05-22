@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Crop;
+use App\Models\CropGrowthStage;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -407,6 +408,20 @@ class AdminWebController extends Controller
         }
 
         return view('admin.crops', [
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
+     * Show crop growth stages management.
+     */
+    public function cropGrowthStages(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        return view('admin.crop-growth-stages', [
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
     }

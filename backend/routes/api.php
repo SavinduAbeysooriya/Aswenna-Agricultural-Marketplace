@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\LandController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
@@ -17,6 +18,12 @@ Route::post('/forgot-password/send-otp', [AuthController::class, 'forgotPassword
 Route::post('/forgot-password/reset', [AuthController::class, 'forgotPasswordReset']);
 Route::middleware('auth:sanctum')->get('/farmer/profile', [AuthController::class, 'farmerProfile']);
 Route::middleware('auth:sanctum')->put('/farmer/profile', [AuthController::class, 'updateFarmerProfile']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/farmer/lands', [LandController::class, 'index']);
+    Route::post('/farmer/lands', [LandController::class, 'store']);
+    Route::get('/farmer/lands/{id}', [LandController::class, 'show']);
+});
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

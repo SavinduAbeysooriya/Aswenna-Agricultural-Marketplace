@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
+import 'package:aswenna/screens/crop_picker_screen.dart';
 import 'package:aswenna/services/api_service.dart';
 
 class FarmerDashboard extends StatefulWidget {
@@ -280,6 +281,90 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             ? Icons.cancel_rounded
             : Icons.hourglass_top_rounded;
 
+    Future<void> _openCropPicker() async {
+      final landId = int.tryParse(land['id']?.toString() ?? '');
+      if (landId == null) return;
+
+      final current = <int>{};
+      final crops = land['crops'];
+      if (crops is List) {
+        for (final item in crops) {
+          if (item is Map) {
+            final map = Map<String, dynamic>.from(item);
+            final cropId = int.tryParse(map['crop_id']?.toString() ?? '');
+            if (cropId != null) current.add(cropId);
+          }
+        }
+      }
+
+      final selected = await Navigator.of(context).push<Set<int>>(
+        MaterialPageRoute(
+          builder: (_) => CropPickerScreen(
+            initialSelectedIds: current,
+            title: 'Select Land Crops',
+          ),
+        ),
+      );
+
+      if (!mounted || selected == null) return;
+
+      final keepImages = <String>[];
+      final landImages = land['land_images'];
+      if (landImages is List) {
+        for (final item in landImages) {
+          final path = item?.toString().trim() ?? '';
+          if (path.isNotEmpty) keepImages.add(path);
+        }
+      }
+
+      final keepDocs = <Map<String, dynamic>>[];
+      final landDocs = land['land_documents'];
+      if (landDocs is List) {
+        for (final item in landDocs) {
+          if (item is Map) {
+            final map = Map<String, dynamic>.from(item);
+            final path = (map['path'] ?? '').toString().trim();
+            if (path.isEmpty) continue;
+            keepDocs.add({
+              'title': (map['title'] ?? '').toString(),
+              'path': path,
+            });
+          }
+        }
+      }
+
+      final payload = <String, dynamic>{
+        'size': land['size'],
+        'ownership_type': land['ownership_type'],
+        'registration_number': land['registration_number'],
+        'latitude': land['latitude'],
+        'longitude': land['longitude'],
+        'notes': land['notes'],
+      };
+
+      final result = await ApiService.updateFarmerLand(
+        landId,
+        payload,
+        keepImagePaths: keepImages,
+        keepDocuments: keepDocs,
+        cropIds: selected.toList(),
+      );
+
+      if (!mounted) return;
+      if (result['success'] == true) {
+        _loadLands();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Land crops updated. Status set to Pending for approval.'),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Failed to update land crops.')),
+        );
+      }
+    }
+
     return InkWell(
       onTap: () async {
         final landId = int.tryParse(land['id']?.toString() ?? '');
@@ -371,6 +456,12 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                 ),
               ),
               const SizedBox(width: 6),
+              IconButton(
+                tooltip: 'Crops',
+                onPressed: _openCropPicker,
+                icon: const Icon(Icons.grass_outlined, size: 18, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(width: 2),
               IconButton(
                 tooltip: 'Edit',
                 onPressed: () async {
@@ -2663,7 +2754,9 @@ class _AddLandScreenState extends State<AddLandScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  doc.filePath != null ? doc.filePath!.split('/').last.split('\\').last : 'No file selected',
+                  doc.filePath != null
+                      ? doc.filePath!.split('/').last.split('\\').last
+                      : 'No file selected',
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                 ),
@@ -3577,6 +3670,7 @@ class _EditLandScreenState extends State<EditLandScreen> {
                       prefixIcon: Icon(Icons.notes_rounded, color: AppTheme.deepLeafGreen),
                     ),
                   ),
+
                   const Divider(height: 24),
                   Row(
                     children: [

@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LandController;
+use App\Http\Controllers\Api\CropController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
@@ -20,6 +21,7 @@ Route::middleware('auth:sanctum')->get('/farmer/profile', [AuthController::class
 Route::middleware('auth:sanctum')->put('/farmer/profile', [AuthController::class, 'updateFarmerProfile']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/crops', [CropController::class, 'index']);
     Route::get('/farmer/lands', [LandController::class, 'index']);
     Route::post('/farmer/lands', [LandController::class, 'store']);
     Route::get('/farmer/lands/{id}', [LandController::class, 'show']);

@@ -280,25 +280,45 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             ? Icons.cancel_rounded
             : Icons.hourglass_top_rounded;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepLeafGreen.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return InkWell(
+      onTap: () async {
+        final landId = int.tryParse(land['id']?.toString() ?? '');
+        if (landId == null) return;
+        final updated = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => EditLandScreen(landId: landId, land: land),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
+        );
+        if (updated == true) {
+          _loadLands();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Land updated. Status set to Pending for approval.'),
+            ),
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.pureWhite,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.deepLeafGreen.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -350,6 +370,29 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                   ],
                 ),
               ),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: 'Edit',
+                onPressed: () async {
+                  final landId = int.tryParse(land['id']?.toString() ?? '');
+                  if (landId == null) return;
+                  final updated = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => EditLandScreen(landId: landId, land: land),
+                    ),
+                  );
+                  if (updated == true) {
+                    _loadLands();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Land updated. Status set to Pending for approval.'),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF64748B)),
+              ),
             ],
           ),
           if (land['latitude'] != null && land['longitude'] != null) ...[
@@ -377,7 +420,8 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
           ],
         ],
       ),
-    );
+    ),
+  );
   }
 
   String _ownershipLabel(dynamic type) {
@@ -3113,5 +3157,754 @@ class _FarmerCertificateEdit {
 
   void dispose() {
     titleController.dispose();
+  }
+}
+
+class EditLandScreen extends StatefulWidget {
+  final int landId;
+  final Map<String, dynamic> land;
+
+  const EditLandScreen({
+    super.key,
+    required this.landId,
+    required this.land,
+  });
+
+  @override
+  State<EditLandScreen> createState() => _EditLandScreenState();
+}
+
+class _EditLandScreenState extends State<EditLandScreen> {
+  static const LatLng _defaultLocation = LatLng(7.8731, 80.7718);
+
+  final _formKey = GlobalKey<FormState>();
+  final _sizeController = TextEditingController();
+  final _regNumberController = TextEditingController();
+  final _notesController = TextEditingController();
+  final _latController = TextEditingController();
+  final _lngController = TextEditingController();
+  final List<String> _existingImagePaths = [];
+  final List<String> _newImagePaths = [];
+  final List<Map<String, dynamic>> _existingDocuments = [];
+  final List<_LandDocumentEdit> _newDocuments = [];
+
+  String _ownershipType = 'owned';
+  LatLng _selectedLocation = _defaultLocation;
+  bool _hasPinnedLocation = false;
+  bool _isSaving = false;
+  bool _isLocating = false;
+  String _errorMessage = '';
+  GoogleMapController? _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _sizeController.text = (widget.land['size'] ?? '').toString();
+    _regNumberController.text =
+        (widget.land['registration_number'] ?? '').toString();
+    _notesController.text = (widget.land['notes'] ?? '').toString();
+
+    final ownership = (widget.land['ownership_type'] ?? '').toString();
+    if (['owned', 'license', 'lease', 'government', 'other'].contains(ownership)) {
+      _ownershipType = ownership;
+    }
+
+    final lat = double.tryParse((widget.land['latitude'] ?? '').toString());
+    final lng = double.tryParse((widget.land['longitude'] ?? '').toString());
+    if (lat != null && lng != null) {
+      _selectedLocation = LatLng(lat, lng);
+      _hasPinnedLocation = true;
+    }
+
+    final landImages = widget.land['land_images'];
+    if (landImages is List) {
+      for (final item in landImages) {
+        final path = item?.toString().trim() ?? '';
+        if (path.isNotEmpty) _existingImagePaths.add(path);
+      }
+    }
+
+    final landDocs = widget.land['land_documents'];
+    if (landDocs is List) {
+      for (final item in landDocs) {
+        if (item is Map) {
+          final map = Map<String, dynamic>.from(item);
+          final path = (map['path'] ?? '').toString().trim();
+          if (path.isEmpty) continue;
+          _existingDocuments.add({
+            'title': (map['title'] ?? '').toString(),
+            'path': path,
+          });
+        }
+      }
+    }
+
+    _latController.text = _selectedLocation.latitude.toStringAsFixed(6);
+    _lngController.text = _selectedLocation.longitude.toStringAsFixed(6);
+  }
+
+  @override
+  void dispose() {
+    _sizeController.dispose();
+    _regNumberController.dispose();
+    _notesController.dispose();
+    _latController.dispose();
+    _lngController.dispose();
+    _mapController?.dispose();
+    for (final doc in _newDocuments) {
+      doc.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() {
+      _isLocating = true;
+      _errorMessage = '';
+    });
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() => _errorMessage = 'Please enable location services.');
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        setState(() => _errorMessage = 'Location permission denied.');
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      _setLocation(LatLng(position.latitude, position.longitude));
+    } catch (e) {
+      setState(() => _errorMessage = 'Failed to fetch location: $e');
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
+  }
+
+  Future<void> _openLandLocationPicker() async {
+    final picked = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        builder: (context) => MapLocationPicker(
+          initialLocation: _hasPinnedLocation ? _selectedLocation : null,
+          title: 'Pick Land Location',
+        ),
+      ),
+    );
+
+    if (!mounted || picked == null) return;
+    _setLocation(picked);
+  }
+
+  void _setLocation(LatLng location) {
+    setState(() {
+      _selectedLocation = location;
+      _hasPinnedLocation = true;
+      _latController.text = location.latitude.toStringAsFixed(6);
+      _lngController.text = location.longitude.toStringAsFixed(6);
+    });
+    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(location, 15));
+  }
+
+  void _onManualLatLng(String _) {
+    final lat = double.tryParse(_latController.text.trim());
+    final lng = double.tryParse(_lngController.text.trim());
+    if (lat == null || lng == null) return;
+    _setLocation(LatLng(lat, lng));
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = '';
+    });
+
+    final data = <String, dynamic>{
+      'size': _sizeController.text.trim(),
+      'ownership_type': _ownershipType,
+      'registration_number': _regNumberController.text.trim().isEmpty
+          ? null
+          : _regNumberController.text.trim(),
+      'latitude': _hasPinnedLocation ? _selectedLocation.latitude : null,
+      'longitude': _hasPinnedLocation ? _selectedLocation.longitude : null,
+      'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+    };
+
+    final result = await ApiService.updateFarmerLand(
+      widget.landId,
+      data,
+      keepImagePaths: _existingImagePaths,
+      keepDocuments: _existingDocuments,
+      imagePaths: _newImagePaths,
+      documentPaths: _newDocuments.map((d) => d.filePath ?? '').toList(),
+      documentTitles: _newDocuments.map((d) => d.titleController.text.trim()).toList(),
+    );
+    if (!mounted) return;
+
+    setState(() => _isSaving = false);
+    if (result['success'] == true) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    setState(() {
+      _errorMessage = result['message'] ?? 'Failed to update land.';
+    });
+  }
+
+  Widget _buildNewDocumentRow(int index) {
+    final doc = _newDocuments[index];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: doc.titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Document Title',
+                    isDense: true,
+                    prefixIcon: Icon(Icons.label_outline),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => setState(() {
+                  _newDocuments.removeAt(index).dispose();
+                }),
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                doc.filePath != null ? Icons.check_circle : Icons.attach_file_rounded,
+                color: doc.filePath != null ? AppTheme.freshGreen : AppTheme.deepLeafGreen,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  doc.filePath != null ? doc.filePath!.split('/').last.split('\\').last : 'No file selected',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final result = await FilePicker.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+                    allowMultiple: false,
+                    withData: false,
+                  );
+                  final path = result?.files.single.path;
+                  if (path == null) return;
+                  setState(() => _newDocuments[index].filePath = path);
+                },
+                child: const Text('Choose'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _ownershipLabel(String type) {
+    const labels = {
+      'owned': 'Owned',
+      'license': 'Licensed',
+      'lease': 'Leased',
+      'government': 'Government',
+      'other': 'Other',
+    };
+    return labels[type] ?? type;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.softGray,
+      appBar: AppBar(title: const Text('Edit Land')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.accentGold.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.35)),
+              ),
+              child: const Text(
+                'Note: Any updates to land details will set the status back to Pending for approval.',
+                style: TextStyle(color: Color(0xFF475569), fontSize: 12, height: 1.3),
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (_errorMessage.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMessage,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppTheme.pureWhite,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.deepLeafGreen.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.terrain_rounded, color: AppTheme.deepLeafGreen),
+                      SizedBox(width: 10),
+                      Text(
+                        'Land Details',
+                        style: TextStyle(
+                          color: AppTheme.darkGreen,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _sizeController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Size is required.' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Size (Perches)',
+                      isDense: true,
+                      prefixIcon: Icon(Icons.straighten_rounded, color: AppTheme.deepLeafGreen),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Ownership Type',
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final type in ['owned', 'license', 'lease', 'government', 'other'])
+                        ChoiceChip(
+                          label: Text(_ownershipLabel(type)),
+                          selected: _ownershipType == type,
+                          selectedColor: AppTheme.lightMint,
+                          labelStyle: TextStyle(
+                            color: _ownershipType == type
+                                ? AppTheme.deepLeafGreen
+                                : const Color(0xFF64748B),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                          onSelected: (_) => setState(() => _ownershipType = type),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _regNumberController,
+                    decoration: const InputDecoration(
+                      labelText: 'Registration Number (optional)',
+                      isDense: true,
+                      prefixIcon: Icon(Icons.numbers_rounded, color: AppTheme.deepLeafGreen),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _notesController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (optional)',
+                      isDense: true,
+                      prefixIcon: Icon(Icons.notes_rounded, color: AppTheme.deepLeafGreen),
+                    ),
+                  ),
+                  const Divider(height: 24),
+                  Row(
+                    children: [
+                      const Icon(Icons.image_outlined, color: AppTheme.deepLeafGreen, size: 18),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Land Images',
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () async {
+                          final result = await FilePicker.pickFiles(
+                            type: FileType.image,
+                            allowMultiple: true,
+                            withData: false,
+                          );
+                          if (result == null) return;
+                          setState(() {
+                            for (final f in result.files) {
+                              if (f.path != null) _newImagePaths.add(f.path!);
+                            }
+                          });
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                  if (_existingImagePaths.isNotEmpty || _newImagePaths.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        for (var i = 0; i < _existingImagePaths.length; i++)
+                          Stack(
+                            children: [
+                              Container(
+                                height: 56,
+                                width: 56,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  color: const Color(0xFFF1F5F9),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: const Icon(Icons.image_outlined, color: Color(0xFF64748B)),
+                              ),
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _existingImagePaths.removeAt(i)),
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close, color: Colors.white, size: 16),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        for (var i = 0; i < _newImagePaths.length; i++)
+                          Stack(
+                            children: [
+                              Container(
+                                height: 56,
+                                width: 56,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  color: const Color(0xFFF1F5F9),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: const Icon(Icons.image_outlined, color: Color(0xFF64748B)),
+                              ),
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _newImagePaths.removeAt(i)),
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close, color: Colors.white, size: 16),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ] else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'No images selected',
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                      ),
+                    ),
+                  const Divider(height: 24),
+                  Row(
+                    children: [
+                      const Icon(Icons.description_outlined, color: AppTheme.deepLeafGreen, size: 18),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Land Documents',
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => setState(() => _newDocuments.add(_LandDocumentEdit())),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                  for (var i = 0; i < _existingDocuments.length; i++)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: (_existingDocuments[i]['title'] ?? '').toString(),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Document Title',
+                                    isDense: true,
+                                    prefixIcon: Icon(Icons.label_outline),
+                                  ),
+                                  onChanged: (v) =>
+                                      _existingDocuments[i]['title'] = v.trim(),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => setState(() => _existingDocuments.removeAt(i)),
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.attach_file_rounded, color: AppTheme.deepLeafGreen, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  (_existingDocuments[i]['path'] ?? '').toString().split('/').last,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  for (var i = 0; i < _newDocuments.length; i++)
+                    _buildNewDocumentRow(i),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppTheme.pureWhite,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.deepLeafGreen.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.map_outlined, color: AppTheme.deepLeafGreen),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Land Location',
+                          style: TextStyle(
+                            color: AppTheme.darkGreen,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _openLandLocationPicker,
+                        icon: const Icon(Icons.search_rounded, size: 18),
+                        label: const Text('Pick/Search'),
+                      ),
+                      TextButton.icon(
+                        onPressed: _isLocating ? null : _useCurrentLocation,
+                        icon: _isLocating
+                            ? const SizedBox(
+                                height: 14,
+                                width: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.my_location_rounded, size: 18),
+                        label: const Text('Current'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                      height: 240,
+                      child: GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: _selectedLocation,
+                          zoom: _hasPinnedLocation ? 15 : 7,
+                        ),
+                        onMapCreated: (c) => _mapController = c,
+                        onTap: _setLocation,
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId('land_location'),
+                            position: _selectedLocation,
+                            draggable: true,
+                            onDragEnd: _setLocation,
+                          ),
+                        },
+                        myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _latController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                            signed: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Latitude',
+                            isDense: true,
+                            contentPadding:
+                                EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          ),
+                          onChanged: _onManualLatLng,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _lngController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                            signed: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Longitude',
+                            isDense: true,
+                            contentPadding:
+                                EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          ),
+                          onChanged: _onManualLatLng,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _hasPinnedLocation
+                        ? 'Pinned: ${_selectedLocation.latitude.toStringAsFixed(6)}, ${_selectedLocation.longitude.toStringAsFixed(6)}'
+                        : 'Tap the map, use Pick/Search, or enter coordinates.',
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSaving ? null : _submit,
+                icon: _isSaving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.deepLeafGreen,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

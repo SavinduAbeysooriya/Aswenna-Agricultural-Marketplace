@@ -23,6 +23,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/farmer/lands', [LandController::class, 'index']);
     Route::post('/farmer/lands', [LandController::class, 'store']);
     Route::get('/farmer/lands/{id}', [LandController::class, 'show']);
+    Route::put('/farmer/lands/{id}', [LandController::class, 'update']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

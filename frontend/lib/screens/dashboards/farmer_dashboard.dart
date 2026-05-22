@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/services/api_service.dart';
@@ -695,6 +697,52 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   List<dynamic> get _documents =>
       List<dynamic>.from(_profile?['documents'] ?? const []);
 
+  List<_VerificationDocumentItem> get _verificationDocuments {
+    final items = <_VerificationDocumentItem>[
+      _VerificationDocumentItem(
+        title: 'Farming License',
+        number: _text(_farmerData['farming_license_number']),
+        path: _text(
+          _farmerData['farming_license_url'] ??
+              _farmerData['farming_license_path'],
+        ),
+      ),
+      _VerificationDocumentItem(
+        title: 'Organic Certificate',
+        number: _text(_farmerData['organic_certificate_number']),
+        path: _text(
+          _farmerData['organic_certificate_url'] ??
+              _farmerData['organic_certificate_path'],
+        ),
+        expiry: _text(_farmerData['organic_certificate_expiry']),
+      ),
+      _VerificationDocumentItem(
+        title: 'GAP Certificate',
+        number: _text(_farmerData['gap_certificate_number']),
+        path: _text(
+          _farmerData['gap_certificate_url'] ??
+              _farmerData['gap_certificate_path'],
+        ),
+        expiry: _text(_farmerData['gap_certificate_expiry']),
+      ),
+    ];
+
+    final otherCertificates = _farmerData['other_certificates'];
+    if (otherCertificates is List) {
+      for (final certificate in otherCertificates) {
+        final item = Map<String, dynamic>.from(certificate);
+        items.add(
+          _VerificationDocumentItem(
+            title: _text(item['title'], fallback: 'Other Certificate'),
+            path: _text(item['url'] ?? item['path']),
+          ),
+        );
+      }
+    }
+
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -760,6 +808,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               title: 'Farmer Verification',
               icon: Icons.verified_user_outlined,
               rows: [
+                _InfoRow('Record ID', _text(_farmerData['id'])),
                 _InfoRow(
                   'License No',
                   _text(_farmerData['farming_license_number']),
@@ -781,6 +830,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                   _text(_farmerData['gap_certificate_expiry']),
                 ),
                 _InfoRow('Total Lands', _text(_farmerData['total_lands'])),
+                _InfoRow('Created', _text(_farmerData['created_at'])),
+                _InfoRow('Updated', _text(_farmerData['updated_at'])),
               ],
             ),
             const SizedBox(height: 16),
@@ -1043,6 +1094,10 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   }
 
   Widget _buildDocumentsCard() {
+    final verificationDocuments = _verificationDocuments
+        .where((document) => document.hasAnyData)
+        .toList();
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1074,14 +1129,72 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             ],
           ),
           const SizedBox(height: 14),
+          if (verificationDocuments.isNotEmpty) ...[
+            for (final document in verificationDocuments)
+              _buildFarmerDocumentRow(document),
+            if (_documents.isNotEmpty) const SizedBox(height: 8),
+          ],
           if (_documents.isEmpty)
             const Text(
-              'No verification documents uploaded yet.',
+              'No general verification documents uploaded yet.',
               style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
             )
           else
             for (final item in _documents)
               _buildDocumentRow(Map<String, dynamic>.from(item)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFarmerDocumentRow(_VerificationDocumentItem document) {
+    final canOpen = document.path != '-';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.assignment_turned_in_outlined,
+            color: AppTheme.darkGreen,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  document.title,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  [
+                    if (document.number != '-') document.number,
+                    if (document.expiry != '-') 'Expires ${document.expiry}',
+                    if (!canOpen) 'No file uploaded',
+                  ].join(' - '),
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'View document',
+            onPressed: canOpen ? () => _openDocument(document.path) : null,
+            icon: const Icon(Icons.visibility_outlined),
+          ),
         ],
       ),
     );
@@ -1125,9 +1238,31 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'View front',
+            onPressed: () => _openDocument(
+              document['front_image_url'] ?? document['front_image_path'],
+            ),
+            icon: const Icon(Icons.visibility_outlined),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _openDocument(dynamic pathOrUrl) async {
+    final url = ApiService.fileUrl(pathOrUrl);
+    if (url == null) return;
+
+    final launched = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open this document.')),
+      );
+    }
   }
 
   Widget _buildProfileRow(String label, String value) {
@@ -1237,6 +1372,10 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
 
   GoogleMapController? _mapController;
   LatLng _selectedLocation = _defaultLocation;
+  String? _licenseFilePath;
+  String? _organicFilePath;
+  String? _gapFilePath;
+  final List<_FarmerCertificateEdit> _otherCertificateEdits = [];
   bool _hasPinnedLocation = false;
   bool _isSaving = false;
   bool _isLocating = false;
@@ -1272,6 +1411,9 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
     _gapNumberController.dispose();
     _gapExpiryController.dispose();
     _totalLandsController.dispose();
+    for (final certificate in _otherCertificateEdits) {
+      certificate.dispose();
+    }
     super.dispose();
   }
 
@@ -1298,6 +1440,19 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
       _farmerData['total_lands'],
       fallback: '0',
     );
+    final otherCertificates = _farmerData['other_certificates'];
+    if (otherCertificates is List) {
+      for (final certificate in otherCertificates) {
+        final item = Map<String, dynamic>.from(certificate);
+        _otherCertificateEdits.add(
+          _FarmerCertificateEdit(
+            title: _value(item['title']),
+            existingPath: _value(item['path'], fallback: ''),
+            existingUrl: _value(item['url'], fallback: ''),
+          ),
+        );
+      }
+    }
 
     final lat = double.tryParse(_value(_user['latitude']));
     final lng = double.tryParse(_value(_user['longitude']));
@@ -1417,6 +1572,8 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _buildVerificationUploadsCard(),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: _isSaving ? null : _saveProfile,
@@ -1437,6 +1594,168 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildVerificationUploadsCard() {
+    return _buildEditorCard(
+      title: 'Verification Uploads',
+      icon: Icons.upload_file_outlined,
+      children: [
+        _buildDocumentUploadTile(
+          title: 'Farming License File',
+          existingPath: _farmerData['farming_license_path'],
+          existingUrl: _farmerData['farming_license_url'],
+          selectedPath: _licenseFilePath,
+          onPick: () => _pickDocument((path) => _licenseFilePath = path),
+          onClear: () => setState(() => _licenseFilePath = null),
+        ),
+        _buildDocumentUploadTile(
+          title: 'Organic Certificate File',
+          existingPath: _farmerData['organic_certificate_path'],
+          existingUrl: _farmerData['organic_certificate_url'],
+          selectedPath: _organicFilePath,
+          onPick: () => _pickDocument((path) => _organicFilePath = path),
+          onClear: () => setState(() => _organicFilePath = null),
+        ),
+        _buildDocumentUploadTile(
+          title: 'GAP Certificate File',
+          existingPath: _farmerData['gap_certificate_path'],
+          existingUrl: _farmerData['gap_certificate_url'],
+          selectedPath: _gapFilePath,
+          onPick: () => _pickDocument((path) => _gapFilePath = path),
+          onClear: () => setState(() => _gapFilePath = null),
+        ),
+        const SizedBox(height: 6),
+        for (var index = 0; index < _otherCertificateEdits.length; index++)
+          _buildOtherCertificateEditor(index),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _addOtherCertificate,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add Other Certificate'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOtherCertificateEditor(int index) {
+    final certificate = _otherCertificateEdits[index];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(
+                  certificate.titleController,
+                  'Certificate Title',
+                  Icons.label_outline,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Remove',
+                onPressed: () => _removeOtherCertificate(index),
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+              ),
+            ],
+          ),
+          _buildDocumentUploadTile(
+            title: 'Certificate File',
+            existingPath: certificate.existingPath,
+            existingUrl: certificate.existingUrl,
+            selectedPath: certificate.filePath,
+            onPick: () => _pickDocument((path) => certificate.filePath = path),
+            onClear: () => setState(() => certificate.filePath = null),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentUploadTile({
+    required String title,
+    required dynamic existingPath,
+    required dynamic existingUrl,
+    required String? selectedPath,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+  }) {
+    final existing = _value(existingUrl, fallback: _value(existingPath));
+    final hasExisting = existing.isNotEmpty;
+    final hasSelected = selectedPath != null && selectedPath.isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasSelected ? Icons.check_circle : Icons.description_outlined,
+            color: hasSelected ? AppTheme.freshGreen : AppTheme.deepLeafGreen,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  hasSelected
+                      ? _fileName(selectedPath)
+                      : hasExisting
+                      ? _fileName(existing)
+                      : 'No file selected',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Choose file',
+            onPressed: onPick,
+            icon: const Icon(Icons.attach_file_rounded),
+          ),
+          if (hasSelected)
+            IconButton(
+              tooltip: 'Clear selection',
+              onPressed: onClear,
+              icon: const Icon(Icons.close_rounded),
+            )
+          else
+            IconButton(
+              tooltip: 'View existing',
+              onPressed: hasExisting ? () => _openDocument(existing) : null,
+              icon: const Icon(Icons.visibility_outlined),
+            ),
+        ],
       ),
     );
   }
@@ -1620,6 +1939,48 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
     );
   }
 
+  Future<void> _pickDocument(void Function(String path) onSelected) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+      allowMultiple: false,
+      withData: false,
+    );
+
+    final path = result?.files.single.path;
+    if (path == null || path.isEmpty) return;
+
+    setState(() => onSelected(path));
+  }
+
+  void _addOtherCertificate() {
+    setState(() {
+      _otherCertificateEdits.add(_FarmerCertificateEdit());
+    });
+  }
+
+  void _removeOtherCertificate(int index) {
+    setState(() {
+      final certificate = _otherCertificateEdits.removeAt(index);
+      certificate.dispose();
+    });
+  }
+
+  Future<void> _openDocument(dynamic pathOrUrl) async {
+    final url = ApiService.fileUrl(pathOrUrl);
+    if (url == null) return;
+
+    final launched = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open this document.')),
+      );
+    }
+  }
+
   Future<void> _useCurrentLocation() async {
     setState(() {
       _isLocating = true;
@@ -1702,7 +2063,31 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
       'total_lands': int.tryParse(_totalLandsController.text.trim()) ?? 0,
     };
 
-    final result = await ApiService.updateFarmerProfile(data);
+    final otherCertificates = _otherCertificateEdits
+        .map(
+          (certificate) => {
+            'title': _emptyToNull(certificate.titleController.text),
+            'existing_path': _emptyToNull(certificate.existingPath),
+            'file_path': certificate.filePath,
+          },
+        )
+        .where(
+          (certificate) =>
+              certificate['title'] != null ||
+              certificate['existing_path'] != null ||
+              certificate['file_path'] != null,
+        )
+        .toList();
+
+    final result = await ApiService.updateFarmerProfile(
+      data,
+      files: {
+        'farming_license_file': _licenseFilePath,
+        'organic_certificate_file': _organicFilePath,
+        'gap_certificate_file': _gapFilePath,
+      },
+      otherCertificates: otherCertificates,
+    );
     if (!mounted) return;
 
     setState(() => _isSaving = false);
@@ -1726,6 +2111,12 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
     final text = value.trim();
     return text.isEmpty ? null : text;
   }
+
+  String _fileName(String? path) {
+    if (path == null || path.isEmpty) return 'Selected file';
+    final normalized = path.replaceAll('\\', '/');
+    return normalized.split('/').last;
+  }
 }
 
 class _InfoRow {
@@ -1733,4 +2124,37 @@ class _InfoRow {
   final String value;
 
   const _InfoRow(this.label, this.value);
+}
+
+class _VerificationDocumentItem {
+  final String title;
+  final String number;
+  final String path;
+  final String expiry;
+
+  const _VerificationDocumentItem({
+    required this.title,
+    this.number = '-',
+    this.path = '-',
+    this.expiry = '-',
+  });
+
+  bool get hasAnyData => number != '-' || path != '-' || expiry != '-';
+}
+
+class _FarmerCertificateEdit {
+  final TextEditingController titleController;
+  final String existingPath;
+  final String existingUrl;
+  String? filePath;
+
+  _FarmerCertificateEdit({
+    String title = '',
+    this.existingPath = '',
+    this.existingUrl = '',
+  }) : titleController = TextEditingController(text: title);
+
+  void dispose() {
+    titleController.dispose();
+  }
 }

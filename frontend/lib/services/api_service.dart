@@ -546,6 +546,77 @@ class ApiService {
     }
   }
 
+  /**
+   * Update an existing land parcel. Any update sets land status back to "pending" for approval.
+   */
+  static Future<Map<String, dynamic>> updateFarmerLand(
+    int landId,
+    Map<String, dynamic> data, {
+    List<String> imagePaths = const [],
+    List<String> documentPaths = const [],
+    List<String> documentTitles = const [],
+    List<String> keepImagePaths = const [],
+    List<Map<String, dynamic>> keepDocuments = const [],
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/lands/$landId');
+    try {
+      // Use POST + _method=PUT so multipart form fields are parsed reliably on PHP/Laravel.
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      request.fields['_method'] = 'PUT';
+
+      data.forEach((key, value) {
+        if (value != null) request.fields[key] = value.toString();
+      });
+
+      for (var i = 0; i < keepImagePaths.length; i++) {
+        final path = keepImagePaths[i].toString();
+        if (path.isNotEmpty) request.fields['keep_land_images[$i]'] = path;
+      }
+      for (var i = 0; i < keepDocuments.length; i++) {
+        final doc = keepDocuments[i];
+        final title = (doc['title'] ?? '').toString();
+        final path = (doc['path'] ?? '').toString();
+        if (path.isEmpty) continue;
+        request.fields['keep_land_documents[$i][title]'] = title;
+        request.fields['keep_land_documents[$i][path]'] = path;
+      }
+
+      for (final path in imagePaths) {
+        if (path.isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath('land_images[]', path));
+        }
+      }
+
+      for (var i = 0; i < documentPaths.length; i++) {
+        final path = documentPaths[i];
+        final title = i < documentTitles.length ? documentTitles[i] : '';
+        request.fields['land_documents[$i][title]'] = title;
+        if (path.isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath('land_document_files[$i]', path));
+        }
+      }
+
+      final streamed = await request.send();
+      final body = await streamed.stream.bytesToString();
+      final responseData = jsonDecode(body) as Map<String, dynamic>;
+      if (streamed.statusCode == 200 && responseData['success'] == true) return responseData;
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to update land.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   static String? fileUrl(dynamic value) {
     if (value == null) return null;
     final path = value.toString().trim();

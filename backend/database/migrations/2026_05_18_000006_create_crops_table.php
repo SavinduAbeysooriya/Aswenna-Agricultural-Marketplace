@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('cropname');
             $table->string('image_path')->nullable();
+            $table->enum('status', ['pending', 'rejected', 'approved'])->default('pending')->index();
+            $table->foreignId('added_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
     }

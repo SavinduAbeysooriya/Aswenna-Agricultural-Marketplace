@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Crop;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -387,6 +388,31 @@ class AdminWebController extends Controller
      */
     public function dashboard(Request $request)
     {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        return view('admin.dashboard', [
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
+     * Show crop varieties management and approval queue.
+     */
+    public function crops(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        return view('admin.crops', [
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    private function ensureAdminSession(Request $request)
+    {
         // Reconstruct admin_session if the user was remembered via cookie but session expired
         if (!$request->session()->has('admin_session') && \Illuminate\Support\Facades\Auth::check()) {
             $user = \Illuminate\Support\Facades\Auth::user();
@@ -404,7 +430,7 @@ class AdminWebController extends Controller
             ]);
         }
 
-        return view('admin.dashboard');
+        return null;
     }
 
     /**

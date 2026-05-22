@@ -16,7 +16,7 @@
         <div class="space-y-0.5">
             <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-3 block mb-2">Market Oversight</span>
             
-            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs transition-all shadow-sm">
+            <a href="{{ route('admin.dashboard') }}" class="group flex items-center space-x-3 px-3 py-2 rounded-xl {{ request()->routeIs('admin.dashboard') ? 'bg-emerald-50 text-emerald-700 font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold' }} text-xs transition-all">
                 <div class="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-inner group-hover:scale-105 transition-transform">
                     <i class="fa-solid fa-chart-pie text-xs"></i>
                 </div>
@@ -30,12 +30,14 @@
                 <span>User Management</span>
             </a>
             
-            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
-                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
+            <a href="{{ route('admin.crops') }}" class="group flex items-center space-x-3 px-3 py-2 rounded-xl {{ request()->routeIs('admin.crops*') ? 'bg-emerald-50 text-emerald-700 font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold' }} text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg {{ request()->routeIs('admin.crops*') ? 'bg-emerald-100 text-emerald-600 shadow-inner' : 'bg-transparent group-hover:bg-white text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm' }} flex items-center justify-center transition-all">
                     <i class="fa-solid fa-seedling text-xs"></i>
                 </div>
-                <span>Plantation Approvals</span>
-                <span class="ml-auto w-5 h-5 bg-amber-100 text-amber-700 font-bold text-[10px] rounded-full flex items-center justify-center shadow-inner">4</span>
+                <span>Crop Varieties</span>
+                @if (($pendingCropCount ?? 0) > 0)
+                    <span class="ml-auto min-w-5 h-5 px-1 bg-amber-100 text-amber-700 font-bold text-[10px] rounded-full flex items-center justify-center shadow-inner">{{ $pendingCropCount }}</span>
+                @endif
             </a>
         </div>
 

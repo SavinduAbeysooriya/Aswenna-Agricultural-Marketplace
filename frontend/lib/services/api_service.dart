@@ -6,6 +6,7 @@ class ApiService {
   // Use http://10.0.2.2:8000/api for Android Emulator to access local host
   // Use http://127.0.0.1:8000/api for iOS Simulator / Web / Desktop
   static const String baseUrl = 'http://10.0.2.2:8000/api';
+  static const String appUrl = 'http://10.0.2.2:8000';
 
   /**
    * Register a new user on the Laravel backend.
@@ -405,8 +406,10 @@ class ApiService {
    * Update the authenticated farmer's editable profile details.
    */
   static Future<Map<String, dynamic>> updateFarmerProfile(
-    Map<String, dynamic> data,
-  ) async {
+    Map<String, dynamic> data, {
+    Map<String, String?> files = const {},
+    List<Map<String, String?>> otherCertificates = const [],
+  }) async {
     final token = await getToken();
     if (token == null) {
       return {
@@ -417,18 +420,49 @@ class ApiService {
 
     final url = Uri.parse('$baseUrl/farmer/profile');
     try {
-      final response = await http.put(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(data),
-      );
+        })
+        ..fields['_method'] = 'PUT';
 
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
-      if (response.statusCode == 200 && responseData['success'] == true) {
+      data.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      for (final entry in files.entries) {
+        final path = entry.value;
+        if (path != null && path.trim().isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath(entry.key, path));
+        }
+      }
+
+      for (var index = 0; index < otherCertificates.length; index++) {
+        final certificate = otherCertificates[index];
+        request.fields['other_certificates[$index][title]'] =
+            certificate['title'] ?? '';
+        request.fields['other_certificates[$index][existing_path]'] =
+            certificate['existing_path'] ?? '';
+
+        final filePath = certificate['file_path'];
+        if (filePath != null && filePath.trim().isNotEmpty) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'other_certificate_files[$index]',
+              filePath,
+            ),
+          );
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      final Map<String, dynamic> responseData = jsonDecode(responseBody);
+      if (streamedResponse.statusCode == 200 &&
+          responseData['success'] == true) {
         return responseData;
       }
 
@@ -445,6 +479,23 @@ class ApiService {
         'error': e.toString(),
       };
     }
+  }
+
+  static String? fileUrl(dynamic value) {
+    if (value == null) return null;
+    final path = value.toString().trim();
+    if (path.isEmpty) return null;
+    if (path.startsWith('http://localhost:8000')) {
+      return path.replaceFirst('http://localhost:8000', appUrl);
+    }
+    if (path.startsWith('http://127.0.0.1:8000')) {
+      return path.replaceFirst('http://127.0.0.1:8000', appUrl);
+    }
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    if (path.startsWith('/')) return '$appUrl$path';
+    return '$appUrl/storage/$path';
   }
 
   // --- Session Management Helpers ---

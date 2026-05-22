@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Exception;
 
 class AuthController extends Controller
@@ -842,10 +843,32 @@ class AuthController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
+        if ($farmerVerification) {
+            $farmerVerification->farming_license_url = $this->publicFileUrl($farmerVerification->farming_license_path);
+            $farmerVerification->organic_certificate_url = $this->publicFileUrl($farmerVerification->organic_certificate_path);
+            $farmerVerification->gap_certificate_url = $this->publicFileUrl($farmerVerification->gap_certificate_path);
+            $otherCertificates = json_decode($farmerVerification->other_certificates_titles_and_paths ?? '[]', true) ?: [];
+            $farmerVerification->other_certificates = collect($otherCertificates)
+                ->map(function ($certificate) {
+                    $path = $certificate['path'] ?? null;
+                    return [
+                        'title' => $certificate['title'] ?? null,
+                        'path' => $path,
+                        'url' => $this->publicFileUrl($path),
+                    ];
+                })
+                ->values();
+        }
+
         $documents = DB::table('user_verification_documents')
             ->where('user_id', $user->id)
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(function ($document) {
+                $document->front_image_url = $this->publicFileUrl($document->front_image_path);
+                $document->back_image_url = $this->publicFileUrl($document->back_image_path);
+                return $document;
+            });
 
         return response()->json([
             'success' => true,
@@ -897,6 +920,14 @@ class AuthController extends Controller
             'gap_certificate_number' => 'nullable|string|max:255',
             'gap_certificate_expiry' => 'nullable|date',
             'total_lands' => 'nullable|integer|min:0',
+            'farming_license_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'organic_certificate_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'gap_certificate_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'other_certificates' => 'nullable|array',
+            'other_certificates.*.title' => 'nullable|string|max:255',
+            'other_certificates.*.existing_path' => 'nullable|string|max:500',
+            'other_certificate_files' => 'nullable|array',
+            'other_certificate_files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
         if ($validator->fails()) {
@@ -924,14 +955,42 @@ class AuthController extends Controller
                 'longitude' => $request->longitude,
             ]);
 
+            $existingVerification = DB::table('farmer_verification_data')
+                ->where('user_id', $user->id)
+                ->first();
+
+            $farmingLicensePath = $this->storeOptionalFarmerFile(
+                $request,
+                'farming_license_file',
+                $user->id,
+                $existingVerification->farming_license_path ?? null
+            );
+            $organicCertificatePath = $this->storeOptionalFarmerFile(
+                $request,
+                'organic_certificate_file',
+                $user->id,
+                $existingVerification->organic_certificate_path ?? null
+            );
+            $gapCertificatePath = $this->storeOptionalFarmerFile(
+                $request,
+                'gap_certificate_file',
+                $user->id,
+                $existingVerification->gap_certificate_path ?? null
+            );
+            $otherCertificates = $this->buildOtherCertificatesPayload($request, $user->id);
+
             DB::table('farmer_verification_data')->updateOrInsert(
                 ['user_id' => $user->id],
                 [
                     'farming_license_number' => $request->farming_license_number,
+                    'farming_license_path' => $farmingLicensePath,
                     'organic_certificate_number' => $request->organic_certificate_number,
+                    'organic_certificate_path' => $organicCertificatePath,
                     'organic_certificate_expiry' => $request->organic_certificate_expiry,
                     'gap_certificate_number' => $request->gap_certificate_number,
+                    'gap_certificate_path' => $gapCertificatePath,
                     'gap_certificate_expiry' => $request->gap_certificate_expiry,
+                    'other_certificates_titles_and_paths' => empty($otherCertificates) ? null : json_encode($otherCertificates),
                     'total_lands' => $request->total_lands ?? 0,
                     'updated_at' => now(),
                     'created_at' => now(),
@@ -949,5 +1008,49 @@ class AuthController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    private function storeOptionalFarmerFile(Request $request, string $field, int $userId, ?string $currentPath): ?string
+    {
+        if (!$request->hasFile($field)) {
+            return $currentPath;
+        }
+
+        return $request->file($field)->store('farmer-verifications/' . $userId, 'public');
+    }
+
+    private function buildOtherCertificatesPayload(Request $request, int $userId): array
+    {
+        $certificates = [];
+
+        foreach ($request->input('other_certificates', []) as $index => $certificate) {
+            $file = $request->file('other_certificate_files.' . $index);
+            $path = $file
+                ? $file->store('farmer-verifications/' . $userId, 'public')
+                : ($certificate['existing_path'] ?? null);
+            $title = trim($certificate['title'] ?? '');
+
+            if ($title !== '' || $path) {
+                $certificates[] = [
+                    'title' => $title,
+                    'path' => $path,
+                ];
+            }
+        }
+
+        return $certificates;
+    }
+
+    private function publicFileUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        return asset(Storage::disk('public')->url($path));
     }
 }

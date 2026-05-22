@@ -36,6 +36,7 @@ Route::post('/admin/reset-password', [AdminWebController::class, 'resetPasswordS
 
 // Secure Platform Oversight Dashboard Panel
 Route::get('/admin/dashboard', [AdminWebController::class, 'dashboard'])->name('admin.dashboard');
+Route::get('/admin/crops', [AdminWebController::class, 'crops'])->name('admin.crops');
 
 // CSRF Protected Secure Session Termination
 Route::post('/admin/logout', [AdminWebController::class, 'logout'])->name('admin.logout');

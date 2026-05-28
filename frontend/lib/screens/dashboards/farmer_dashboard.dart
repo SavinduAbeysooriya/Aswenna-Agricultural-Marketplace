@@ -10,6 +10,7 @@ import 'package:aswenna/screens/map_location_picker.dart';
 import 'package:aswenna/screens/crop_picker_screen.dart';
 import 'package:aswenna/screens/cultivation_logs/cultivation_logs_screen.dart';
 import 'package:aswenna/services/api_service.dart';
+import 'package:aswenna/screens/chatbot/chatbot_screen.dart';
 
 class FarmerDashboard extends StatefulWidget {
   const FarmerDashboard({super.key});
@@ -157,6 +158,14 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         ),
       ),
       bottomNavigationBar: _buildBottomNav(context),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+        ),
+        backgroundColor: AppTheme.deepLeafGreen,
+        tooltip: 'AI Agent',
+        child: const Icon(Icons.smart_toy_outlined, color: Colors.white),
+      ),
     );
   }
 

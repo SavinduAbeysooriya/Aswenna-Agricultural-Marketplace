@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\LandController;
 use App\Http\Controllers\Api\CropController;
 use App\Http\Controllers\Api\DailyCultivationLogController;
 use App\Http\Controllers\Api\CropGrowthStageController;
+use App\Http\Controllers\Api\ChatbotController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
@@ -34,6 +35,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/farmer/cultivation-logs', [DailyCultivationLogController::class, 'store']);
     Route::put('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'update']);
     Route::delete('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'destroy']);
+
+    Route::get('/farmer/chatbot', [ChatbotController::class, 'index']);
+    Route::post('/farmer/chatbot', [ChatbotController::class, 'store']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

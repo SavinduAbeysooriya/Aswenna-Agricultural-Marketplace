@@ -873,6 +873,41 @@ class ApiService {
     }
   }
 
+  // --- Chatbot ---
+
+  static Future<Map<String, dynamic>> saveChatSession({
+    required List<Map<String, dynamic>> messages,
+    String? chatTitle,
+    int? customerRating,
+    String? customerFeedback,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/chatbot');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'messages': messages,
+          if (chatTitle != null) 'chat_title': chatTitle,
+          if (customerRating != null) 'customer_rating': customerRating,
+          if (customerFeedback != null && customerFeedback.trim().isNotEmpty)
+            'customer_feedback': customerFeedback.trim(),
+        }),
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 201 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to save chat.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   /**
    * Resend login 2FA OTP.
    */

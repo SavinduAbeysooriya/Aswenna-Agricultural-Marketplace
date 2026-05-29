@@ -35,9 +35,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/farmer/cultivation-logs', [DailyCultivationLogController::class, 'store']);
     Route::put('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'update']);
     Route::delete('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'destroy']);
-
-    Route::get('/farmer/chatbot', [ChatbotController::class, 'index']);
-    Route::post('/farmer/chatbot', [ChatbotController::class, 'store']);
+    Route::post('/chat/send', [ChatbotController::class, 'sendMessage']);
+    Route::get('/chat/session/{session_id}', [ChatbotController::class, 'getSessionMessages']);
+    Route::post('/chat/session', [ChatbotController::class, 'createSession']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

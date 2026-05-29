@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Use http://10.0.2.2:8000/api for Android Emulator to access local host
   // Use http://127.0.0.1:8000/api for iOS Simulator / Web / Desktop
-  static const String baseUrl = 'http://10.0.2.2:8000/api';
-  static const String appUrl = 'http://10.0.2.2:8000';
+  static const String baseUrl = 'http://10.0.2.2:8001/api';
+  static const String appUrl = 'http://10.0.2.2:8001';
 
   /**
    * Register a new user on the Laravel backend.
@@ -875,15 +875,58 @@ class ApiService {
 
   // --- Chatbot ---
 
-  static Future<Map<String, dynamic>> saveChatSession({
-    required List<Map<String, dynamic>> messages,
-    String? chatTitle,
-    int? customerRating,
-    String? customerFeedback,
-  }) async {
+  static Future<Map<String, dynamic>> createChatSession() async {
     final token = await getToken();
     if (token == null) return {'success': false, 'message': 'Session expired.'};
-    final url = Uri.parse('$baseUrl/farmer/chatbot');
+    final url = Uri.parse('$baseUrl/chat/session');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 201 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to create session.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getChatSessionMessages(String sessionId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/chat/session/$sessionId');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'session_id': data['session_id'],
+          'messages': data['messages'],
+        };
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to fetch messages.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> sendChatMessage(String sessionId, String message) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/chat/send');
     try {
       final response = await http.post(
         url,
@@ -893,20 +936,24 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
-          'messages': messages,
-          if (chatTitle != null) 'chat_title': chatTitle,
-          if (customerRating != null) 'customer_rating': customerRating,
-          if (customerFeedback != null && customerFeedback.trim().isNotEmpty)
-            'customer_feedback': customerFeedback.trim(),
+          'session_id': sessionId,
+          'message': message,
         }),
       );
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode == 201 && data['success'] == true) return data;
-      return {'success': false, 'message': data['message'] ?? 'Failed to save chat.'};
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'session_id': data['session_id'],
+          'messages': data['messages'],
+        };
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to send message.'};
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
     }
   }
+
 
   /**
    * Resend login 2FA OTP.

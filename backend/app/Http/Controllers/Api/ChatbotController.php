@@ -5,51 +5,108 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ChatbotSession;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class ChatbotController extends Controller
 {
-    // Save full conversation when session ends
-    public function store(Request $request)
+    /**
+     * Create a new chat session.
+     */
+    public function createSession(Request $request)
     {
-        $validated = $request->validate([
-            'chat_title'        => 'nullable|string|max:255',
-            'customer_rating'   => 'nullable|integer|min:1|max:5',
-            'customer_feedback' => 'nullable|string',
-            'messages'          => 'required|array|min:1',
-            'messages.*.farmer_quiz' => 'required|string',
-            'messages.*.bot_answer'  => 'nullable|string',
-            'messages.*.order'       => 'required|integer|min:1',
-            'messages.*.image_path'  => 'nullable|string',
-            'messages.*.date_and_time' => 'required|string',
-        ]);
+        $sessionId = Str::random(12);
 
-        $farmerId = $request->user()->id;
-
-        foreach ($validated['messages'] as $msg) {
-            ChatbotSession::create([
-                'farmer_id'         => $farmerId,
-                'chat_title'        => $validated['chat_title'] ?? null,
-                'farmer_quiz'       => $msg['farmer_quiz'],
-                'bot_answer'        => $msg['bot_answer'] ?? null,
-                'date_and_time'     => $msg['date_and_time'],
-                'order'             => $msg['order'],
-                'image_path'        => $msg['image_path'] ?? null,
-                'is_ended'          => true,
-                'customer_rating'   => $validated['customer_rating'] ?? null,
-                'customer_feedback' => $validated['customer_feedback'] ?? null,
-            ]);
-        }
-
-        return response()->json(['success' => true, 'message' => 'Chat session saved.'], 201);
+        return response()->json([
+            'success' => true,
+            'session_id' => $sessionId,
+        ], 201);
     }
 
-    // Get all chat messages for the authenticated farmer
-    public function index(Request $request)
+    /**
+     * Get all messages for a session.
+     */
+    public function getSessionMessages(Request $request, $sessionId)
     {
-        $sessions = ChatbotSession::where('farmer_id', $request->user()->id)
-            ->orderBy('order')
-            ->get();
+        $messages = $this->formatSessionMessages($sessionId);
 
-        return response()->json(['success' => true, 'sessions' => $sessions]);
+        return response()->json([
+            'session_id' => $sessionId,
+            'messages' => $messages,
+        ]);
+    }
+
+    /**
+     * Send a message and get the AI reply.
+     */
+    public function sendMessage(Request $request)
+    {
+        $validated = $request->validate([
+            'session_id' => 'required|string',
+            'message' => 'required|string',
+        ]);
+
+        $userId = $request->user()?->id;
+
+        // 1. Save user message into chatbot_sessions
+        ChatbotSession::create([
+            'user_id' => $userId,
+            'session_id' => $validated['session_id'],
+            'message' => $validated['message'],
+            'response' => null,
+            'role' => 'user',
+        ]);
+
+        // 2. Call Python RAG AI API
+        $aiAnswer = null;
+        try {
+            $response = Http::timeout(15)->post('http://127.0.0.1:8000/chat', [
+                'question' => $validated['message']
+            ]);
+
+            if ($response->successful()) {
+                $aiAnswer = $response->json('answer');
+            }
+        } catch (\Exception $e) {
+            // Silently handle fallback
+        }
+
+        // If Python AI is offline or returns an empty answer, use fallback
+        if (empty($aiAnswer)) {
+            $aiAnswer = "I'm having trouble connecting to my agricultural knowledge base right now. Please verify your connection or try again shortly!";
+        }
+
+        // 3. Save AI response into chatbot_sessions
+        ChatbotSession::create([
+            'user_id' => $userId,
+            'session_id' => $validated['session_id'],
+            'message' => null,
+            'response' => $aiAnswer,
+            'role' => 'assistant',
+        ]);
+
+        // 4. Return the full updated session conversation
+        return response()->json([
+            'session_id' => $validated['session_id'],
+            'messages' => $this->formatSessionMessages($validated['session_id']),
+        ]);
+    }
+
+    /**
+     * Helper to retrieve and format all messages for a session.
+     */
+    private function formatSessionMessages($sessionId)
+    {
+        return ChatbotSession::where('session_id', $sessionId)
+            ->orderBy('id', 'asc')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'role' => $row->role,
+                    'message' => $row->role === 'user' ? $row->message : $row->response,
+                ];
+            })
+            ->values()
+            ->toArray();
     }
 }

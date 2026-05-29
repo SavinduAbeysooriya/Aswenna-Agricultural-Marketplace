@@ -13,16 +13,12 @@ return new class extends Migration
     {
         Schema::create('chatbot_sessions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('farmer_id')->constrained('users')->cascadeOnDelete();
-            $table->string('chat_title')->nullable();
-            $table->text('farmer_quiz');
-            $table->text('bot_answer');
-            $table->timestamp('date_and_time');
-            $table->integer('order')->default(1);
-            $table->string('image_path')->nullable();
-            $table->boolean('is_ended')->default(false);
-            $table->integer('customer_rating')->nullable();
-            $table->text('customer_feedback')->nullable();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('session_id')->index();
+            $table->longText('message')->nullable();
+            $table->longText('response')->nullable();
+            $table->enum('role', ['user', 'assistant']);
+            $table->json('metadata')->nullable();
             $table->timestamps();
         });
     }
@@ -35,3 +31,4 @@ return new class extends Migration
         Schema::dropIfExists('chatbot_sessions');
     }
 };
+

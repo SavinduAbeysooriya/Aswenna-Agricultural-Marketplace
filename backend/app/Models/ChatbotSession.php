@@ -7,25 +7,21 @@ use Illuminate\Database\Eloquent\Model;
 class ChatbotSession extends Model
 {
     protected $fillable = [
-        'farmer_id',
-        'chat_title',
-        'farmer_quiz',
-        'bot_answer',
-        'date_and_time',
-        'order',
-        'image_path',
-        'is_ended',
-        'customer_rating',
-        'customer_feedback',
+        'user_id',
+        'session_id',
+        'message',
+        'response',
+        'role',
+        'metadata',
     ];
 
     protected $casts = [
-        'date_and_time' => 'datetime',
-        'is_ended' => 'boolean',
+        'metadata' => 'array',
     ];
 
-    public function farmer()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'farmer_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 }
+

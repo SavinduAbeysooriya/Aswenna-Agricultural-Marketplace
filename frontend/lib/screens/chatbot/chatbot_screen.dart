@@ -3,18 +3,14 @@ import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 
 class ChatMessage {
-  final String farmerQuiz;
-  final String? botAnswer;
+  final String role;
+  final String message;
   final DateTime dateAndTime;
-  final int order;
-  final String? imagePath;
 
   const ChatMessage({
-    required this.farmerQuiz,
-    this.botAnswer,
+    required this.role,
+    required this.message,
     required this.dateAndTime,
-    required this.order,
-    this.imagePath,
   });
 }
 
@@ -29,49 +25,104 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
-  bool _isEnded = false;
+  
+  String? _sessionId;
   bool _isWaiting = false;
-  bool _isSubmitting = false;
-  int? _customerRating;
-  final TextEditingController _feedbackController = TextEditingController();
-  String? _chatTitle;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSession();
+  }
 
   @override
   void dispose() {
     _inputController.dispose();
     _scrollController.dispose();
-    _feedbackController.dispose();
     super.dispose();
+  }
+
+  Future<void> _startSession() async {
+    setState(() => _isWaiting = true);
+    final res = await ApiService.createChatSession();
+    if (!mounted) return;
+    if (res['success'] == true) {
+      _sessionId = res['session_id'];
+      await _loadMessages();
+    } else {
+      setState(() => _isWaiting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to initialize session.')),
+      );
+    }
+  }
+
+  Future<void> _loadMessages() async {
+    if (_sessionId == null) return;
+    final res = await ApiService.getChatSessionMessages(_sessionId!);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      final List<dynamic> msgs = res['messages'] ?? [];
+      setState(() {
+        _messages.clear();
+        for (final m in msgs) {
+          _messages.add(ChatMessage(
+            role: m['role'] ?? 'user',
+            message: m['message'] ?? '',
+            dateAndTime: DateTime.now(),
+          ));
+        }
+        _isWaiting = false;
+      });
+      _scrollToBottom();
+    } else {
+      setState(() => _isWaiting = false);
+    }
   }
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty || _isEnded) return;
+    if (text.isEmpty || _sessionId == null) return;
 
-    final order = _messages.length + 1;
-    _chatTitle ??= text.length > 40 ? '${text.substring(0, 40)}...' : text;
-
-    final message = ChatMessage(
-      farmerQuiz: text,
-      botAnswer: null, // TODO: AI model will populate this
+    // Instantly append user's message in UI
+    final userMsg = ChatMessage(
+      role: 'user',
+      message: text,
       dateAndTime: DateTime.now(),
-      order: order,
     );
 
     setState(() {
-      _messages.add(message);
+      _messages.add(userMsg);
       _isWaiting = true;
     });
 
     _inputController.clear();
     _scrollToBottom();
 
-    // TODO: Replace with actual AI model call — set botAnswer when integrated
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-      setState(() => _isWaiting = false);
+    // Call API
+    final res = await ApiService.sendChatMessage(_sessionId!, text);
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      final List<dynamic> msgs = res['messages'] ?? [];
+      setState(() {
+        _messages.clear();
+        for (final m in msgs) {
+          _messages.add(ChatMessage(
+            role: m['role'] ?? 'user',
+            message: m['message'] ?? '',
+            dateAndTime: DateTime.now(),
+          ));
+        }
+        _isWaiting = false;
+      });
       _scrollToBottom();
-    });
+    } else {
+      setState(() => _isWaiting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to communicate with AI agent.')),
+      );
+    }
   }
 
   void _scrollToBottom() {
@@ -86,73 +137,71 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
-  void _endSession() {
-    if (_messages.isEmpty) {
-      Navigator.of(context).pop();
-      return;
-    }
-    setState(() => _isEnded = true);
-  }
-
-  Future<void> _submitAndClose() async {
-    setState(() => _isSubmitting = true);
-
-    // Build messages payload from all conversation messages
-    final payload = _messages.map((m) => {
-      'farmer_quiz': m.farmerQuiz,
-      'bot_answer': m.botAnswer,
-      'order': m.order,
-      'date_and_time': m.dateAndTime.toIso8601String(),
-    }).toList();
-
-    await ApiService.saveChatSession(
-      messages: payload,
-      chatTitle: _chatTitle,
-      customerRating: _customerRating,
-      customerFeedback: _feedbackController.text,
-    );
-
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.softGray,
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        titleSpacing: 0,
+        title: Row(
           children: [
-            const Text('Aswenna AI Agent'),
-            if (_chatTitle != null)
-              Text(
-                _chatTitle!,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.normal,
-                ),
-                overflow: TextOverflow.ellipsis,
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(
+                color: AppTheme.lightMint,
+                shape: BoxShape.circle,
               ),
-          ],
-        ),
-        actions: [
-          if (!_isEnded && _messages.isNotEmpty)
-            TextButton(
-              onPressed: _endSession,
-              child: const Text(
-                'End Chat',
-                style: TextStyle(color: Colors.red, fontSize: 13),
+              child: const Icon(
+                Icons.smart_toy_outlined,
+                color: AppTheme.deepLeafGreen,
+                size: 20,
               ),
             ),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Aswenna AI Assistant',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.darkGreen,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'Online',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
           Expanded(
-            child: _messages.isEmpty
+            child: _messages.isEmpty && !_isWaiting
                 ? _buildEmptyState()
                 : ListView.builder(
                     controller: _scrollController,
@@ -165,11 +214,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       if (index == _messages.length) {
                         return _buildTypingIndicator();
                       }
-                      return _buildMessagePair(_messages[index]);
+                      return _buildMessageBubble(_messages[index]);
                     },
                   ),
           ),
-          if (_isEnded) _buildFeedbackPanel() else _buildInputBar(),
+          _buildInputBar(),
         ],
       ),
     );
@@ -177,7 +226,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -196,7 +245,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'Aswenna AI Agent',
+              'Aswenna AI Assistant',
               style: TextStyle(
                 color: AppTheme.darkGreen,
                 fontSize: 20,
@@ -205,7 +254,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Ask me anything about farming, crops, market prices, or agricultural advice.',
+              'Ask me anything about rice cultivation, soil quality, market prices, or pest control.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Color(0xFF64748B),
@@ -219,9 +268,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                _buildSuggestionChip('Best crops for this season?'),
+                _buildSuggestionChip('How to improve rice cultivation?'),
                 _buildSuggestionChip('How to improve soil quality?'),
-                _buildSuggestionChip('Current market prices'),
+                _buildSuggestionChip('What are current market prices?'),
+                _buildSuggestionChip('Organic paddy bug control'),
               ],
             ),
           ],
@@ -257,134 +307,80 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildMessagePair(ChatMessage message) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Farmer question — right aligned
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                color: AppTheme.deepLeafGreen,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  topRight: Radius.circular(18),
-                  bottomLeft: Radius.circular(18),
-                  bottomRight: Radius.circular(4),
+  Widget _buildMessageBubble(ChatMessage message) {
+    final isUser = message.role == 'user';
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!isUser) ...[
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: AppTheme.lightMint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.smart_toy_outlined,
+                  color: AppTheme.deepLeafGreen,
+                  size: 16,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    message.farmerQuiz,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatTime(message.dateAndTime),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Bot answer — left aligned
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.lightMint,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.smart_toy_outlined,
-                    color: AppTheme.deepLeafGreen,
-                    size: 16,
-                  ),
+              const SizedBox(width: 8),
+            ],
+            Flexible(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
                 ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.72,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.pureWhite,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        topRight: Radius.circular(18),
-                        bottomLeft: Radius.circular(18),
-                        bottomRight: Radius.circular(18),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isUser ? AppTheme.deepLeafGreen : AppTheme.pureWhite,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(isUser ? 16 : 4),
+                    bottomRight: Radius.circular(isUser ? 4 : 16),
+                  ),
+                  boxShadow: [
+                    if (!isUser)
+                      BoxShadow(
+                        color: AppTheme.deepLeafGreen.withValues(alpha: 0.06),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.deepLeafGreen.withValues(alpha: 0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    // AI response space — shows unavailable when botAnswer is null
-                    child: message.botAnswer != null
-                        ? Text(
-                            message.botAnswer!,
-                            style: const TextStyle(
-                              color: Color(0xFF0F172A),
-                              fontSize: 14,
-                              height: 1.5,
-                            ),
-                          )
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                size: 14,
-                                color: Color(0xFF94A3B8),
-                              ),
-                              const SizedBox(width: 6),
-                              const Flexible(
-                                child: Text(
-                                  'Unavailable right now our AI agent',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontSize: 13,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
+                  ],
                 ),
-              ],
+                child: Column(
+                  crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      message.message,
+                      style: TextStyle(
+                        color: isUser ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatTime(message.dateAndTime),
+                      style: TextStyle(
+                        color: isUser ? Colors.white.withValues(alpha: 0.7) : const Color(0xFF94A3B8),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -450,7 +446,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
-                hintText: 'Ask the AI agent...',
+                hintText: 'Ask the Aswenna AI...',
                 hintStyle: const TextStyle(
                   color: Color(0xFF94A3B8),
                   fontSize: 14,
@@ -483,101 +479,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 color: Colors.white,
                 size: 20,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeedbackPanel() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepLeafGreen.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Rate this conversation',
-            style: TextStyle(
-              color: AppTheme.darkGreen,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: List.generate(5, (index) {
-              final star = index + 1;
-              return GestureDetector(
-                onTap: () => setState(() => _customerRating = star),
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Icon(
-                    _customerRating != null && star <= _customerRating!
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    color: AppTheme.accentGold,
-                    size: 32,
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _feedbackController,
-            maxLines: 2,
-            decoration: InputDecoration(
-              hintText: 'Leave feedback (optional)',
-              hintStyle: const TextStyle(
-                color: Color(0xFF94A3B8),
-                fontSize: 13,
-              ),
-              filled: true,
-              fillColor: AppTheme.softGray,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _submitAndClose,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.deepLeafGreen,
-                minimumSize: const Size.fromHeight(44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: _isSubmitting
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Text('Submit & Close'),
             ),
           ),
         ],

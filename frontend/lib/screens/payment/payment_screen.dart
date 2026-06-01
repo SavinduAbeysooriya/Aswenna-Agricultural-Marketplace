@@ -1,0 +1,410 @@
+import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:aswenna/theme/app_theme.dart';
+import 'package:aswenna/services/api_service.dart';
+import 'package:aswenna/screens/review/review_screen.dart';
+
+class PaymentScreen extends StatefulWidget {
+  final int confirmedBidId;
+  final Map<String, dynamic> confirmedBid;
+
+  const PaymentScreen({
+    super.key,
+    required this.confirmedBidId,
+    required this.confirmedBid,
+  });
+
+  @override
+  State<PaymentScreen> createState() => _PaymentScreenState();
+}
+
+class _PaymentScreenState extends State<PaymentScreen> {
+  bool _isInitiating = false;
+  bool _showWebView = false;
+  bool _paymentDone = false;
+  Map<String, dynamic> _paymentParams = {};
+  WebViewController? _webViewController;
+
+  double get _totalAmount =>
+      double.tryParse(widget.confirmedBid['total_amount']?.toString() ?? '0') ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_showWebView && _paymentParams.isNotEmpty) {
+      return _buildPayHereWebView();
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6F4),
+      appBar: AppBar(
+        title: const Text('Complete Payment'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: _paymentDone ? _buildPaymentSuccess() : _buildPaymentDetails(),
+    );
+  }
+
+  Widget _buildPaymentDetails() {
+    final cropname = widget.confirmedBid['cropname'] ?? 'Crop';
+    final qty = widget.confirmedBid['bid_quantity_unit'] ?? '0';
+    final unit = widget.confirmedBid['unit'] ?? 'kg';
+    final rate = double.tryParse(widget.confirmedBid['bid_amount_per_unit']?.toString() ?? '0') ?? 0;
+    final farmerName = widget.confirmedBid['farmer_name'] ?? 'Farmer';
+    final paymentStatus = widget.confirmedBid['payment_status'] ?? 'unpaid';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Payment Status Banner
+          if (paymentStatus == 'paid')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.deepLeafGreen, AppTheme.darkGreen],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.verified_rounded, color: Colors.white, size: 24),
+                  SizedBox(width: 12),
+                  Text(
+                    'Payment Completed',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+
+          // Order Summary Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Order Summary',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                const SizedBox(height: 16),
+                _summaryRow(Icons.local_florist_rounded, 'Crop', cropname),
+                _summaryRow(Icons.person_rounded, 'Farmer', farmerName),
+                _summaryRow(Icons.scale_rounded, 'Quantity', '$qty $unit'),
+                _summaryRow(Icons.currency_rupee_rounded, 'Rate per unit', 'LKR ${rate.toStringAsFixed(2)}'),
+                const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Total Amount',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    Text(
+                      'LKR ${_totalAmount.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.deepLeafGreen),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // PayHere Info Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.shield_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                    SizedBox(width: 8),
+                    Text('Secure Payment via PayHere',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Your payment is secured by PayHere, Sri Lanka\'s leading payment gateway. Supports Visa, Mastercard, Amex, and online banking.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500], height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                // Payment method icons
+                Row(
+                  children: [
+                    _payMethodChip('VISA'),
+                    const SizedBox(width: 8),
+                    _payMethodChip('MASTER'),
+                    const SizedBox(width: 8),
+                    _payMethodChip('AMEX'),
+                    const SizedBox(width: 8),
+                    _payMethodChip('eZCash'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Pay Now button
+          if (paymentStatus != 'paid')
+            _isInitiating
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
+                : SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _initiatePayment,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.deepLeafGreen,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.payment_rounded, color: Colors.white),
+                          SizedBox(width: 10),
+                          Text(
+                            'Pay Now with PayHere',
+                            style: TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+          else
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ReviewScreen(
+                      confirmedBidId: widget.confirmedBidId,
+                      confirmedBid: widget.confirmedBid,
+                    ),
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentGold,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.star_rounded, color: Colors.white),
+                    SizedBox(width: 10),
+                    Text(
+                      'Leave a Review',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: AppTheme.deepLeafGreen),
+          const SizedBox(width: 10),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+          const Spacer(),
+          Text(value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        ],
+      ),
+    );
+  }
+
+  Widget _payMethodChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(6),
+        color: const Color(0xFFF8F8F8),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+    );
+  }
+
+  Future<void> _initiatePayment() async {
+    setState(() => _isInitiating = true);
+    final result = await ApiService.initiatePayment(widget.confirmedBidId);
+    if (!mounted) return;
+    setState(() => _isInitiating = false);
+
+    if (result['success'] == true) {
+      setState(() {
+        _paymentParams = Map<String, dynamic>.from(result['payment_params'] ?? {});
+        _showWebView = true;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Failed to initiate payment.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Widget _buildPayHereWebView() {
+    // Build PayHere hosted checkout URL with params
+    final params = _paymentParams;
+    final queryString = params.entries
+        .where((e) => e.value != null)
+        .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value.toString())}')
+        .join('&');
+
+    final payHereUrl = 'https://sandbox.payhere.lk/pay/checkout?$queryString';
+
+    final controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onNavigationRequest: (nav) {
+          // Detect PayHere return URLs
+          if (nav.url.contains('payment/return') || nav.url.contains('payment/cancel')) {
+            final isSuccess = nav.url.contains('payment/return') && !nav.url.contains('cancel');
+            _handlePaymentCallback(isSuccess);
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+      ))
+      ..loadRequest(Uri.parse(payHereUrl));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('PayHere Checkout'),
+        backgroundColor: AppTheme.deepLeafGreen,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => setState(() => _showWebView = false),
+        ),
+      ),
+      body: WebViewWidget(controller: controller),
+    );
+  }
+
+  void _handlePaymentCallback(bool isSuccess) {
+    setState(() => _showWebView = false);
+    if (isSuccess) {
+      setState(() => _paymentDone = true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment was cancelled or failed. Please try again.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  Widget _buildPaymentSuccess() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [AppTheme.deepLeafGreen, AppTheme.darkGreen],
+                ),
+              ),
+              child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 60),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Payment Successful!',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Your payment of LKR ${_totalAmount.toStringAsFixed(2)} has been processed. The farmer will be notified.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey[500], height: 1.5),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ReviewScreen(
+                      confirmedBidId: widget.confirmedBidId,
+                      confirmedBid: widget.confirmedBid,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.star_rounded, color: Colors.white),
+                label: const Text('Leave a Review',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentGold,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Back to Listings',
+                  style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

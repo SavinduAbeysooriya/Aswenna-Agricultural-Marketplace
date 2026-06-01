@@ -8,11 +8,15 @@ use App\Http\Controllers\Api\CropController;
 use App\Http\Controllers\Api\DailyCultivationLogController;
 use App\Http\Controllers\Api\CropGrowthStageController;
 use App\Http\Controllers\Api\ChatbotController;
-
 use App\Http\Controllers\Api\CropRateController;
 use App\Http\Controllers\Api\HarvestListingController;
 use App\Http\Controllers\Api\HarvestBidController;
+use App\Http\Controllers\Api\ConfirmedBidController;
+use App\Http\Controllers\Api\ChatMessageController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\ReviewController;
 
+// ─── Public Auth Routes ────────────────────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -24,12 +28,21 @@ Route::post('/google-login', [AuthController::class, 'googleLogin']);
 Route::post('/google-authenticate', [AuthController::class, 'googleAuthenticate']);
 Route::post('/forgot-password/send-otp', [AuthController::class, 'forgotPasswordSendOtp']);
 Route::post('/forgot-password/reset', [AuthController::class, 'forgotPasswordReset']);
+
+// PayHere server-to-server notify (unauthenticated)
+Route::post('/payment/notify', [PaymentController::class, 'notifyPayment']);
+Route::get('/payment/return', fn() => response('OK', 200));
+Route::get('/payment/cancel', fn() => response('CANCELLED', 200));
+
+// ─── Authenticated Routes ──────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->get('/farmer/profile', [AuthController::class, 'farmerProfile']);
 Route::middleware('auth:sanctum')->put('/farmer/profile', [AuthController::class, 'updateFarmerProfile']);
 Route::middleware('auth:sanctum')->get('/buyer/profile', [AuthController::class, 'buyerProfile']);
 Route::middleware('auth:sanctum')->post('/buyer/profile', [AuthController::class, 'updateBuyerProfile']);
 
 Route::middleware('auth:sanctum')->group(function () {
+
+    // Crops & Lands
     Route::get('/crops', [CropController::class, 'index']);
     Route::get('/crop-growth-stages', [CropGrowthStageController::class, 'index']);
     Route::get('/farmer/lands', [LandController::class, 'index']);
@@ -37,10 +50,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/farmer/lands/{id}', [LandController::class, 'show']);
     Route::put('/farmer/lands/{id}', [LandController::class, 'update']);
 
+    // Cultivation Logs
     Route::get('/farmer/cultivation-logs', [DailyCultivationLogController::class, 'index']);
     Route::post('/farmer/cultivation-logs', [DailyCultivationLogController::class, 'store']);
     Route::put('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'update']);
     Route::delete('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'destroy']);
+
+    // AI Chatbot
     Route::post('/chat/send', [ChatbotController::class, 'sendMessage']);
     Route::get('/chat/session/{session_id}', [ChatbotController::class, 'getSessionMessages']);
     Route::post('/chat/session', [ChatbotController::class, 'createSession']);
@@ -50,20 +66,37 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/crop-rates/{crop_id}', [CropRateController::class, 'show']);
     Route::post('/crop-rates', [CropRateController::class, 'store']);
 
-    // Farmer Harvest Listings
+    // ── Harvest Listings ──────────────────────────────────────────────────────
     Route::get('/farmer/harvest-listings', [HarvestListingController::class, 'index']);
     Route::post('/farmer/harvest-listings', [HarvestListingController::class, 'store']);
     Route::get('/farmer/harvest-listings/{id}', [HarvestListingController::class, 'show']);
     Route::post('/farmer/harvest-listings/{id}', [HarvestListingController::class, 'update']);
 
-    // Buyer Harvest Listings Feed
+    // Buyer Harvest Feed
     Route::get('/buyer/harvest-listings', [HarvestListingController::class, 'buyerIndex']);
 
-    // Bidding Engine
+    // ── Bidding Engine ────────────────────────────────────────────────────────
     Route::post('/harvest-listings/{id}/bids', [HarvestBidController::class, 'placeBid']);
     Route::get('/farmer/bids', [HarvestBidController::class, 'indexFarmerBids']);
     Route::post('/farmer/bids/{id}/accept', [HarvestBidController::class, 'acceptBid']);
     Route::post('/farmer/bids/{id}/reject', [HarvestBidController::class, 'rejectBid']);
+
+    // ── Confirmed Bids ────────────────────────────────────────────────────────
+    Route::post('/farmer/confirmed-bids/{bidId}/confirm', [ConfirmedBidController::class, 'confirmBid']);
+    Route::get('/farmer/confirmed-bids', [ConfirmedBidController::class, 'getFarmerConfirmedBids']);
+    Route::get('/buyer/confirmed-bids', [ConfirmedBidController::class, 'getBuyerConfirmedBids']);
+
+    // ── Messaging (Harvest Deal Chat) ─────────────────────────────────────────
+    Route::get('/chats/{otherUserId}', [ChatMessageController::class, 'getConversation']);
+    Route::post('/chats/send', [ChatMessageController::class, 'sendMessage']);
+    Route::get('/chats', [ChatMessageController::class, 'getConversations']);
+
+    // ── Payments ──────────────────────────────────────────────────────────────
+    Route::post('/buyer/confirmed-bids/{confirmedBidId}/initiate-payment', [PaymentController::class, 'initiatePayment']);
+
+    // ── Reviews ───────────────────────────────────────────────────────────────
+    Route::post('/confirmed-bids/{confirmedBidId}/reviews', [ReviewController::class, 'submitReview']);
+    Route::get('/farmers/{farmerId}/reviews', [ReviewController::class, 'getFarmerReviews']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

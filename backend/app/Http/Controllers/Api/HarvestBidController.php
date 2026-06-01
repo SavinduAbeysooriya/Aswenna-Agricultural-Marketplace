@@ -164,7 +164,7 @@ class HarvestBidController extends Controller
                 'harvest_listings.price_per_unit',
                 'crops.cropname',
                 'crops.image_path as crop_image',
-                'buyers.name as buyer_name'
+                'buyers.full_name as buyer_name'
             )
             ->orderByDesc('harvest_bids.created_at')
             ->get();

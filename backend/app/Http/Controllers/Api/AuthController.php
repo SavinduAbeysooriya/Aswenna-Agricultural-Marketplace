@@ -1010,6 +1010,146 @@ class AuthController extends Controller
         }
     }
 
+    /**
+     * Return the authenticated buyer's complete profile details.
+     */
+    public function buyerProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('buyer', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This profile is only available for buyer accounts.'
+            ], 403);
+        }
+
+        $documents = DB::table('user_verification_documents')
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($document) {
+                $document->front_image_url = $this->publicFileUrl($document->front_image_path);
+                $document->back_image_url = $this->publicFileUrl($document->back_image_path);
+                return $document;
+            });
+
+        return response()->json([
+            'success' => true,
+            'profile' => [
+                'user' => $user,
+                'documents' => $documents,
+            ],
+        ], 200);
+    }
+
+    /**
+     * Update the authenticated buyer's editable profile details & verification docs.
+     */
+    public function updateBuyerProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('buyer', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This profile is only available for buyer accounts.'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'full_name' => 'required|string|max:255',
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
+            'phone_number' => 'required|string|unique:users,phone_number,' . $user->id,
+            'phone_number_2' => 'nullable|string|max:50',
+            'national_id' => 'nullable|string|max:100|unique:users,national_id,' . $user->id,
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'district' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'document_type' => 'nullable|string|max:100',
+            'front_image' => 'nullable|file|image|max:5120',
+            'back_image' => 'nullable|file|image|max:5120',
+            'profile_picture' => 'nullable|file|image|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors occurred.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $user->update([
+                'full_name' => $request->full_name,
+                'email' => $request->email,
+                'phone_number' => $request->phone_number,
+                'phone_number_2' => $request->phone_number_2,
+                'national_id' => $request->national_id,
+                'address' => $request->address,
+                'city' => $request->city,
+                'district' => $request->district,
+                'province' => $request->province,
+                // when buyer edits, their general verified state resets to pending/unverified
+                'is_verified' => false,
+            ]);
+
+            if ($request->hasFile('profile_picture')) {
+                $picPath = $request->file('profile_picture')->store('profile-pictures/' . $user->id, 'public');
+                $user->update(['profile_picture_path' => $picPath]);
+            }
+
+            // Save verification documents if uploaded
+            if ($request->hasFile('front_image') && $request->document_type) {
+                $frontPath = $request->file('front_image')->store('buyer-verifications/' . $user->id, 'public');
+                $backPath = $request->hasFile('back_image') 
+                    ? $request->file('back_image')->store('buyer-verifications/' . $user->id, 'public') 
+                    : null;
+
+                DB::table('user_verification_documents')->insert([
+                    'user_id' => $user->id,
+                    'document_type' => $request->document_type,
+                    'front_image_path' => $frontPath,
+                    'back_image_path' => $backPath,
+                    'verification_status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            DB::commit();
+
+            return $this->buyerProfile($request);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update buyer profile.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     private function storeOptionalFarmerFile(Request $request, string $field, int $userId, ?string $currentPath): ?string
     {
         if (!$request->hasFile($field)) {

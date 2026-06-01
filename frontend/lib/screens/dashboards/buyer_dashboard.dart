@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/market_rates/market_rates_screen.dart';
+import 'package:aswenna/screens/market_rates/buyer_profile_screen.dart';
+import 'package:aswenna/services/api_service.dart';
 
 class BuyerDashboard extends StatefulWidget {
   const BuyerDashboard({super.key});
@@ -12,6 +14,41 @@ class BuyerDashboard extends StatefulWidget {
 
 class _BuyerDashboardState extends State<BuyerDashboard> {
   int _currentNavIndex = 0;
+  bool _isVerified = false;
+  bool _hasPendingDoc = false;
+  bool _hasRejectedDoc = false;
+  String? _rejectionReason;
+  String? _profilePic;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileStatus();
+  }
+
+  Future<void> _loadProfileStatus() async {
+    final result = await ApiService.getBuyerProfile();
+    if (mounted && result['success'] == true) {
+      final profile = result['profile'] ?? {};
+      final user = profile['user'] ?? {};
+      final documents = profile['documents'] ?? [];
+      setState(() {
+        _isVerified = user['is_verified'] == true;
+        _hasPendingDoc = documents.any((doc) => doc['verification_status'] == 'pending');
+        _hasRejectedDoc = documents.any((doc) => doc['verification_status'] == 'rejected');
+        if (_hasRejectedDoc) {
+          final rejectedDoc = documents.firstWhere(
+            (doc) => doc['verification_status'] == 'rejected',
+            orElse: () => null,
+          );
+          _rejectionReason = rejectedDoc?['rejection_reason'];
+        } else {
+          _rejectionReason = null;
+        }
+        _profilePic = user['profile_picture_path'];
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +61,75 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
             icon: const Icon(Icons.shopping_cart_outlined, color: AppTheme.deepLeafGreen),
             onPressed: () {},
           ),
+          GestureDetector(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BuyerProfileScreen()),
+              );
+              _loadProfileStatus();
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16, left: 8),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[300]!)),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(19),
+                      child: _profilePic != null
+                          ? Image.network(
+                              ApiService.fileUrl(_profilePic) ?? '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                            )
+                          : const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)
+                        ],
+                      ),
+                      child: Icon(
+                        _isVerified
+                            ? Icons.verified_rounded
+                            : (_hasPendingDoc
+                                ? Icons.hourglass_bottom_rounded
+                                : (_hasRejectedDoc ? Icons.cancel_rounded : Icons.info_outline_rounded)),
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[500]!)),
+                        size: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -32,6 +138,90 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_hasRejectedDoc) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDE8E8),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFFBD5D5), width: 1.5),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.cancel_rounded, color: Color(0xFFE53E3E), size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Verification Rejected',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFE53E3E),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Your verification document was rejected. Please review the reason below and tap Resubmit.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF718096),
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (_rejectionReason != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Reason: $_rejectionReason',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFFC53030),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const BuyerProfileScreen()),
+                        );
+                        _loadProfileStatus();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE53E3E),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Resubmit',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             // ── Market Rates Hero Card ──
             GestureDetector(
               onTap: () {

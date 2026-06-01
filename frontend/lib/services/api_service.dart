@@ -955,6 +955,86 @@ class ApiService {
   }
 
 
+  // --- Crop Market Rates ---
+
+  /// Fetch all crops with today's average market rates.
+  static Future<Map<String, dynamic>> getCropRates() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/crop-rates');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Failed to load crop rates.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Fetch detailed rate info for a single crop.
+  static Future<Map<String, dynamic>> getCropRateDetail(int cropId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/crop-rates/$cropId');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Failed to load crop rate details.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Submit or update buyer's today rate for a crop.
+  static Future<Map<String, dynamic>> submitCropRate(
+      Map<String, dynamic> data) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/crop-rates');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          responseData['success'] == true) {
+        return responseData;
+      }
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to submit rate.',
+        'min_allowed': responseData['min_allowed'],
+        'max_allowed': responseData['max_allowed'],
+        'current_avg': responseData['current_avg'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+
   /**
    * Resend login 2FA OTP.
    */

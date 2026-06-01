@@ -2377,17 +2377,18 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
   }
 
   Future<void> _openLocationPicker() async {
-    final picked = await Navigator.of(context).push<LatLng>(
+    final picked = await Navigator.of(context).push<Map<String, double>>(
       MaterialPageRoute(
         builder: (context) => MapLocationPicker(
-          initialLocation: _hasPinnedLocation ? _selectedLocation : null,
+          initialLatitude: _hasPinnedLocation ? _selectedLocation?.latitude : null,
+          initialLongitude: _hasPinnedLocation ? _selectedLocation?.longitude : null,
           title: 'Pick Farm Location',
         ),
       ),
     );
 
-    if (!mounted || picked == null) return;
-    _setLocation(picked);
+    if (!mounted || picked == null || picked['latitude'] == null || picked['longitude'] == null) return;
+    _setLocation(LatLng(picked['latitude']!, picked['longitude']!));
   }
 
   void _setLocation(LatLng location) {
@@ -3139,17 +3140,18 @@ class _AddLandScreenState extends State<AddLandScreen> {
   }
 
   Future<void> _openLandLocationPicker() async {
-    final picked = await Navigator.of(context).push<LatLng>(
+    final picked = await Navigator.of(context).push<Map<String, double>>(
       MaterialPageRoute(
         builder: (context) => MapLocationPicker(
-          initialLocation: _hasPinnedLocation ? _selectedLocation : null,
+          initialLatitude: _hasPinnedLocation ? _selectedLocation?.latitude : null,
+          initialLongitude: _hasPinnedLocation ? _selectedLocation?.longitude : null,
           title: 'Pick Land Location',
         ),
       ),
     );
 
-    if (!mounted || picked == null) return;
-    _setLocation(picked);
+    if (!mounted || picked == null || picked['latitude'] == null || picked['longitude'] == null) return;
+    _setLocation(LatLng(picked['latitude']!, picked['longitude']!));
   }
 
   void _setLocation(LatLng location) {
@@ -3398,17 +3400,18 @@ class _EditLandScreenState extends State<EditLandScreen> {
   }
 
   Future<void> _openLandLocationPicker() async {
-    final picked = await Navigator.of(context).push<LatLng>(
+    final picked = await Navigator.of(context).push<Map<String, double>>(
       MaterialPageRoute(
         builder: (context) => MapLocationPicker(
-          initialLocation: _hasPinnedLocation ? _selectedLocation : null,
+          initialLatitude: _hasPinnedLocation ? _selectedLocation?.latitude : null,
+          initialLongitude: _hasPinnedLocation ? _selectedLocation?.longitude : null,
           title: 'Pick Land Location',
         ),
       ),
     );
 
-    if (!mounted || picked == null) return;
-    _setLocation(picked);
+    if (!mounted || picked == null || picked['latitude'] == null || picked['longitude'] == null) return;
+    _setLocation(LatLng(picked['latitude']!, picked['longitude']!));
   }
 
   void _setLocation(LatLng location) {

@@ -5,12 +5,14 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:aswenna/theme/app_theme.dart';
 
 class MapLocationPicker extends StatefulWidget {
-  final LatLng? initialLocation;
+  final double? initialLatitude;
+  final double? initialLongitude;
   final String title;
 
   const MapLocationPicker({
     super.key,
-    this.initialLocation,
+    this.initialLatitude,
+    this.initialLongitude,
     this.title = 'Pick Location',
   });
 
@@ -35,8 +37,13 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
   @override
   void initState() {
     super.initState();
-    _selected = widget.initialLocation ?? _sriLanka;
-    _hasPinned = widget.initialLocation != null;
+    if (widget.initialLatitude != null && widget.initialLongitude != null) {
+      _selected = LatLng(widget.initialLatitude!, widget.initialLongitude!);
+      _hasPinned = true;
+    } else {
+      _selected = _sriLanka;
+      _hasPinned = false;
+    }
     if (_hasPinned) {
       _latController.text = _selected.latitude.toStringAsFixed(6);
       _lngController.text = _selected.longitude.toStringAsFixed(6);
@@ -136,7 +143,10 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
         title: Text(widget.title),
         actions: [
           TextButton(
-            onPressed: _hasPinned ? () => Navigator.of(context).pop(_selected) : null,
+            onPressed: _hasPinned ? () => Navigator.of(context).pop({
+              'latitude': _selected.latitude,
+              'longitude': _selected.longitude,
+            }) : null,
             child: const Text(
               'Confirm',
               style: TextStyle(
@@ -298,7 +308,10 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () => Navigator.of(context).pop(_selected),
+                      onPressed: () => Navigator.of(context).pop({
+                        'latitude': _selected.latitude,
+                        'longitude': _selected.longitude,
+                      }),
                       icon: const Icon(Icons.check_rounded),
                       label: const Text('Confirm Location'),
                       style: ElevatedButton.styleFrom(

@@ -1083,6 +1083,8 @@ class AuthController extends Controller
             'city' => 'nullable|string|max:100',
             'district' => 'nullable|string|max:100',
             'province' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
             'document_type' => 'nullable|string|max:100',
             'front_image' => 'nullable|file|image|max:5120',
             'back_image' => 'nullable|file|image|max:5120',
@@ -1110,6 +1112,8 @@ class AuthController extends Controller
                 'city' => $request->city,
                 'district' => $request->district,
                 'province' => $request->province,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
                 // when buyer edits, their general verified state resets to pending/unverified
                 'is_verified' => false,
             ]);

@@ -27,26 +27,36 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   }
 
   Future<void> _loadProfileStatus() async {
-    final result = await ApiService.getBuyerProfile();
-    if (mounted && result['success'] == true) {
-      final profile = result['profile'] ?? {};
-      final user = profile['user'] ?? {};
-      final documents = profile['documents'] ?? [];
-      setState(() {
-        _isVerified = user['is_verified'] == true;
-        _hasPendingDoc = documents.any((doc) => doc['verification_status'] == 'pending');
-        _hasRejectedDoc = documents.any((doc) => doc['verification_status'] == 'rejected');
-        if (_hasRejectedDoc) {
-          final rejectedDoc = documents.firstWhere(
-            (doc) => doc['verification_status'] == 'rejected',
-            orElse: () => null,
-          );
-          _rejectionReason = rejectedDoc?['rejection_reason'];
-        } else {
-          _rejectionReason = null;
-        }
-        _profilePic = user['profile_picture_path'];
-      });
+    try {
+      final result = await ApiService.getBuyerProfile();
+      if (mounted && result['success'] == true) {
+        final profile = result['profile'] ?? {};
+        
+        // Extremely safe casts
+        final user = profile['user'];
+        final Map<dynamic, dynamic> userMap = user is Map ? user : {};
+        
+        final docsVal = profile['documents'];
+        final List<dynamic> documents = docsVal is List ? docsVal : [];
+        
+        setState(() {
+          _isVerified = userMap['is_verified'] == true;
+          _hasPendingDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'pending');
+          _hasRejectedDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'rejected');
+          if (_hasRejectedDoc) {
+            final rejectedDoc = documents.firstWhere(
+              (doc) => doc is Map && doc['verification_status'] == 'rejected',
+              orElse: () => null,
+            );
+            _rejectionReason = rejectedDoc is Map ? rejectedDoc['rejection_reason'] : null;
+          } else {
+            _rejectionReason = null;
+          }
+          _profilePic = userMap['profile_picture_path'];
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('Error loading dashboard profile status: $e\n$stack');
     }
   }
 

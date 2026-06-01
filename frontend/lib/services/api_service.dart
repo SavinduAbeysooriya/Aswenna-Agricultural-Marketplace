@@ -482,6 +482,110 @@ class ApiService {
   }
 
   /**
+   * Fetch the authenticated buyer's complete profile details.
+   */
+  static Future<Map<String, dynamic>> getBuyerProfile() async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+
+    final url = Uri.parse('$baseUrl/buyer/profile');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to load buyer profile.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to load buyer profile.',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /**
+   * Update the authenticated buyer's profile details & verification docs.
+   */
+  static Future<Map<String, dynamic>> updateBuyerProfile(
+    Map<String, dynamic> data, {
+    String? frontImagePath,
+    String? backImagePath,
+    String? profilePicturePath,
+  }) async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+
+    final url = Uri.parse('$baseUrl/buyer/profile');
+    try {
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      data.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      if (frontImagePath != null && frontImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('front_image', frontImagePath));
+      }
+      if (backImagePath != null && backImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('back_image', backImagePath));
+      }
+      if (profilePicturePath != null && profilePicturePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('profile_picture', profilePicturePath));
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      final Map<String, dynamic> responseData = jsonDecode(responseBody);
+      if (streamedResponse.statusCode == 200 &&
+          responseData['success'] == true) {
+        return responseData;
+      }
+
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to update buyer profile.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to update buyer profile.',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /**
    * Fetch all lands registered by the authenticated farmer.
    */
   static Future<Map<String, dynamic>> getFarmerLands() async {

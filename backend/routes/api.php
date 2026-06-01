@@ -24,6 +24,8 @@ Route::post('/forgot-password/send-otp', [AuthController::class, 'forgotPassword
 Route::post('/forgot-password/reset', [AuthController::class, 'forgotPasswordReset']);
 Route::middleware('auth:sanctum')->get('/farmer/profile', [AuthController::class, 'farmerProfile']);
 Route::middleware('auth:sanctum')->put('/farmer/profile', [AuthController::class, 'updateFarmerProfile']);
+Route::middleware('auth:sanctum')->get('/buyer/profile', [AuthController::class, 'buyerProfile']);
+Route::middleware('auth:sanctum')->post('/buyer/profile', [AuthController::class, 'updateBuyerProfile']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/crops', [CropController::class, 'index']);

@@ -4,6 +4,7 @@ import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/market_rates/market_rates_screen.dart';
 import 'package:aswenna/screens/market_rates/buyer_profile_screen.dart';
 import 'package:aswenna/services/api_service.dart';
+import 'package:aswenna/screens/harvest_listings/harvest_listing_detail_screen.dart';
 
 class BuyerDashboard extends StatefulWidget {
   const BuyerDashboard({super.key});
@@ -20,10 +21,14 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   String? _rejectionReason;
   String? _profilePic;
 
+  List<dynamic> _harvestListings = [];
+  bool _isLoadingHarvests = false;
+
   @override
   void initState() {
     super.initState();
     _loadProfileStatus();
+    _loadHarvestListings();
   }
 
   Future<void> _loadProfileStatus() async {
@@ -57,6 +62,23 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       }
     } catch (e, stack) {
       debugPrint('Error loading dashboard profile status: $e\n$stack');
+    }
+  }
+
+  Future<void> _loadHarvestListings() async {
+    setState(() => _isLoadingHarvests = true);
+    try {
+      final result = await ApiService.getBuyerHarvestListings();
+      if (mounted) {
+        setState(() {
+          _harvestListings = result['success'] == true ? List<dynamic>.from(result['listings'] ?? []) : [];
+          _isLoadingHarvests = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingHarvests = false);
+      }
     }
   }
 
@@ -334,32 +356,79 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               ),
             ),
             const SizedBox(height: 24),
-            // Premium direct yields grid
-            const Text(
-              'Premium Direct Yields',
-              style: TextStyle(color: AppTheme.darkGreen, fontSize: 16, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.8,
-              children: [
-                _buildProductGridItem('Nuwara Eliya Carrots', 'Seller: Saman K.', 'LKR 180/kg', Icons.eco, 'Grade A'),
-                _buildProductGridItem('Red Onions (Jaffna)', 'Seller: Sunil P.', 'LKR 280/kg', Icons.spa, 'Fresh'),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // Direct harvest bids
-            const Text(
-              'Bidding Opportunities',
-              style: TextStyle(color: AppTheme.darkGreen, fontSize: 16, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            _buildBiddingOpportunityCard('Premium Keeri Samba Yield', 'Anuradhapura • 2,500 kg', 'Current Bid: LKR 195/kg', Icons.gavel_rounded),
+            if (_isLoadingHarvests)
+              const Center(child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: CircularProgressIndicator(color: AppTheme.deepLeafGreen),
+              ))
+            else ...[
+              const Text(
+                'Premium Direct Yields',
+                style: TextStyle(color: AppTheme.darkGreen, fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              if (_harvestListings.where((l) => l['min_bid_price_per_unit'] == null).isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.pureWhite,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text(
+                    'No direct purchase yields available at this moment.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.8,
+                  ),
+                  itemCount: _harvestListings.where((l) => l['min_bid_price_per_unit'] == null).length,
+                  itemBuilder: (context, index) {
+                    final directList = _harvestListings.where((l) => l['min_bid_price_per_unit'] == null).toList();
+                    return _buildProductGridItem(Map<String, dynamic>.from(directList[index]));
+                  },
+                ),
+              const SizedBox(height: 24),
+              const Text(
+                'Bidding Opportunities',
+                style: TextStyle(color: AppTheme.darkGreen, fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              if (_harvestListings.where((l) => l['min_bid_price_per_unit'] != null).isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.pureWhite,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text(
+                    'No active crop bidding sessions open right now.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _harvestListings.where((l) => l['min_bid_price_per_unit'] != null).length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final bidList = _harvestListings.where((l) => l['min_bid_price_per_unit'] != null).toList();
+                    return _buildBiddingOpportunityCard(Map<String, dynamic>.from(bidList[index]));
+                  },
+                ),
+            ],
           ],
         ),
       ),
@@ -393,115 +462,179 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     );
   }
 
-  Widget _buildProductGridItem(String title, String seller, String price, IconData icon, String badge) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepLeafGreen.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: AppTheme.lightMint,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  Widget _buildProductGridItem(Map<String, dynamic> listing) {
+    final title = listing['cropname']?.toString() ?? 'Crop';
+    final seller = 'Seller: ${listing['farmer_name'] ?? 'Farmer'}';
+    final price = 'LKR ${listing['price_per_unit']}/${listing['unit'] ?? 'kg'}';
+    final badge = 'Grade ${listing['grade'] ?? 'A'}';
+    final String? imageUrl = listing['image_1'] ?? listing['crop_image'];
+
+    return InkWell(
+      onTap: () async {
+        final id = int.tryParse(listing['id']?.toString() ?? '');
+        if (id == null) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HarvestListingDetailScreen(listingId: id, role: 'buyer'),
+          ),
+        );
+        _loadHarvestListings();
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.pureWhite,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.deepLeafGreen.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: AppTheme.lightMint,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (imageUrl != null)
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        child: Image.network(
+                          ApiService.fileUrl(imageUrl) ?? '',
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.eco_rounded, color: AppTheme.deepLeafGreen, size: 48),
+                        ),
+                      )
+                    else
+                      const Icon(Icons.eco_rounded, color: AppTheme.deepLeafGreen, size: 48),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: AppTheme.pureWhite, borderRadius: BorderRadius.circular(8)),
+                        child: Text(badge, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Stack(
-                alignment: Alignment.center,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(icon, color: AppTheme.deepLeafGreen, size: 48),
-                  Positioned(
-                    top: 10,
-                    left: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: AppTheme.pureWhite, borderRadius: BorderRadius.circular(8)),
-                      child: Text(badge, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen)),
+                  Text(title, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 2),
+                  Text(seller, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(price, style: const TextStyle(color: AppTheme.deepLeafGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(color: AppTheme.deepLeafGreen, shape: BoxShape.circle),
+                        child: const Icon(Icons.arrow_forward_rounded, color: AppTheme.pureWhite, size: 14),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBiddingOpportunityCard(Map<String, dynamic> listing) {
+    final title = listing['cropname']?.toString() ?? 'Crop';
+    final qty = 'Farmer: ${listing['farmer_name'] ?? 'Farmer'} • ${listing['available_quantity']} ${listing['unit'] ?? 'kg'}';
+    final price = 'Min Bid: LKR ${listing['min_bid_price_per_unit']}/${listing['unit'] ?? 'kg'}';
+    final String? imageUrl = listing['crop_image'];
+
+    return InkWell(
+      onTap: () async {
+        final id = int.tryParse(listing['id']?.toString() ?? '');
+        if (id == null) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HarvestListingDetailScreen(listingId: id, role: 'buyer'),
+          ),
+        );
+        _loadHarvestListings();
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.pureWhite,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.deepLeafGreen.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(color: const Color(0xFFFFF9E6), borderRadius: BorderRadius.circular(16)),
+                    child: imageUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.network(
+                              ApiService.fileUrl(imageUrl) ?? '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.gavel_rounded, color: AppTheme.accentGold, size: 24),
+                            ),
+                          )
+                        : const Icon(Icons.gavel_rounded, color: AppTheme.accentGold, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        const SizedBox(height: 4),
+                        Text(qty, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                        const SizedBox(height: 2),
+                        Text(price, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.accentGold)),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                const SizedBox(height: 2),
-                Text(seller, style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(price, style: const TextStyle(color: AppTheme.deepLeafGreen, fontSize: 12, fontWeight: FontWeight.bold)),
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: const BoxDecoration(color: AppTheme.deepLeafGreen, shape: BoxShape.circle),
-                      child: const Icon(Icons.add, color: AppTheme.pureWhite, size: 14),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBiddingOpportunityCard(String title, String qty, String price, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepLeafGreen.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(color: const Color(0xFFFFF9E6), borderRadius: BorderRadius.circular(16)),
-                child: Icon(icon, color: AppTheme.accentGold, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                  const SizedBox(height: 4),
-                  Text(qty, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                  const SizedBox(height: 2),
-                  Text(price, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.accentGold)),
-                ],
-              ),
-            ],
-          ),
-          const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.accentGold, size: 16),
-        ],
+            const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.accentGold, size: 16),
+          ],
+        ),
       ),
     );
   }

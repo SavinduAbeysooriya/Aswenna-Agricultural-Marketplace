@@ -11,6 +11,8 @@ import 'package:aswenna/screens/crop_picker_screen.dart';
 import 'package:aswenna/screens/cultivation_logs/cultivation_logs_screen.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/chatbot/chatbot_screen.dart';
+import 'package:aswenna/screens/harvest_listings/harvest_listing_form.dart';
+import 'package:aswenna/screens/harvest_listings/harvest_listing_detail_screen.dart';
 
 class FarmerDashboard extends StatefulWidget {
   const FarmerDashboard({super.key});
@@ -33,11 +35,20 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   Map<String, dynamic> get _farmerData =>
       Map<String, dynamic>.from(_profile?['farmer_verification'] ?? {});
 
+  // Harvest Listings State
+  List<dynamic> _harvestListings = [];
+  bool _isLoadingHarvests = false;
+  List<dynamic> _farmerBids = [];
+  bool _isLoadingBids = false;
+  int _yieldSubTab = 0; // 0 for Listings, 1 for Bids
+
   @override
   void initState() {
     super.initState();
     _loadProfile();
     _loadLands();
+    _loadHarvestListings();
+    _loadFarmerBids();
   }
 
   Future<void> _loadLands() async {
@@ -47,6 +58,26 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     setState(() {
       _lands = result['success'] == true ? List<dynamic>.from(result['lands'] ?? []) : [];
       _isLoadingLands = false;
+    });
+  }
+
+  Future<void> _loadHarvestListings() async {
+    setState(() => _isLoadingHarvests = true);
+    final result = await ApiService.getFarmerHarvestListings();
+    if (!mounted) return;
+    setState(() {
+      _harvestListings = result['success'] == true ? List<dynamic>.from(result['listings'] ?? []) : [];
+      _isLoadingHarvests = false;
+    });
+  }
+
+  Future<void> _loadFarmerBids() async {
+    setState(() => _isLoadingBids = true);
+    final result = await ApiService.getFarmerBids();
+    if (!mounted) return;
+    setState(() {
+      _farmerBids = result['success'] == true ? List<dynamic>.from(result['bids'] ?? []) : [];
+      _isLoadingBids = false;
     });
   }
 
@@ -145,6 +176,8 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         onRefresh: () async {
           await _loadProfile();
           await _loadLands();
+          await _loadHarvestListings();
+          await _loadFarmerBids();
         },
         child: IndexedStack(
           index: _currentIndex,
@@ -540,13 +573,369 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   Widget _buildYieldsTab() {
     return _scrollTab(
       children: [
-        _buildSectionHeader('Yield Listings', 'New Listing', () {}),
-        const SizedBox(height: 12),
-        _buildEmptyState(
-          icon: Icons.eco_outlined,
-          title: 'No yield listings',
-          subtitle: 'Your active harvest listings and bids will appear here.',
+        _buildSectionHeader('Yield Listings', 'New Listing', () async {
+          final success = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const HarvestListingForm()),
+          );
+          if (success == true) {
+            _loadHarvestListings();
+          }
+        }),
+        Row(
+          children: [
+            ChoiceChip(
+              label: const Text('My Listings', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              selected: _yieldSubTab == 0,
+              selectedColor: AppTheme.lightMint,
+              checkmarkColor: AppTheme.deepLeafGreen,
+              labelStyle: TextStyle(
+                color: _yieldSubTab == 0 ? AppTheme.deepLeafGreen : Colors.grey[700],
+              ),
+              onSelected: (val) {
+                if (val) setState(() => _yieldSubTab = 0);
+              },
+            ),
+            const SizedBox(width: 12),
+            ChoiceChip(
+              label: const Text('Incoming Bids', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              selected: _yieldSubTab == 1,
+              selectedColor: AppTheme.lightMint,
+              checkmarkColor: AppTheme.deepLeafGreen,
+              labelStyle: TextStyle(
+                color: _yieldSubTab == 1 ? AppTheme.deepLeafGreen : Colors.grey[700],
+              ),
+              onSelected: (val) {
+                if (val) {
+                  setState(() => _yieldSubTab = 1);
+                  _loadFarmerBids();
+                }
+              },
+            ),
+          ],
         ),
+        const SizedBox(height: 16),
+        if (_yieldSubTab == 0) ...[
+          if (_isLoadingHarvests)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen)),
+            )
+          else if (_harvestListings.isEmpty)
+            _buildEmptyState(
+              icon: Icons.eco_outlined,
+              title: 'No yield listings',
+              subtitle: 'Your active harvest listings and bids will appear here.',
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _harvestListings.length,
+              itemBuilder: (context, index) {
+                final listing = _harvestListings[index];
+                final String cropName = listing['cropname']?.toString() ?? 'Crop';
+                final String grade = listing['grade']?.toString() ?? 'A';
+                final String price = listing['price_per_unit']?.toString() ?? '0.00';
+                final String qty = listing['available_quantity']?.toString() ?? '0';
+                final String unit = listing['unit']?.toString() ?? 'kg';
+                final String status = listing['status']?.toString() ?? 'active';
+                
+                // Status Styling
+                Color statusColor = AppTheme.deepLeafGreen;
+                if (status == 'draft') statusColor = Colors.grey;
+                if (status == 'pending_approval') statusColor = AppTheme.accentGold;
+                if (status == 'rejected') statusColor = Colors.red;
+
+                final String? imageUrl = listing['image_1'] ?? listing['crop_image'];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () async {
+                      final id = int.tryParse(listing['id']?.toString() ?? '');
+                      if (id == null) return;
+                      final refresh = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HarvestListingDetailScreen(
+                            listingId: id,
+                            role: 'farmer',
+                          ),
+                        ),
+                      );
+                      if (refresh == true) {
+                        _loadHarvestListings();
+                        _loadFarmerBids();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.deepLeafGreen.withOpacity(0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        border: Border.all(color: const Color(0xFFF1F5F1)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFAFAFA),
+                              borderRadius: BorderRadius.circular(14),
+                              image: imageUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(ApiService.fileUrl(imageUrl) ?? ''),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                            ),
+                            child: imageUrl == null
+                                ? const Icon(Icons.eco_outlined, color: AppTheme.deepLeafGreen)
+                                : null,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      cropName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.deepLeafGreen.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        'Grade $grade',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: AppTheme.deepLeafGreen,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Quantity: $qty $unit',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'LKR $price / $unit',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.deepLeafGreen,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: statusColor.withOpacity(0.2), width: 1),
+                                      ),
+                                      child: Text(
+                                        status.toUpperCase().replaceAll('_', ' '),
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: statusColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ] else ...[
+          if (_isLoadingBids)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen)),
+            )
+          else if (_farmerBids.isEmpty)
+            _buildEmptyState(
+              icon: Icons.gavel_rounded,
+              title: 'No bids received',
+              subtitle: 'Bidding offers from buyers on your listings will appear here.',
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _farmerBids.length,
+              itemBuilder: (context, index) {
+                final bid = _farmerBids[index];
+                final String cropName = bid['cropname']?.toString() ?? 'Crop';
+                final String buyerName = bid['buyer_name']?.toString() ?? 'Buyer';
+                final String bidPrice = bid['bid_amount_per_unit']?.toString() ?? '0.00';
+                final String qty = bid['bid_quantity_unit']?.toString() ?? '0';
+                final String unit = bid['unit']?.toString() ?? 'kg';
+                final String status = bid['status']?.toString() ?? 'pending';
+
+                Color statusColor = AppTheme.deepLeafGreen;
+                if (status == 'pending') statusColor = AppTheme.accentGold;
+                if (status == 'rejected') statusColor = Colors.red;
+
+                final String? imageUrl = bid['crop_image'];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () async {
+                      final listingId = int.tryParse(bid['harvest_listing_id']?.toString() ?? '');
+                      if (listingId == null) return;
+                      final refresh = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HarvestListingDetailScreen(
+                            listingId: listingId,
+                            role: 'farmer',
+                          ),
+                        ),
+                      );
+                      if (refresh == true) {
+                        _loadHarvestListings();
+                        _loadFarmerBids();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.deepLeafGreen.withOpacity(0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        border: Border.all(color: const Color(0xFFF1F5F1)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFAFAFA),
+                              borderRadius: BorderRadius.circular(14),
+                              image: imageUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(ApiService.fileUrl(imageUrl) ?? ''),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                            ),
+                            child: imageUrl == null
+                                ? const Icon(Icons.gavel_rounded, color: AppTheme.accentGold)
+                                : null,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      cropName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        status.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          color: statusColor,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Bidder: $buyerName',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Bid Qty: $qty $unit',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Bid Rate: LKR $bidPrice / $unit',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.deepLeafGreen,
+                                      ),
+                                    ),
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
       ],
     );
   }

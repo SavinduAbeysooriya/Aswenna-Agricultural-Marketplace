@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\DailyCultivationLogController;
 use App\Http\Controllers\Api\CropGrowthStageController;
 use App\Http\Controllers\Api\ChatbotController;
 
+use App\Http\Controllers\Api\CropRateController;
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -38,6 +40,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chat/send', [ChatbotController::class, 'sendMessage']);
     Route::get('/chat/session/{session_id}', [ChatbotController::class, 'getSessionMessages']);
     Route::post('/chat/session', [ChatbotController::class, 'createSession']);
+
+    // Crop Market Rates
+    Route::get('/crop-rates', [CropRateController::class, 'index']);
+    Route::get('/crop-rates/{crop_id}', [CropRateController::class, 'show']);
+    Route::post('/crop-rates', [CropRateController::class, 'store']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

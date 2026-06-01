@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\CropGrowthStageController;
 use App\Http\Controllers\Api\ChatbotController;
 
 use App\Http\Controllers\Api\CropRateController;
+use App\Http\Controllers\Api\HarvestListingController;
+use App\Http\Controllers\Api\HarvestBidController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
@@ -47,6 +49,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/crop-rates', [CropRateController::class, 'index']);
     Route::get('/crop-rates/{crop_id}', [CropRateController::class, 'show']);
     Route::post('/crop-rates', [CropRateController::class, 'store']);
+
+    // Farmer Harvest Listings
+    Route::get('/farmer/harvest-listings', [HarvestListingController::class, 'index']);
+    Route::post('/farmer/harvest-listings', [HarvestListingController::class, 'store']);
+    Route::get('/farmer/harvest-listings/{id}', [HarvestListingController::class, 'show']);
+    Route::post('/farmer/harvest-listings/{id}', [HarvestListingController::class, 'update']);
+
+    // Buyer Harvest Listings Feed
+    Route::get('/buyer/harvest-listings', [HarvestListingController::class, 'buyerIndex']);
+
+    // Bidding Engine
+    Route::post('/harvest-listings/{id}/bids', [HarvestBidController::class, 'placeBid']);
+    Route::get('/farmer/bids', [HarvestBidController::class, 'indexFarmerBids']);
+    Route::post('/farmer/bids/{id}/accept', [HarvestBidController::class, 'acceptBid']);
+    Route::post('/farmer/bids/{id}/reject', [HarvestBidController::class, 'rejectBid']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

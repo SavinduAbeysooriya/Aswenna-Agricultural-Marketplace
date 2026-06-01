@@ -1160,4 +1160,246 @@ class ApiService {
       return {'success': false, 'message': 'Failed to resend OTP: $e'};
     }
   }
+
+  // --- Farmer Harvest Listings ---
+
+  /// Fetch all harvest listings registered by the authenticated farmer.
+  static Future<Map<String, dynamic>> getFarmerHarvestListings() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/harvest-listings');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load harvest listings.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Create a new harvest listing for the farmer.
+  static Future<Map<String, dynamic>> createHarvestListing(
+    Map<String, dynamic> data, {
+    List<String>? images,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/harvest-listings');
+    try {
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      data.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      if (images != null) {
+        for (int i = 0; i < images.length; i++) {
+          final path = images[i];
+          if (path.trim().isNotEmpty) {
+            request.files.add(await http.MultipartFile.fromPath('image_${i + 1}', path));
+          }
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      final Map<String, dynamic> responseData = jsonDecode(responseBody);
+      if ((streamedResponse.statusCode == 201 || streamedResponse.statusCode == 200) &&
+          responseData['success'] == true) {
+        return responseData;
+      }
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to create listing.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Get a single harvest listing.
+  static Future<Map<String, dynamic>> getSingleHarvestListing(int id) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/harvest-listings/$id');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load listing.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Update an existing harvest listing for the farmer.
+  static Future<Map<String, dynamic>> updateHarvestListing(
+    int id,
+    Map<String, dynamic> data, {
+    List<String>? images,
+    List<String>? keepImages,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/harvest-listings/$id');
+    try {
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      data.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      if (keepImages != null) {
+        for (int i = 0; i < keepImages.length; i++) {
+          request.fields['keep_images[$i]'] = keepImages[i];
+        }
+      }
+
+      if (images != null) {
+        for (int i = 0; i < images.length; i++) {
+          final path = images[i];
+          if (path.trim().isNotEmpty && !path.startsWith('http') && !path.startsWith('harvest-listings/')) {
+            request.files.add(await http.MultipartFile.fromPath('image_${i + 1}', path));
+          }
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      final Map<String, dynamic> responseData = jsonDecode(responseBody);
+      if (streamedResponse.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to update listing.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Get buyer's active harvest listings feed.
+  static Future<Map<String, dynamic>> getBuyerHarvestListings() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/buyer/harvest-listings');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load harvest listings.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Place a bid on a harvest listing (Buyer facing).
+  static Future<Map<String, dynamic>> placeHarvestBid(int listingId, Map<String, dynamic> data) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/harvest-listings/$listingId/bids');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if ((response.statusCode == 201 || response.statusCode == 200) && responseData['success'] == true) {
+        return responseData;
+      }
+      return {'success': false, 'message': responseData['message'] ?? 'Failed to place bid.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Get all incoming bids on the authenticated farmer's harvest listings.
+  static Future<Map<String, dynamic>> getFarmerBids() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/bids');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load bids.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Accept a pending bid (Farmer facing).
+  static Future<Map<String, dynamic>> acceptHarvestBid(int bidId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/bids/$bidId/accept');
+    try {
+      final response = await http.post(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to accept bid.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Reject a pending bid (Farmer facing).
+  static Future<Map<String, dynamic>> rejectHarvestBid(int bidId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/farmer/bids/$bidId/reject');
+    try {
+      final response = await http.post(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to reject bid.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
 }

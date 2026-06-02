@@ -71,6 +71,11 @@ class PaymentController extends Controller
         $returnUrl     = url('/api/payment/return');
         $cancelUrl     = url('/api/payment/cancel');
         $notifyUrl     = url('/api/payment/notify');
+        
+        // PayHere Sandbox requires a public secure HTTPS notify_url to process the transaction request
+        if (str_contains($notifyUrl, 'localhost') || str_contains($notifyUrl, '127.0.0.1') || str_contains($notifyUrl, '10.0.2.2') || !str_starts_with($notifyUrl, 'https')) {
+            $notifyUrl = 'https://aswenna.lk/api/payment/notify';
+        }
 
         // Generate hash per PayHere spec: MD5(merchant_id + order_id + amount + currency + MD5(merchant_secret))
         $hashedSecret  = strtoupper(md5($this->getDecodedSecret()));
@@ -259,6 +264,152 @@ class PaymentController extends Controller
         }
 
         return response('OK', 200);
+    }
+
+    /**
+     * POST /api/payment/debug-simulate-success
+     * Direct simulator for local debugging to bypass lack of external public webhook connectivity in local sandbox.
+     */
+    public function debugSimulateSuccess(Request $request)
+    {
+        $confirmedBidId = $request->input('confirmed_bid_id') ?? $request->confirmed_bid_id;
+        $paymentId = $request->input('payment_id') ?? 'DEBUG-' . uniqid();
+
+        if (!$confirmedBidId) {
+            return response()->json(['success' => false, 'message' => 'Confirmed Bid ID is required.'], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            $confirmedBid = ConfirmedBid::find($confirmedBidId);
+            if (!$confirmedBid) {
+                return response()->json(['success' => false, 'message' => 'Confirmed bid not found.'], 404);
+            }
+
+            if ($confirmedBid->payment_status === 'paid') {
+                return response()->json(['success' => true, 'message' => 'Payment already completed previously.', 'already_paid' => true], 200);
+            }
+
+            $confirmedBid->update(['payment_status' => 'paid']);
+
+            // Record payment with commission & tax breakdowns
+            $baseAmount       = (float)$confirmedBid->total_amount;
+            $serviceCharge    = round($baseAmount * 0.02, 2); // 2% service charge added to buyer
+            $tax              = round($baseAmount * 0.015, 2); // 1.5% tax added to buyer
+            $totalPaid        = $baseAmount + $serviceCharge + $tax;
+
+            $commission       = round($baseAmount * 0.05, 2); // 5% platform commission from farmer
+            $farmerAmount     = round($baseAmount - $commission, 2);
+
+            // 1. Insert/Update confirmed_bids_payments
+            DB::table('confirmed_bids_payments')->updateOrInsert(
+                ['confirmed_bid_id' => $confirmedBid->id],
+                [
+                    'buyer_id'          => $confirmedBid->buyer_id,
+                    'farmer_id'         => $confirmedBid->farmer_id,
+                    'total_amount'      => $totalPaid,
+                    'system_commission' => $commission,
+                    'farmer_amount'     => $farmerAmount,
+                    'payment_id'        => $paymentId,
+                    'date_and_time'     => Carbon::now(),
+                    'payment_status'    => 'paid',
+                    'created_at'        => now(),
+                    'updated_at'        => now(),
+                ]
+            );
+
+            // 2. Update Farmer Wallet
+            $farmerWallet = DB::table('user_wallets')->where('user_id', $confirmedBid->farmer_id)->first();
+            if ($farmerWallet) {
+                $farmerBefore = (float)$farmerWallet->available_balance;
+                $farmerAfter  = $farmerBefore + $farmerAmount;
+                $farmerTotalEarned = (float)$farmerWallet->total_earned + $farmerAmount;
+
+                DB::table('user_wallets')
+                    ->where('user_id', $confirmedBid->farmer_id)
+                    ->update([
+                        'available_balance' => $farmerAfter,
+                        'total_earned' => $farmerTotalEarned,
+                        'last_updated_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                $farmerBefore = 0.00;
+                $farmerAfter  = $farmerAmount;
+                DB::table('user_wallets')->insert([
+                    'user_id' => $confirmedBid->farmer_id,
+                    'available_balance' => $farmerAfter,
+                    'pending_balance' => 0.00,
+                    'total_earned' => $farmerAfter,
+                    'total_withdrawn' => 0.00,
+                    'last_updated_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // Record Farmer Earnings Transaction
+            DB::table('wallet_transactions')->insert([
+                'user_id' => $confirmedBid->farmer_id,
+                'amount' => $farmerAmount,
+                'balance_before' => $farmerBefore,
+                'balance_after' => $farmerAfter,
+                'transaction_type' => 'other',
+                'description' => "Earnings for Order #ASWENNA-{$confirmedBidId} (Base: LKR {$baseAmount}, 5% System Commission: -LKR {$commission} deducted)",
+                'status' => 'completed',
+                'record_created_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 3. Update Buyer Wallet
+            $buyerWallet = DB::table('user_wallets')->where('user_id', $confirmedBid->buyer_id)->first();
+            if ($buyerWallet) {
+                $buyerBefore = (float)$buyerWallet->available_balance;
+                $buyerAfter  = $buyerBefore; // External card payment doesn't decrease wallet deposit balance
+            } else {
+                $buyerBefore = 0.00;
+                $buyerAfter  = 0.00;
+                DB::table('user_wallets')->insert([
+                    'user_id' => $confirmedBid->buyer_id,
+                    'available_balance' => 0.00,
+                    'pending_balance' => 0.00,
+                    'total_earned' => 0.00,
+                    'total_withdrawn' => 0.00,
+                    'last_updated_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // Record Buyer Expense Transaction
+            DB::table('wallet_transactions')->insert([
+                'user_id' => $confirmedBid->buyer_id,
+                'amount' => -$totalPaid,
+                'balance_before' => $buyerBefore,
+                'balance_after' => $buyerAfter,
+                'transaction_type' => 'other',
+                'description' => "Payment for Order #ASWENNA-{$confirmedBidId} (Base: LKR {$baseAmount}, Service Charge (2%): LKR {$serviceCharge}, Tax (1.5%): LKR {$tax})",
+                'status' => 'completed',
+                'record_created_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment processed and recorded successfully in local database!',
+                'payment_id' => $paymentId,
+            ], 200);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Local database recording failed: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

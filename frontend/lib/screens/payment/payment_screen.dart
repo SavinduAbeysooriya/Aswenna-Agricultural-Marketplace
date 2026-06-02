@@ -181,15 +181,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                       PayHere.startPayment(
                         testObject,
-                        (paymentId) {
+                        (paymentId) async {
                           debugPrint("Static Test Success! Payment ID: $paymentId");
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Static Test Success! ID: $paymentId'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                          _handlePaymentCallback(true);
+                          final recordResult = await ApiService.confirmPaymentSuccess(widget.confirmedBidId, paymentId);
+                          if (recordResult['success'] == true) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Static Test Success & DB Recorded! ID: $paymentId'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            _handlePaymentCallback(true);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Static Test Success but DB failed: ' + (recordResult['message'] ?? '')),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            _handlePaymentCallback(false);
+                          }
                         },
                         (error) {
                           debugPrint("Static Test Failed: $error");
@@ -403,9 +414,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // Trigger the official native PayHere Flutter Mobile SDK
       PayHere.startPayment(
         paymentObject,
-        (paymentId) {
+        (paymentId) async {
           debugPrint("One Time Payment Success. Payment Id: $paymentId");
-          _handlePaymentCallback(true);
+          setState(() {
+            _isInitiating = true;
+          });
+          
+          final recordResult = await ApiService.confirmPaymentSuccess(widget.confirmedBidId, paymentId);
+          
+          setState(() {
+            _isInitiating = false;
+          });
+
+          if (recordResult['success'] == true) {
+            _handlePaymentCallback(true);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(recordResult['message'] ?? 'Failed to record transaction in local database.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            _handlePaymentCallback(false);
+          }
         },
         (error) {
           debugPrint("One Time Payment Failed. Error: $error");

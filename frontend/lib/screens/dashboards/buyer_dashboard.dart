@@ -895,20 +895,18 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(24),
-                      onTap: harvestListingId == null
-                          ? null
-                          : () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => HarvestListingDetailScreen(
-                                    listingId: harvestListingId,
-                                    role: 'buyer',
-                                  ),
-                                ),
-                              );
-                              _loadConfirmedBids();
-                            },
+                      onTap: () {
+                        _showPurchaseActionsBottomSheet(
+                          context: context,
+                          id: id,
+                          harvestListingId: harvestListingId,
+                          farmerId: farmerId,
+                          farmerName: farmerName,
+                          isPaid: isPaid,
+                          hasReview: hasReview,
+                          bid: bid,
+                        );
+                      },
                       child: Padding(
                          padding: const EdgeInsets.all(16),
                          child: Column(
@@ -1044,135 +1042,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                                  ),
                                ],
                              ),
-                                                    /*
-                              if (id > 0) ...[
-                                const SizedBox(height: 16),
-                                const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    // Chat Button
-                                    if (farmerId != null) ...[  
-                                      TextButton.icon(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => ChatScreen(
-                                                otherUserId: farmerId,
-                                                otherUserName: farmerName,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
-                                        label: const Text(
-                                          'Chat',
-                                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-                                        ),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: AppTheme.deepLeafGreen,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    // Pay Now or Review Button
-                                    if (!isPaid)
-                                      ElevatedButton.icon(
-                                        onPressed: () async {
-                                          await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => PaymentScreen(
-                                                confirmedBidId: id,
-                                                confirmedBid: bid,
-                                              ),
-                                            ),
-                                          );
-                                          _loadConfirmedBids();
-                                        },
-                                        icon: const Icon(Icons.payment_rounded, size: 14),
-                                        label: const Text(
-                                          'Pay Now',
-                                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.deepLeafGreen,
-                                          foregroundColor: Colors.white,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                      )
-                                    else if (!hasReview)
-                                      ElevatedButton.icon(
-                                        onPressed: () async {
-                                          await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => ReviewScreen(
-                                                confirmedBidId: id,
-                                                confirmedBid: bid,
-                                              ),
-                                            ),
-                                          );
-                                          _loadConfirmedBids();
-                                        },
-                                        icon: const Icon(Icons.star_rate_rounded, size: 14),
-                                        label: const Text(
-                                          'Review Farmer',
-                                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.accentGold,
-                                          foregroundColor: const Color(0xFF0F172A),
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                      )
-                                    else
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF1F5F9),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.star_rounded, color: Colors.grey, size: 14),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              'Reviewed',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                              */
+                                                    /* Buttons commented out and moved to premium Bottom Sheet actions */
                             ],
                           ),
                        ),
@@ -1195,6 +1065,203 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
         ),
       ],
     ),
+    );
+  }
+
+  void _showPurchaseActionsBottomSheet({
+    required BuildContext context,
+    required int id,
+    required int? harvestListingId,
+    required int? farmerId,
+    required String farmerName,
+    required bool isPaid,
+    required bool hasReview,
+    required Map<String, dynamic> bid,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag Handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Order Actions',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.darkGreen,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Manage purchase from $farmerName',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // View Harvest Details
+              if (harvestListingId != null) ...[
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightMint,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.info_outline_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                  ),
+                  title: const Text(
+                    'View Listing Details',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HarvestListingDetailScreen(listingId: harvestListingId, role: 'buyer'),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              ],
+
+              // Chat
+              if (farmerId != null) ...[
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightMint,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                  ),
+                  title: const Text(
+                    'Chat with Farmer',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          otherUserId: farmerId,
+                          otherUserName: farmerName,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              ],
+
+              // Payment or Review
+              if (!isPaid) ...[
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightMint,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.payment_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                  ),
+                  title: const Text(
+                    'Pay Now',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.deepLeafGreen),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.deepLeafGreen),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PaymentScreen(
+                          confirmedBidId: id,
+                          confirmedBid: bid,
+                        ),
+                      ),
+                    );
+                    _loadConfirmedBids();
+                  },
+                ),
+              ] else if (!hasReview) ...[
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF9E6),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.star_rate_rounded, color: AppTheme.accentGold, size: 20),
+                  ),
+                  title: const Text(
+                    'Review Farmer',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.accentGold),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.accentGold),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReviewScreen(
+                          confirmedBidId: id,
+                          confirmedBid: bid,
+                        ),
+                      ),
+                    );
+                    _loadConfirmedBids();
+                  },
+                ),
+              ] else ...[
+                ListTile(
+                  enabled: false,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.star_rounded, color: Colors.grey, size: 20),
+                  ),
+                  title: const Text(
+                    'Reviewed',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
     );
   }
 }

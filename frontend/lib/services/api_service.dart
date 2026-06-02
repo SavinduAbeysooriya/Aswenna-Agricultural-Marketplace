@@ -2937,6 +2937,31 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> confirmPaymentSuccess(int confirmedBidId, String paymentId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/payment/debug-simulate-success');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ' + (token ?? ''),
+        },
+        body: jsonEncode({
+          'confirmed_bid_id': confirmedBidId,
+          'payment_id': paymentId,
+        }),
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to record payment.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ' + e.toString()};
+    }
+  }
+
   // ===================================================================
   // Review Methods
   // ===================================================================

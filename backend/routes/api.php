@@ -94,6 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Payments ──────────────────────────────────────────────────────────────
     Route::post('/buyer/confirmed-bids/{confirmedBidId}/initiate-payment', [PaymentController::class, 'initiatePayment']);
     Route::get('/user/wallet', [PaymentController::class, 'getWalletDetails']);
+    Route::post('/payment/debug-simulate-success', [PaymentController::class, 'debugSimulateSuccess']);
 
     // ── Reviews ───────────────────────────────────────────────────────────────
     Route::post('/confirmed-bids/{confirmedBidId}/reviews', [ReviewController::class, 'submitReview']);

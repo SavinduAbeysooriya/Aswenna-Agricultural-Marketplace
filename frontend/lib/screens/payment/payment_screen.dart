@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:crypto/crypto.dart';
+import 'package:payhere_mobilesdk_flutter/payhere_mobilesdk_flutter.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/review/review_screen.dart';
@@ -126,10 +130,98 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ],
             ),
           ),
+          // Developer Sandbox Test Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.bug_report_rounded, color: Colors.blue, size: 20),
+                    SizedBox(width: 8),
+                    Text('Developer Sandbox Simulator',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Launch a static test payment natively using default PayHere test credentials to verify SDK links work perfectly.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF), height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final Map<String, dynamic> testObject = {
+                        "sandbox": true,
+                        "merchant_id": "1236086", // Your Merchant ID
+                        "merchant_secret": "MjcwOTkzNTQ3Njk2NTU0MTIwNjQ4OTgwMzA0NjI4NDI0NzE4Njk=", // Your Mobile App Secret
+                        "notify_url": "https://aswenna.lk/api/payment/notify",
+                        "order_id": "TEST-${DateTime.now().millisecondsSinceEpoch}",
+                        "items": "Direct Farm Purchase SDK Test",
+                        "amount": "100.00",
+                        "currency": "LKR",
+                        "first_name": "Saman",
+                        "last_name": "Perera",
+                        "email": "samanp@gmail.com",
+                        "phone": "0771234567",
+                        "address": "No.1, Galle Road",
+                        "city": "Colombo",
+                        "country": "Sri Lanka",
+                      };
+
+                      PayHere.startPayment(
+                        testObject,
+                        (paymentId) {
+                          debugPrint("Static Test Success! Payment ID: $paymentId");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Static Test Success! ID: $paymentId'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          _handlePaymentCallback(true);
+                        },
+                        (error) {
+                          debugPrint("Static Test Failed: $error");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Static Test Failed: $error'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        },
+                        () {
+                          debugPrint("Static Test Dismissed");
+                        }
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[600],
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Launch Native SDK Sandbox Test'),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 20),
 
           // PayHere Info Card
           Container(
+
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -276,10 +368,54 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _isInitiating = false);
 
     if (result['success'] == true) {
-      setState(() {
-        _paymentParams = Map<String, dynamic>.from(result['payment_params'] ?? {});
-        _showWebView = true;
-      });
+      final backendParams = Map<String, dynamic>.from(result['payment_params'] ?? {});
+      final pricingBreakdown = result['pricing_breakdown'] ?? {};
+
+      // Hardcoded mobile App credentials
+      const String merchantId = '1236086';
+      const String merchantSecret = 'MjcwOTkzNTQ3Njk2NTU0MTIwNjQ4OTgwMzA0NjI4NDI0NzE4Njk=';
+      const String currency = 'LKR';
+
+      final String orderId = backendParams['order_id'] ?? 'ASWENNA-${widget.confirmedBidId}-${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Calculate amount including service charge and tax
+      final double finalAmount = double.tryParse(pricingBreakdown['final_amount']?.toString() ?? backendParams['amount']?.toString() ?? '0') ?? _totalAmount;
+      final String amountStr = finalAmount.toStringAsFixed(2);
+
+      final Map<String, dynamic> paymentObject = {
+        "sandbox": true,                 // Use sandbox for testing
+        "merchant_id": merchantId,
+        "merchant_secret": merchantSecret,
+        "notify_url": backendParams['notify_url'] ?? '',
+        "order_id": orderId,
+        "items": backendParams['items'] ?? 'Hello from Flutter!',
+        "amount": amountStr,
+        "currency": currency,
+        "first_name": backendParams['first_name'] ?? 'Buyer',
+        "last_name": backendParams['last_name'] ?? 'Aswenna',
+        "email": backendParams['email'] ?? 'buyer@aswenna.lk',
+        "phone": backendParams['phone'] ?? '0771234567',
+        "address": backendParams['address'] ?? 'Sri Lanka',
+        "city": backendParams['city'] ?? 'Colombo',
+        "country": 'Sri Lanka',
+      };
+
+      // Trigger the official native PayHere Flutter Mobile SDK
+      PayHere.startPayment(
+        paymentObject,
+        (paymentId) {
+          debugPrint("One Time Payment Success. Payment Id: $paymentId");
+          _handlePaymentCallback(true);
+        },
+        (error) {
+          debugPrint("One Time Payment Failed. Error: $error");
+          _handlePaymentCallback(false);
+        },
+        () {
+          debugPrint("One Time Payment Dismissed");
+          _handlePaymentCallback(false);
+        }
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -291,14 +427,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _buildPayHereWebView() {
-    // Build PayHere hosted checkout URL with params
-    final params = _paymentParams;
-    final queryString = params.entries
-        .where((e) => e.value != null)
-        .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value.toString())}')
-        .join('&');
+    // Build PayHere hosted checkout parameters, keeping only strict PayHere parameters
+    final Map<String, dynamic> params = Map<String, dynamic>.from(_paymentParams);
+    params.remove('sandbox');
+    params.remove('confirmed_bid_id');
+    
+    // PayHere requires a non-empty last_name parameter
+    if (params['last_name'] == null || params['last_name'].toString().trim().isEmpty) {
+      params['last_name'] = 'Buyer';
+    }
 
-    final payHereUrl = 'https://sandbox.payhere.lk/pay/checkout?$queryString';
+    // Generate an auto-submitting HTML form to execute a browser-level POST request
+    final String htmlContent = '''
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Redirecting to PayHere...</title>
+      </head>
+      <body onload="document.forms['payhere_form'].submit();">
+        <form name="payhere_form" action="https://sandbox.payhere.lk/pay/checkout" method="POST">
+          ${params.entries.map((e) => '<input type="hidden" name="${e.key}" value="${e.value.toString().replaceAll('"', '&quot;')}" />').join('\n')}
+        </form>
+      </body>
+    </html>
+    ''';
 
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -313,7 +465,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           return NavigationDecision.navigate;
         },
       ))
-      ..loadRequest(Uri.parse(payHereUrl));
+      ..loadHtmlString(htmlContent);
 
     return Scaffold(
       appBar: AppBar(

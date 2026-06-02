@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/services/api_service.dart';
+import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
 
 class RetailerDashboard extends StatelessWidget {
   const RetailerDashboard({super.key});
@@ -13,6 +14,16 @@ class RetailerDashboard extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Retailer Center'),
         actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const BuyerDashboard()),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.swap_horiz_rounded, color: AppTheme.deepLeafGreen),
+            label: const Text('Buyer Mode', style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppTheme.deepLeafGreen),
             onPressed: () {},

@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
+import 'package:aswenna/screens/dashboards/retailer_dashboard.dart';
 import 'dart:io';
 
 class BuyerProfileScreen extends StatefulWidget {
@@ -554,6 +555,10 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                     // Messages
                     if (_errorMessage != null) _buildAlertCard(_errorMessage!, Colors.red),
                     if (_successMessage != null) _buildAlertCard(_successMessage!, AppTheme.deepLeafGreen),
+
+                    // Role Switching Options
+                    _buildSwitchRoleCard(),
+                    const SizedBox(height: 20),
 
                     // Form details card
                     Container(
@@ -1114,6 +1119,128 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
       color: const Color(0xFFE8F5E9),
       alignment: Alignment.center,
       child: const Icon(Icons.person, color: AppTheme.deepLeafGreen, size: 48),
+    );
+  }
+
+  Widget _buildSwitchRoleCard() {
+    final rolesVal = _userData['role'];
+    final List<String> roles = rolesVal is List ? List<String>.from(rolesVal.map((e) => e.toString())) : [];
+    final bool hasRetailRole = roles.contains('retail_seller');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1B5E20).withOpacity(0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.lightMint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.storefront_rounded, color: AppTheme.deepLeafGreen, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Role & Dashboard Selector',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Your Database Roles: ${roles.isEmpty ? '["buyer"]' : roles.toString()}',
+            style: const TextStyle(
+              fontSize: 12,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+              color: AppTheme.deepLeafGreen,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            hasRetailRole
+                ? 'You possess both Buyer and Retail Seller roles. Click below to seamlessly switch your dashboard view.'
+                : 'You currently have the Buyer role. Click below to register as a Retail Seller and enable retail sales features.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600], height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                if (hasRetailRole) {
+                  // Switch directly
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const RetailerDashboard()),
+                    (route) => false,
+                  );
+                } else {
+                  // Enable role first
+                  setState(() {
+                    _isSaving = true;
+                  });
+                  final res = await ApiService.addRole('retail_seller');
+                  setState(() {
+                    _isSaving = false;
+                  });
+
+                  if (res['success'] == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Retail Seller role enabled successfully!'),
+                        backgroundColor: AppTheme.deepLeafGreen,
+                      ),
+                    );
+                    _loadProfile(); // refresh local status
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => const RetailerDashboard()),
+                      (route) => false,
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(res['message'] ?? 'Failed to enable Retail Seller role.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              icon: Icon(hasRetailRole ? Icons.swap_horiz_rounded : Icons.add_business_rounded, color: Colors.white),
+              label: Text(
+                hasRetailRole ? 'Switch to Retail Seller Dashboard' : 'Register & Switch to Retail Seller',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.deepLeafGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

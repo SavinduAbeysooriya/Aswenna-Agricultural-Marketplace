@@ -1154,6 +1154,51 @@ class AuthController extends Controller
         }
     }
 
+    /**
+     * POST /api/user/add-role
+     * Adds a new role to the authenticated user's roles array and sets up verification data if needed.
+     */
+    public function addRole(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        $newRole = $request->input('role');
+        if (!in_array($newRole, ['buyer', 'retail_seller', 'farmer', 'delivery_partner'], true)) {
+            return response()->json(['success' => false, 'message' => 'Invalid role specified.'], 400);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array($newRole, $roles, true)) {
+            $roles[] = $newRole;
+            $user->role = $roles;
+            $user->save();
+
+            // Set up verification data if needed
+            if ($newRole === 'retail_seller') {
+                $exists = DB::table('retail_seller_verification_data')->where('user_id', $user->id)->exists();
+                if (!$exists) {
+                    DB::table('retail_seller_verification_data')->insert([
+                        'user_id' => $user->id,
+                        'br_number' => null,
+                        'shop_address' => null,
+                        'status' => 'pending',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Role added successfully!',
+            'user' => $user
+        ], 200);
+    }
+
     private function storeOptionalFarmerFile(Request $request, string $field, int $userId, ?string $currentPath): ?string
     {
         if (!$request->hasFile($field)) {

@@ -83,10 +83,10 @@ class ConfirmedBidController extends Controller
         $user = $request->user();
 
         $confirmedBids = DB::table('confirmed_bids')
-            ->join('harvest_bids', 'confirmed_bids.bid_id', '=', 'harvest_bids.id')
-            ->join('harvest_listings', 'confirmed_bids.harvest_listing_id', '=', 'harvest_listings.id')
-            ->join('crops', 'harvest_listings.crop_id', '=', 'crops.id')
-            ->join('users as buyers', 'confirmed_bids.buyer_id', '=', 'buyers.id')
+            ->leftJoin('harvest_bids', 'confirmed_bids.bid_id', '=', 'harvest_bids.id')
+            ->leftJoin('harvest_listings', 'confirmed_bids.harvest_listing_id', '=', 'harvest_listings.id')
+            ->leftJoin('crops', 'harvest_listings.crop_id', '=', 'crops.id')
+            ->leftJoin('users as buyers', 'confirmed_bids.buyer_id', '=', 'buyers.id')
             ->where('confirmed_bids.farmer_id', $user->id)
             ->select(
                 'confirmed_bids.*',
@@ -113,10 +113,10 @@ class ConfirmedBidController extends Controller
         $user = $request->user();
 
         $confirmedBids = DB::table('confirmed_bids')
-            ->join('harvest_bids', 'confirmed_bids.bid_id', '=', 'harvest_bids.id')
-            ->join('harvest_listings', 'confirmed_bids.harvest_listing_id', '=', 'harvest_listings.id')
-            ->join('crops', 'harvest_listings.crop_id', '=', 'crops.id')
-            ->join('users as farmers', 'confirmed_bids.farmer_id', '=', 'farmers.id')
+            ->leftJoin('harvest_bids', 'confirmed_bids.bid_id', '=', 'harvest_bids.id')
+            ->leftJoin('harvest_listings', 'confirmed_bids.harvest_listing_id', '=', 'harvest_listings.id')
+            ->leftJoin('crops', 'harvest_listings.crop_id', '=', 'crops.id')
+            ->leftJoin('users as farmers', 'confirmed_bids.farmer_id', '=', 'farmers.id')
             ->where('confirmed_bids.buyer_id', $user->id)
             ->select(
                 'confirmed_bids.*',

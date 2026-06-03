@@ -3,6 +3,7 @@ import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
+import 'package:aswenna/screens/market_rates/retailer_profile_screen.dart';
 
 class RetailerDashboard extends StatelessWidget {
   const RetailerDashboard({super.key});
@@ -26,7 +27,12 @@ class RetailerDashboard extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppTheme.deepLeafGreen),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RetailerProfileScreen()),
+              );
+            },
           ),
         ],
       ),

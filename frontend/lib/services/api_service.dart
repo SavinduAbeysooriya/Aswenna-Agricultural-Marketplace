@@ -1170,6 +1170,116 @@ class ApiService {
 
   }
 
+  /**
+   * Fetch the authenticated retail seller's complete profile details.
+   */
+  static Future<Map<String, dynamic>> getRetailSellerProfile() async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+
+    final url = Uri.parse('$baseUrl/retail-seller/profile');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to load retail seller profile.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to load retail seller profile.',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /**
+   * Update the authenticated retail seller's profile details & verification docs.
+   */
+  static Future<Map<String, dynamic>> updateRetailSellerProfile(
+    Map<String, dynamic> data, {
+    String? brImagePath,
+    List<String>? shopPhotosPaths,
+    String? profilePicturePath,
+  }) async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+
+    final url = Uri.parse('$baseUrl/retail-seller/profile');
+    try {
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      data.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      if (brImagePath != null && brImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('br_image', brImagePath));
+      }
+
+      if (profilePicturePath != null && profilePicturePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('profile_picture', profilePicturePath));
+      }
+
+      if (shopPhotosPaths != null) {
+        for (final path in shopPhotosPaths) {
+          if (path.trim().isNotEmpty) {
+            request.files.add(await http.MultipartFile.fromPath('shop_photos[]', path));
+          }
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      final Map<String, dynamic> responseData = jsonDecode(responseBody);
+
+      if (streamedResponse.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to update retail seller profile.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to update retail seller profile.',
+        'error': e.toString(),
+      };
+    }
+  }
+
 
 
   /**

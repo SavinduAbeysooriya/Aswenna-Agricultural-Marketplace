@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ConfirmedBidController;
 use App\Http\Controllers\Api\ChatMessageController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\RetailerProductController;
 
 // ─── Public Auth Routes ────────────────────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
@@ -39,6 +40,8 @@ Route::middleware('auth:sanctum')->get('/farmer/profile', [AuthController::class
 Route::middleware('auth:sanctum')->put('/farmer/profile', [AuthController::class, 'updateFarmerProfile']);
 Route::middleware('auth:sanctum')->get('/buyer/profile', [AuthController::class, 'buyerProfile']);
 Route::middleware('auth:sanctum')->post('/buyer/profile', [AuthController::class, 'updateBuyerProfile']);
+Route::middleware('auth:sanctum')->get('/retail-seller/profile', [AuthController::class, 'retailSellerProfile']);
+Route::middleware('auth:sanctum')->post('/retail-seller/profile', [AuthController::class, 'updateRetailSellerProfile']);
 Route::middleware('auth:sanctum')->post('/user/add-role', [AuthController::class, 'addRole']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -97,9 +100,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/wallet', [PaymentController::class, 'getWalletDetails']);
     Route::post('/payment/debug-simulate-success', [PaymentController::class, 'debugSimulateSuccess']);
 
-    // ── Reviews ───────────────────────────────────────────────────────────────
+    // ─── Reviews ───────────────────────────────────────────────────────────────
     Route::post('/confirmed-bids/{confirmedBidId}/reviews', [ReviewController::class, 'submitReview']);
     Route::get('/farmers/{farmerId}/reviews', [ReviewController::class, 'getFarmerReviews']);
+
+    // ─── Retailer Products CRUD ──────────────────────────────────────────────────
+    Route::get('/retailer/products/rate-limit/{cropId}/{grade}', [RetailerProductController::class, 'rateLimitInfo']);
+    Route::post('/retailer/products/{id}', [RetailerProductController::class, 'update']); // Support multipart/form-data for updates
+    Route::apiResource('/retailer/products', RetailerProductController::class)->except(['update']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

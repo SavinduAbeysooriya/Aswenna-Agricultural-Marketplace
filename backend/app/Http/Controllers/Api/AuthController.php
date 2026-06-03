@@ -1155,6 +1155,183 @@ class AuthController extends Controller
     }
 
     /**
+     * Return the authenticated retail seller's complete profile details.
+     */
+    public function retailSellerProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('retail_seller', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This profile is only available for retail seller accounts.'
+            ], 403);
+        }
+
+        $verificationData = DB::table('retail_seller_verification_data')
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($verificationData) {
+            $verificationData->br_image_url = $this->publicFileUrl($verificationData->br_image_path);
+            $photos = json_decode($verificationData->shop_photos ?? '[]', true) ?: [];
+            $verificationData->shop_photos_urls = collect($photos)
+                ->map(fn($path) => $this->publicFileUrl($path))
+                ->values()
+                ->all();
+        }
+
+        return response()->json([
+            'success' => true,
+            'profile' => [
+                'user' => $user,
+                'verification_data' => $verificationData,
+            ],
+        ], 200);
+    }
+
+    /**
+     * Update the authenticated retail seller's profile details & verification docs.
+     */
+    public function updateRetailSellerProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('retail_seller', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This profile is only available for retail seller accounts.'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'full_name' => 'required|string|max:255',
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
+            'phone_number' => 'required|string|unique:users,phone_number,' . $user->id,
+            'phone_number_2' => 'nullable|string|max:50',
+            'national_id' => 'nullable|string|max:100|unique:users,national_id,' . $user->id,
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'district' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            
+            // Retail Seller Verification fields
+            'br_number' => 'nullable|string|max:100',
+            'br_issue_date' => 'nullable|date',
+            'br_expiry_date' => 'nullable|date',
+            'business_type' => 'nullable|string|max:100',
+            'shop_address' => 'nullable|string|max:500',
+            'postal_code' => 'nullable|string|max:20',
+            'ownership_type' => 'nullable|string|max:50',
+            
+            // Image Files
+            'br_image' => 'nullable|file|image|max:5120',
+            'shop_photos' => 'nullable|array',
+            'shop_photos.*' => 'nullable|file|image|max:5120',
+            'profile_picture' => 'nullable|file|image|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors occurred.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // Update User details
+            $user->update([
+                'full_name' => $request->full_name,
+                'email' => $request->email,
+                'phone_number' => $request->phone_number,
+                'phone_number_2' => $request->phone_number_2,
+                'national_id' => $request->national_id,
+                'address' => $request->address,
+                'city' => $request->city,
+                'district' => $request->district,
+                'province' => $request->province,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+            ]);
+
+            if ($request->hasFile('profile_picture')) {
+                $picPath = $request->file('profile_picture')->store('profile-pictures/' . $user->id, 'public');
+                $user->update(['profile_picture_path' => $picPath]);
+            }
+
+            // Get existing verification data
+            $existing = DB::table('retail_seller_verification_data')
+                ->where('user_id', $user->id)
+                ->first();
+
+            $brImagePath = $existing->br_image_path ?? null;
+            if ($request->hasFile('br_image')) {
+                $brImagePath = $request->file('br_image')->store('retail-seller-verifications/' . $user->id, 'public');
+            }
+
+            $shopPhotoPaths = json_decode($existing->shop_photos ?? '[]', true) ?: [];
+            if ($request->hasFile('shop_photos')) {
+                foreach ($request->file('shop_photos') as $photo) {
+                    $shopPhotoPaths[] = $photo->store('retail-seller-shops/' . $user->id, 'public');
+                }
+            }
+
+            // Save/Update verification details, always reset status to pending when edited
+            DB::table('retail_seller_verification_data')->updateOrInsert(
+                ['user_id' => $user->id],
+                [
+                    'br_number' => $request->br_number,
+                    'br_image_path' => $brImagePath,
+                    'br_issue_date' => $request->br_issue_date,
+                    'br_expiry_date' => $request->br_expiry_date,
+                    'business_type' => $request->business_type,
+                    'shop_address' => $request->shop_address,
+                    'shop_photos' => json_encode($shopPhotoPaths),
+                    'postal_code' => $request->postal_code,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'ownership_type' => $request->ownership_type,
+                    'status' => 'pending', // Reset status to pending when edited
+                    'updated_at' => now(),
+                    'created_at' => $existing->created_at ?? now(),
+                ]
+            );
+
+            DB::commit();
+
+            return $this->retailSellerProfile($request);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update retail seller profile.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * POST /api/user/add-role
      * Adds a new role to the authenticated user's roles array and sets up verification data if needed.
      */

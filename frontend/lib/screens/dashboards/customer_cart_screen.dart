@@ -281,12 +281,8 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                         style: TextStyle(color: AppTheme.darkGreen, fontSize: 15, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: groupedItems.keys.length,
-                        itemBuilder: (context, index) {
-                          final retailerName = groupedItems.keys.elementAt(index);
+                      Column(
+                        children: groupedItems.keys.map((retailerName) {
                           final items = groupedItems[retailerName]!;
                           return Container(
                             margin: const EdgeInsets.only(bottom: 20),
@@ -352,9 +348,16 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                               ),
-                                              Text(
-                                                'LKR ${price.toStringAsFixed(2)} x ${item.quantity}',
-                                                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                              const SizedBox(height: 4),
+                                              _CartQuantitySelector(
+                                                stockQuantity: double.tryParse(item.product['stock_quantity']?.toString() ?? '0') ?? 0.0,
+                                                unitType: item.product['unit_type'] ?? 'kg',
+                                                initialValue: item.quantity,
+                                                onChanged: (newQty) {
+                                                  setState(() {
+                                                    item.quantity = newQty;
+                                                  });
+                                                },
                                               ),
                                             ],
                                           ),
@@ -378,7 +381,7 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                               ],
                             ),
                           );
-                        },
+                        }).toList(),
                       ),
 
                       // Delivery Address Form
@@ -538,3 +541,115 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
     );
   }
 }
+
+class _CartQuantitySelector extends StatefulWidget {
+  final double stockQuantity;
+  final String unitType;
+  final double initialValue;
+  final ValueChanged<double> onChanged;
+
+  const _CartQuantitySelector({
+    required this.stockQuantity,
+    required this.unitType,
+    required this.initialValue,
+    required this.onChanged,
+  });
+
+  @override
+  State<_CartQuantitySelector> createState() => _CartQuantitySelectorState();
+}
+
+class _CartQuantitySelectorState extends State<_CartQuantitySelector> {
+  late TextEditingController _controller;
+  late double _currentVal;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentVal = widget.initialValue;
+    _controller = TextEditingController(text: _formatValue(_currentVal));
+  }
+
+  @override
+  void didUpdateWidget(_CartQuantitySelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue && widget.initialValue != _currentVal) {
+      setState(() {
+        _currentVal = widget.initialValue;
+        _controller.text = _formatValue(_currentVal);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _formatValue(double val) {
+    if (val == val.toInt()) {
+      return val.toInt().toString();
+    }
+    return val.toStringAsFixed(1);
+  }
+
+  void _updateVal(double newVal) {
+    if (newVal < 0.1) newVal = 0.1;
+    if (newVal > widget.stockQuantity) {
+      newVal = widget.stockQuantity;
+    }
+    setState(() {
+      _currentVal = newVal;
+      _controller.text = _formatValue(_currentVal);
+    });
+    widget.onChanged(_currentVal);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          icon: const Icon(Icons.remove_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 18),
+          onPressed: () {
+            _updateVal(_currentVal - 1.0);
+          },
+        ),
+        const SizedBox(width: 4),
+        Container(
+          width: 38,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAFAFA),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: Text(
+            _formatValue(_currentVal),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 18),
+          onPressed: () {
+            _updateVal(_currentVal + 1.0);
+          },
+        ),
+        const SizedBox(width: 4),
+        Text(
+          widget.unitType,
+          style: const TextStyle(fontSize: 10, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+}
+

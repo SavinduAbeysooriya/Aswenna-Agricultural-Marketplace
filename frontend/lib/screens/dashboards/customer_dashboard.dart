@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
-import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/dashboards/customer_cart_screen.dart';
 import 'package:aswenna/screens/dashboards/customer_profile_screen.dart';
@@ -28,6 +27,8 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
   final _searchController = TextEditingController();
   int? _selectedCropId;
   String? _selectedGrade;
+
+
 
   @override
   void initState() {
@@ -246,16 +247,19 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
               // Grade filter options
               const Text('Filter by Grade', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  _buildGradeChip(null, 'All Grades'),
-                  const SizedBox(width: 8),
-                  _buildGradeChip('A', 'Grade A'),
-                  const SizedBox(width: 8),
-                  _buildGradeChip('B', 'Grade B'),
-                  const SizedBox(width: 8),
-                  _buildGradeChip('C', 'Grade C'),
-                ],
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildGradeChip(null, 'All Grades'),
+                    const SizedBox(width: 8),
+                    _buildGradeChip('A', 'Grade A'),
+                    const SizedBox(width: 8),
+                    _buildGradeChip('B', 'Grade B'),
+                    const SizedBox(width: 8),
+                    _buildGradeChip('C', 'Grade C'),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -263,43 +267,37 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
               if (!_isLoadingCrops && _crops.isNotEmpty) ...[
                 const Text('Crop Category', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
                 const SizedBox(height: 8),
-                SizedBox(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _crops.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ChoiceChip(
+                        label: const Text('All Categories'),
+                        selected: _selectedCropId == null,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() => _selectedCropId = null);
+                            _fetchProducts();
+                          }
+                        },
+                      ),
+                      ..._crops.map((crop) {
+                        final isSelected = _selectedCropId == crop['id'];
                         return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
+                          padding: const EdgeInsets.only(left: 8.0),
                           child: ChoiceChip(
-                            label: const Text('All Categories'),
-                            selected: _selectedCropId == null,
+                            label: Text(crop['cropname'] ?? ''),
+                            selected: isSelected,
                             onSelected: (selected) {
-                              if (selected) {
-                                setState(() => _selectedCropId = null);
-                                _fetchProducts();
-                              }
+                              setState(() {
+                                _selectedCropId = selected ? crop['id'] : null;
+                              });
+                              _fetchProducts();
                             },
                           ),
                         );
-                      }
-                      final crop = _crops[index - 1];
-                      final isSelected = _selectedCropId == crop['id'];
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
-                          label: Text(crop['cropname'] ?? ''),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedCropId = selected ? crop['id'] : null;
-                            });
-                            _fetchProducts();
-                          },
-                        ),
-                      );
-                    },
+                      }),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -339,14 +337,10 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
                   ),
                 )
               else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _products.length,
-                  itemBuilder: (context, index) {
-                    final product = _products[index];
-                    return _buildProductListItem(product);
-                  },
+                Column(
+                  children: _products.map((product) {
+                    return _buildProductListItem(product, key: ValueKey('prod_${product['id']}'));
+                  }).toList(),
                 ),
             ],
           ),
@@ -388,8 +382,220 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
     );
   }
 
-  Widget _buildProductListItem(Map<String, dynamic> product) {
-    final price = double.parse(product['price_per_unit'].toString());
+
+  void _showProductDetailsPopup(Map<String, dynamic> product) {
+    final int productId = product['id'];
+    final double price = double.parse(product['price_per_unit'].toString());
+    final hasDiscount = product['discount_price_per_unit'] != null &&
+        double.parse(product['discount_price_per_unit'].toString()) > 0;
+    final discountPrice = hasDiscount ? double.parse(product['discount_price_per_unit'].toString()) : null;
+    final activePrice = discountPrice ?? price;
+
+    final String? thumb = product['thumbnail_path'];
+    final imageUrl = thumb != null ? ApiService.fileUrl(thumb) : null;
+    final double stockQty = double.tryParse(product['stock_quantity']?.toString() ?? '0') ?? 0.0;
+    final bool isOutOfStock = stockQty <= 0 || product['status'] == 'out_of_stock';
+
+    double popupQty = 1.0;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setPopupState) {
+            final double currentTotal = activePrice * popupQty;
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Product Details',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Image
+                      Center(
+                        child: Container(
+                          width: 180,
+                          height: 180,
+                          decoration: BoxDecoration(
+                            color: AppTheme.softGray,
+                            borderRadius: BorderRadius.circular(20),
+                            image: imageUrl != null ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover) : null,
+                          ),
+                          child: imageUrl == null ? const Icon(Icons.eco, color: AppTheme.deepLeafGreen, size: 64) : null,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Details
+                      Text(
+                        product['product_name'] ?? 'Product',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Seller: ${product['seller']?['full_name'] ?? 'Unknown'}',
+                        style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Grade / Distance / Stock row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isOutOfStock ? const Color(0xFFFFEBEE) : AppTheme.lightMint,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              isOutOfStock ? 'Sold Out' : 'Grade ${product['grade']}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isOutOfStock ? const Color(0xFFC62828) : AppTheme.darkGreen,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            isOutOfStock ? 'Out of Stock' : '${stockQty.toStringAsFixed(1)} ${product['unit_type']} left',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isOutOfStock ? const Color(0xFFC62828) : AppTheme.deepLeafGreen,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      const SizedBox(height: 16),
+
+                      // Price Info
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Unit Price',
+                            style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'LKR ${activePrice.toStringAsFixed(2)} per ${product['unit_type']}',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Quantity Selector Row
+                      if (!isOutOfStock) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Order Quantity',
+                              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                            ),
+                            ProductQuantitySelector(
+                              key: ValueKey('qty_popup_$productId'),
+                              stockQuantity: stockQty,
+                              unitType: product['unit_type'] ?? 'kg',
+                              initialValue: popupQty,
+                              onChanged: (newQty) {
+                                setPopupState(() {
+                                  popupQty = newQty;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        const SizedBox(height: 16),
+
+                        // Calculated Total Price
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Calculated Price',
+                              style: TextStyle(fontSize: 14, color: AppTheme.darkGreen, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'LKR ${currentTotal.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppTheme.deepLeafGreen),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+
+                      // Add to Cart / Buy Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.deepLeafGreen,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: isOutOfStock
+                              ? null
+                              : () {
+                                  setState(() {
+                                    Cart.add(product, qty: popupQty);
+                                  });
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('${product['product_name']} (x$popupQty) added to cart!'),
+                                      duration: const Duration(seconds: 1),
+                                      action: SnackBarAction(
+                                        label: 'View Cart',
+                                        textColor: Colors.white,
+                                        onPressed: _navigateToCart,
+                                      ),
+                                    ),
+                                  );
+                                },
+                          child: Text(
+                            isOutOfStock ? 'Product Out of Stock' : 'Add to Cart',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildProductListItem(Map<String, dynamic> product, {Key? key}) {
+    final double price = double.parse(product['price_per_unit'].toString());
     final hasDiscount = product['discount_price_per_unit'] != null &&
         double.parse(product['discount_price_per_unit'].toString()) > 0;
     final discountPrice = hasDiscount ? double.parse(product['discount_price_per_unit'].toString()) : null;
@@ -400,130 +606,266 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
     final String? thumb = product['thumbnail_path'];
     final imageUrl = thumb != null ? ApiService.fileUrl(thumb) : null;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepLeafGreen.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppTheme.softGray,
-              borderRadius: BorderRadius.circular(16),
-              image: imageUrl != null ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover) : null,
-            ),
-            child: imageUrl == null ? const Icon(Icons.eco, color: AppTheme.deepLeafGreen, size: 30) : null,
-          ),
-          const SizedBox(width: 16),
+    final double stockQty = double.tryParse(product['stock_quantity']?.toString() ?? '0') ?? 0.0;
+    final bool isOutOfStock = stockQty <= 0 || product['status'] == 'out_of_stock';
 
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.lightMint,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Grade ${product['grade']}',
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
-                      ),
-                    ),
-                    Text(
-                      distanceStr,
-                      style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  product['product_name'] ?? 'Product',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
-                ),
-                Text(
-                  'Retailer: ${product['seller']?['full_name'] ?? 'Shop'}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (hasDiscount) ...[
-                          Text(
-                            'LKR ${price.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 9, color: Colors.red, decoration: TextDecoration.lineThrough),
-                          ),
-                          Text(
-                            'LKR ${discountPrice!.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
-                          ),
-                        ] else
-                          Text(
-                            'LKR ${price.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
-                          ),
-                        Text(
-                          'per ${product['unit_type']}',
-                          style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
-                        ),
-                      ],
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        minimumSize: const Size(60, 36),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          Cart.add(product);
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${product['product_name']} added to cart!'),
-                            duration: const Duration(seconds: 1),
-                            action: SnackBarAction(
-                              label: 'View Cart',
-                              textColor: Colors.white,
-                              onPressed: _navigateToCart,
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Text('Buy', style: TextStyle(fontSize: 11)),
-                    ),
-                  ],
-                ),
-              ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _showProductDetailsPopup(product),
+      child: Container(
+        key: key,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.pureWhite,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.deepLeafGreen.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Thumbnail Image
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppTheme.softGray,
+                borderRadius: BorderRadius.circular(16),
+                image: imageUrl != null ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover) : null,
+              ),
+              child: imageUrl == null ? const Icon(Icons.eco, color: AppTheme.deepLeafGreen, size: 32) : null,
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isOutOfStock ? const Color(0xFFFFEBEE) : AppTheme.lightMint,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          isOutOfStock ? 'Sold Out' : 'Grade ${product['grade']}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: isOutOfStock ? const Color(0xFFC62828) : AppTheme.darkGreen,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        distanceStr,
+                        style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    product['product_name'] ?? 'Product',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Retailer: ${product['seller']?['full_name'] ?? 'Shop'}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Price and stock status
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          if (hasDiscount) ...[
+                            Text(
+                              'LKR ${discountPrice!.toStringAsFixed(0)}',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.deepLeafGreen),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'LKR ${price.toStringAsFixed(0)}',
+                              style: const TextStyle(fontSize: 10, color: Colors.red, decoration: TextDecoration.lineThrough),
+                            ),
+                          ] else
+                            Text(
+                              'LKR ${price.toStringAsFixed(0)}',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.deepLeafGreen),
+                            ),
+                          Text(
+                            ' / ${product['unit_type']}',
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        isOutOfStock ? 'Out of stock' : '${stockQty.toStringAsFixed(1)} ${product['unit_type']} left',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isOutOfStock ? const Color(0xFFC62828) : AppTheme.deepLeafGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class ProductQuantitySelector extends StatefulWidget {
+  final double stockQuantity;
+  final String unitType;
+  final double initialValue;
+  final ValueChanged<double> onChanged;
+  final bool allowManualInput;
+
+  const ProductQuantitySelector({
+    super.key,
+    required this.stockQuantity,
+    required this.unitType,
+    required this.initialValue,
+    required this.onChanged,
+    this.allowManualInput = true,
+  });
+
+  @override
+  State<ProductQuantitySelector> createState() => _ProductQuantitySelectorState();
+}
+
+class _ProductQuantitySelectorState extends State<ProductQuantitySelector> {
+  late TextEditingController _controller;
+  late double _currentVal;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentVal = widget.initialValue;
+    _controller = TextEditingController(text: _formatValue(_currentVal));
+  }
+
+  @override
+  void didUpdateWidget(ProductQuantitySelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue && widget.initialValue != _currentVal) {
+      setState(() {
+        _currentVal = widget.initialValue;
+        _controller.text = _formatValue(_currentVal);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _formatValue(double val) {
+    if (val == val.toInt()) {
+      return val.toInt().toString();
+    }
+    return val.toStringAsFixed(1);
+  }
+
+  void _updateVal(double newVal) {
+    if (newVal < 0.1) newVal = 0.1;
+    if (newVal > widget.stockQuantity) {
+      newVal = widget.stockQuantity;
+    }
+    setState(() {
+      _currentVal = newVal;
+      _controller.text = _formatValue(_currentVal);
+    });
+    widget.onChanged(_currentVal);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          icon: const Icon(Icons.remove_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 20),
+          onPressed: () {
+            _updateVal(_currentVal - 1.0);
+          },
+        ),
+        const SizedBox(width: 4),
+        Container(
+          width: 44,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAFAFA),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: widget.allowManualInput
+              ? TextFormField(
+                  controller: _controller,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
+                  onChanged: (val) {
+                    final parsed = double.tryParse(val);
+                    if (parsed != null) {
+                      double safeVal = parsed;
+                      if (safeVal < 0.1) safeVal = 0.1;
+                      if (safeVal > widget.stockQuantity) {
+                        safeVal = widget.stockQuantity;
+                        _controller.text = _formatValue(safeVal);
+                        _controller.selection = TextSelection.fromPosition(TextPosition(offset: _controller.text.length));
+                      }
+                      _currentVal = safeVal;
+                      widget.onChanged(_currentVal);
+                    }
+                  },
+                )
+              : Text(
+                  _formatValue(_currentVal),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 20),
+          onPressed: () {
+            _updateVal(_currentVal + 1.0);
+          },
+        ),
+      ],
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/dashboards/customer_cart_screen.dart';
 import 'package:aswenna/screens/dashboards/customer_profile_screen.dart';
 import 'package:aswenna/screens/dashboards/customer_orders_screen.dart';
+import 'package:aswenna/screens/login_screen.dart';
 
 class CustomerDashboard extends StatefulWidget {
   const CustomerDashboard({super.key});
@@ -42,7 +43,22 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
     super.dispose();
   }
 
+  void _redirectToLogin() {
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   Future<void> _loadLocationAndData() async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      _redirectToLogin();
+      return;
+    }
+
     setState(() {
       _isLoadingProducts = true;
     });
@@ -55,6 +71,13 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
         _latitude = u['latitude'] != null ? double.tryParse(u['latitude'].toString()) : null;
         _longitude = u['longitude'] != null ? double.tryParse(u['longitude'].toString()) : null;
         _cityName = u['city'] ?? u['district'];
+      } else if (profileRes['success'] == false &&
+                 (profileRes['message']?.toString().toLowerCase().contains('expired') == true ||
+                  profileRes['message']?.toString().toLowerCase().contains('sign in') == true ||
+                  profileRes['message']?.toString().toLowerCase().contains('unauthenticated') == true ||
+                  profileRes['message']?.toString().toLowerCase().contains('unauthorized') == true)) {
+        _redirectToLogin();
+        return;
       }
     } catch (e) {
       // ignore
@@ -80,6 +103,12 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
         setState(() {
           _products = response['products'] ?? [];
         });
+      } else if (response['success'] == false &&
+                 (response['message']?.toString().toLowerCase().contains('expired') == true ||
+                  response['message']?.toString().toLowerCase().contains('sign in') == true ||
+                  response['message']?.toString().toLowerCase().contains('unauthenticated') == true ||
+                  response['message']?.toString().toLowerCase().contains('unauthorized') == true)) {
+        _redirectToLogin();
       }
     } catch (e) {
       // ignore
@@ -98,6 +127,12 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
         setState(() {
           _crops = response['crops'] ?? [];
         });
+      } else if (response['success'] == false &&
+                 (response['message']?.toString().toLowerCase().contains('expired') == true ||
+                  response['message']?.toString().toLowerCase().contains('sign in') == true ||
+                  response['message']?.toString().toLowerCase().contains('unauthenticated') == true ||
+                  response['message']?.toString().toLowerCase().contains('unauthorized') == true)) {
+        _redirectToLogin();
       }
     } catch (e) {
       // ignore

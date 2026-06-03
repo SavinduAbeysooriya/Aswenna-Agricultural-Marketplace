@@ -14,7 +14,6 @@ class CustomerOrder extends Model
     protected $fillable = [
         'order_number',
         'customer_id',
-        'retailer_seller_id',
         'delivery_partner_id',
         'delivery_address',
         'delivery_latitude',
@@ -64,13 +63,7 @@ class CustomerOrder extends Model
         return $this->belongsTo(User::class, 'customer_id');
     }
 
-    /**
-     * Get the retailer seller of this order.
-     */
-    public function retailer()
-    {
-        return $this->belongsTo(User::class, 'retailer_seller_id');
-    }
+
 
     /**
      * Get the delivery partner of this order.

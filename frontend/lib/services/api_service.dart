@@ -3298,5 +3298,109 @@ class ApiService {
     }
   }
 
+  // ===================================================================
+  // Customer Products & Browsing Methods
+  // ===================================================================
+
+  static Future<Map<String, dynamic>> getCustomerProducts({
+    double? lat,
+    double? lng,
+    String? search,
+    int? cropId,
+    String? grade,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+
+    final queryParams = <String, String>{};
+    if (lat != null) queryParams['latitude'] = lat.toString();
+    if (lng != null) queryParams['longitude'] = lng.toString();
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    if (cropId != null) queryParams['crop_id'] = cropId.toString();
+    if (grade != null) queryParams['grade'] = grade;
+
+    final uri = Uri.parse('$baseUrl/customer/products').replace(queryParameters: queryParams);
+
+    try {
+      final response = await http.get(uri, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to search products.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // ===================================================================
+  // Customer Orders Checkout & Tracking
+  // ===================================================================
+
+  static Future<Map<String, dynamic>> placeCustomerOrder(Map<String, dynamic> data) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/customer/orders');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 201 && responseData['success'] == true) return responseData;
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to place order.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCustomerOrders() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/customer/orders');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load orders.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCustomerOrderDetail(int orderId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/customer/orders/$orderId');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load order details.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
 }
+
 

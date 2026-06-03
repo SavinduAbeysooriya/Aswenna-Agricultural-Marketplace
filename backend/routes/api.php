@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\ChatMessageController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\RetailerProductController;
+use App\Http\Controllers\Api\CustomerProductController;
+use App\Http\Controllers\Api\CustomerOrderController;
 
 // ─── Public Auth Routes ────────────────────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
@@ -108,6 +110,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/retailer/products/rate-limit/{cropId}/{grade}', [RetailerProductController::class, 'rateLimitInfo']);
     Route::post('/retailer/products/{id}', [RetailerProductController::class, 'update']); // Support multipart/form-data for updates
     Route::apiResource('/retailer/products', RetailerProductController::class)->except(['update']);
+
+    // ─── Customer Shop & Checkout ───────────────────────────────────────────────
+    Route::get('/customer/products', [CustomerProductController::class, 'index']);
+    Route::post('/customer/orders', [CustomerOrderController::class, 'store']);
+    Route::get('/customer/orders', [CustomerOrderController::class, 'index']);
+    Route::get('/customer/orders/{id}', [CustomerOrderController::class, 'show']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

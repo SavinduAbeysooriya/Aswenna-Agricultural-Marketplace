@@ -99,8 +99,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Payments ──────────────────────────────────────────────────────────────
     Route::post('/buyer/confirmed-bids/{confirmedBidId}/initiate-payment', [PaymentController::class, 'initiatePayment']);
+    Route::post('/customer/orders/{orderId}/initiate-payment', [PaymentController::class, 'initiateRetailOrderPayment']);
     Route::get('/user/wallet', [PaymentController::class, 'getWalletDetails']);
     Route::post('/payment/debug-simulate-success', [PaymentController::class, 'debugSimulateSuccess']);
+    Route::post('/payment/debug-simulate-retail-order-success', [PaymentController::class, 'debugSimulateRetailOrderSuccess']);
 
     // ─── Reviews ───────────────────────────────────────────────────────────────
     Route::post('/confirmed-bids/{confirmedBidId}/reviews', [ReviewController::class, 'submitReview']);
@@ -113,6 +115,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ─── Customer Shop & Checkout ───────────────────────────────────────────────
     Route::get('/customer/products', [CustomerProductController::class, 'index']);
+    Route::post('/customer/orders/calculate-delivery', [CustomerOrderController::class, 'calculateDelivery']);
     Route::post('/customer/orders', [CustomerOrderController::class, 'store']);
     Route::get('/customer/orders', [CustomerOrderController::class, 'index']);
     Route::get('/customer/orders/{id}', [CustomerOrderController::class, 'show']);

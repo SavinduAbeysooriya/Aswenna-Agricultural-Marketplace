@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
+import 'package:aswenna/screens/payment/retail_payment_screen.dart';
 
 class CartItem {
   final Map<String, dynamic> product;
@@ -61,6 +61,12 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
   double? _longitude;
   GoogleMapController? _mapController;
 
+  double? _deliveryFee;
+  double? _deliveryDistance;
+  double? _deliveryWeight;
+  double? _ratePerKm;
+  bool _isCalculatingDelivery = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,10 +95,47 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
           _mapController?.animateCamera(
             CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
           );
+          _updateDeliveryFee();
         }
       }
     } catch (e) {
       // Fail silently
+    }
+  }
+
+  Future<void> _updateDeliveryFee() async {
+    if (Cart.items.isEmpty) return;
+    if (_latitude == null || _longitude == null) return;
+
+    setState(() {
+      _isCalculatingDelivery = true;
+    });
+
+    final cartList = Cart.items.map((item) => {
+      'retailer_product_id': item.product['id'],
+      'quantity': item.quantity,
+    }).toList();
+
+    try {
+      final res = await ApiService.calculateDelivery(
+        lat: _latitude!,
+        lng: _longitude!,
+        cartItems: cartList,
+      );
+      if (res['success'] == true) {
+        setState(() {
+          _deliveryFee = double.tryParse(res['delivery_fee']?.toString() ?? '0');
+          _deliveryDistance = double.tryParse(res['distance_km']?.toString() ?? '0');
+          _deliveryWeight = double.tryParse(res['total_weight_kg']?.toString() ?? '0');
+          _ratePerKm = double.tryParse(res['rate_per_km']?.toString() ?? '0');
+        });
+      }
+    } catch (e) {
+      // Fail silently
+    } finally {
+      setState(() {
+        _isCalculatingDelivery = false;
+      });
     }
   }
 
@@ -126,6 +169,7 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
       _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 15),
       );
+      _updateDeliveryFee();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to get location: $e')),
@@ -154,6 +198,7 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
       _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
       );
+      _updateDeliveryFee();
     }
   }
 
@@ -183,31 +228,47 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
     try {
       final response = await ApiService.placeCustomerOrder(data);
       if (response['success'] == true) {
+        final orderData = (response['orders'] != null && response['orders'].isNotEmpty) ? response['orders'][0] : null;
         setState(() {
           Cart.clear();
         });
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle_rounded, color: AppTheme.deepLeafGreen),
-                SizedBox(width: 8),
-                Text('Order Placed!'),
+
+        if (orderData != null) {
+          final orderId = orderData['id'];
+          // Navigate to retail payment screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RetailPaymentScreen(
+                orderId: orderId,
+                order: orderData,
+              ),
+            ),
+          );
+        } else {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: AppTheme.deepLeafGreen),
+                  SizedBox(width: 8),
+                  Text('Order Placed!'),
+                ],
+              ),
+              content: Text(response['message'] ?? 'Your order has been split by retailer and placed successfully!'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context); // Close dialog
+                    Navigator.pop(context, true); // Return to dashboard, notify checkout success
+                  },
+                  child: const Text('OK', style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
+                )
               ],
             ),
-            content: Text(response['message'] ?? 'Your order has been split by retailer and placed successfully!'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context, true); // Return to dashboard, notify checkout success
-                },
-                child: const Text('OK', style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
-              )
-            ],
-          ),
-        );
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(response['message'] ?? 'Failed to place order.'), backgroundColor: Colors.red),
@@ -357,6 +418,7 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                                                   setState(() {
                                                     item.quantity = newQty;
                                                   });
+                                                  _updateDeliveryFee();
                                                 },
                                               ),
                                             ],
@@ -372,6 +434,7 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                                             setState(() {
                                               Cart.remove(item.product['id']);
                                             });
+                                            _updateDeliveryFee();
                                           },
                                         ),
                                       ],
@@ -472,6 +535,7 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                                       _longitude = coords.longitude;
                                     });
                                     _mapController?.animateCamera(CameraUpdate.newLatLngZoom(coords, 15));
+                                    _updateDeliveryFee();
                                   },
                                   zoomControlsEnabled: false,
                                   myLocationButtonEnabled: false,
@@ -503,20 +567,58 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            const Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Delivery Fee', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                                Text('Calculated at checkout', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
-                              ],
-                            ),
+                            if (_isCalculatingDelivery)
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Delivery Fee', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                                  SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.deepLeafGreen),
+                                  ),
+                                ],
+                              )
+                            else if (_deliveryFee != null) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Delivery Fee (${_deliveryDistance?.toStringAsFixed(1) ?? '0'} km @ LKR ${_ratePerKm?.toStringAsFixed(0) ?? '100'}/km)',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                  ),
+                                  Text('LKR ${_deliveryFee!.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              if (_deliveryWeight != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text('Total Order Weight', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('${_deliveryWeight!.toStringAsFixed(2)} kg', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                            ] else
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Delivery Fee', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                                  Text('Pin location to calculate', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.orange)),
+                                ],
+                              ),
                             const Divider(height: 20, color: AppTheme.softGray),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total Cost (excl. delivery)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.darkGreen)),
                                 Text(
-                                  'LKR ${Cart.total.toStringAsFixed(2)}',
+                                  _deliveryFee != null ? 'Grand Total' : 'Total Cost (excl. delivery)',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
+                                ),
+                                Text(
+                                  'LKR ${(Cart.total + (_deliveryFee ?? 0.0)).toStringAsFixed(2)}',
                                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
                                 ),
                               ],

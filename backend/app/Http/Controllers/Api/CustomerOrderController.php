@@ -147,24 +147,54 @@ class CustomerOrderController extends Controller
                 }
             }
 
-            // Calculate Delivery Fee for each retailer
-            $totalDeliveryFee = 0.00;
-            foreach ($distinctRetailers as $retailerId => $retailerUser) {
-                $distanceKm = null;
-                $retailerDeliveryFee = 250.00; // default flat rate per retailer
-
-                if ($custLat !== null && $custLng !== null && $retailerUser->latitude !== null && $retailerUser->longitude !== null) {
-                    $distanceKm = $this->calculateHaversineDistance(
-                        (float)$custLat,
-                        (float)$custLng,
-                        (float)$retailerUser->latitude,
-                        (float)$retailerUser->longitude
-                    );
-                    // LKR 200 Base + LKR 80 per kilometer
-                    $retailerDeliveryFee = round(200.00 + ($distanceKm * 80.00), 2);
+            // Calculate Route-based Delivery Fee
+            $retailerCoords = [];
+            foreach ($distinctRetailers as $retailer) {
+                if ($retailer->latitude !== null && $retailer->longitude !== null) {
+                    $retailerCoords[] = [
+                        'lat' => (float)$retailer->latitude,
+                        'lng' => (float)$retailer->longitude
+                    ];
                 }
-                $totalDeliveryFee += $retailerDeliveryFee;
             }
+
+            $totalDistance = 0.0;
+            if (count($retailerCoords) > 0) {
+                $currLat = $retailerCoords[0]['lat'];
+                $currLng = $retailerCoords[0]['lng'];
+
+                for ($i = 1; $i < count($retailerCoords); $i++) {
+                    $nextLat = $retailerCoords[$i]['lat'];
+                    $nextLng = $retailerCoords[$i]['lng'];
+                    $totalDistance += $this->calculateHaversineDistance($currLat, $currLng, $nextLat, $nextLng);
+                    $currLat = $nextLat;
+                    $currLng = $nextLng;
+                }
+
+                if ($custLat !== null && $custLng !== null) {
+                    $totalDistance += $this->calculateHaversineDistance($currLat, $currLng, (float)$custLat, (float)$custLng);
+                } else {
+                    $totalDistance += 10.0;
+                }
+            } else {
+                $totalDistance = 10.0;
+            }
+
+            $totalWeight = 0.0;
+            foreach ($cartReqItems as $item) {
+                $totalWeight += (float)$item['quantity'];
+            }
+
+            $ratePerKm = 100.0;
+            if ($totalWeight >= 20.0) {
+                $ratePerKm = 200.0;
+            } elseif ($totalWeight >= 10.0) {
+                $ratePerKm = 175.0;
+            } elseif ($totalWeight >= 5.0) {
+                $ratePerKm = 150.0;
+            }
+
+            $totalDeliveryFee = round($totalDistance * $ratePerKm, 2);
 
             $systemCommission = round($subtotal * 0.05, 2); // 5% marketplace fee
             $totalAmount = $subtotal + $totalDeliveryFee;
@@ -237,6 +267,99 @@ class CustomerOrderController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * POST /api/customer/orders/calculate-delivery
+     * Calculate route distance and dynamic delivery fee based on total weight.
+     */
+    public function calculateDelivery(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'delivery_latitude' => 'required|numeric|between:-90,90',
+            'delivery_longitude' => 'required|numeric|between:-180,180',
+            'cart_items' => 'required|array|min:1',
+            'cart_items.*.retailer_product_id' => 'required|exists:retailer_products,id',
+            'cart_items.*.quantity' => 'required|numeric|min:0.01',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $cartReqItems = $request->input('cart_items');
+        $custLat = $request->input('delivery_latitude');
+        $custLng = $request->input('delivery_longitude');
+
+        // Resolve all products
+        $productIds = collect($cartReqItems)->pluck('retailer_product_id')->all();
+        $products = RetailerProduct::with('seller')->whereIn('id', $productIds)->get()->keyBy('id');
+
+        $distinctRetailers = [];
+        $totalWeight = 0.0;
+        foreach ($cartReqItems as $item) {
+            $prod = $products->get($item['retailer_product_id']);
+            if ($prod) {
+                $totalWeight += (float)$item['quantity'];
+                if ($prod->seller) {
+                    $distinctRetailers[$prod->seller_id] = $prod->seller;
+                }
+            }
+        }
+
+        $retailerCoords = [];
+        foreach ($distinctRetailers as $retailer) {
+            if ($retailer->latitude !== null && $retailer->longitude !== null) {
+                $retailerCoords[] = [
+                    'lat' => (float)$retailer->latitude,
+                    'lng' => (float)$retailer->longitude
+                ];
+            }
+        }
+
+        $totalDistance = 0.0;
+        if (count($retailerCoords) > 0) {
+            $currLat = $retailerCoords[0]['lat'];
+            $currLng = $retailerCoords[0]['lng'];
+
+            for ($i = 1; $i < count($retailerCoords); $i++) {
+                $nextLat = $retailerCoords[$i]['lat'];
+                $nextLng = $retailerCoords[$i]['lng'];
+                $totalDistance += $this->calculateHaversineDistance($currLat, $currLng, $nextLat, $nextLng);
+                $currLat = $nextLat;
+                $currLng = $nextLng;
+            }
+
+            if ($custLat !== null && $custLng !== null) {
+                $totalDistance += $this->calculateHaversineDistance($currLat, $currLng, (float)$custLat, (float)$custLng);
+            } else {
+                $totalDistance += 10.0;
+            }
+        } else {
+            $totalDistance = 10.0;
+        }
+
+        $ratePerKm = 100.0;
+        if ($totalWeight >= 20.0) {
+            $ratePerKm = 200.0;
+        } elseif ($totalWeight >= 10.0) {
+            $ratePerKm = 175.0;
+        } elseif ($totalWeight >= 5.0) {
+            $ratePerKm = 150.0;
+        }
+
+        $deliveryFee = round($totalDistance * $ratePerKm, 2);
+
+        return response()->json([
+            'success' => true,
+            'distance_km' => round($totalDistance, 2),
+            'total_weight_kg' => round($totalWeight, 2),
+            'rate_per_km' => $ratePerKm,
+            'delivery_fee' => $deliveryFee,
+        ], 200);
     }
 
     /**

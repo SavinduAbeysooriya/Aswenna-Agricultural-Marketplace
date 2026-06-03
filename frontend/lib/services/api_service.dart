@@ -3138,4 +3138,165 @@ class ApiService {
     }
   }
 
+  // ===================================================================
+  // Retailer Product Methods
+  // ===================================================================
+
+  static Future<Map<String, dynamic>> getRetailerProducts() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/retailer/products');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load products.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getRetailerRateLimit(int cropId, String grade) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/retailer/products/rate-limit/$cropId/$grade');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to load rate limits.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> createRetailerProduct(
+    Map<String, dynamic> data, {
+    String? thumbnailPath,
+    List<String>? imagesPaths,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/retailer/products');
+    try {
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      data.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      if (thumbnailPath != null && thumbnailPath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnailPath));
+      }
+
+      if (imagesPaths != null) {
+        for (final path in imagesPaths) {
+          if (path.trim().isNotEmpty) {
+            request.files.add(await http.MultipartFile.fromPath('images[]', path));
+          }
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      final responseData = jsonDecode(responseBody) as Map<String, dynamic>;
+
+      if (streamedResponse.statusCode == 201 && responseData['success'] == true) {
+        return responseData;
+      }
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to create product.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateRetailerProduct(
+    int productId,
+    Map<String, dynamic> data, {
+    String? thumbnailPath,
+    List<String>? imagesPaths,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    // Send POST to the update route with the field mappings to bypass PUT file upload limitations in Laravel
+    final url = Uri.parse(baseUrl + '/retailer/products/$productId');
+    try {
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      data.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      if (thumbnailPath != null && thumbnailPath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnailPath));
+      }
+
+      if (imagesPaths != null) {
+        for (final path in imagesPaths) {
+          if (path.trim().isNotEmpty) {
+            request.files.add(await http.MultipartFile.fromPath('images[]', path));
+          }
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      final responseData = jsonDecode(responseBody) as Map<String, dynamic>;
+
+      if (streamedResponse.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to update product.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteRetailerProduct(int productId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/retailer/products/$productId');
+    try {
+      final response = await http.delete(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {'success': false, 'message': data['message'] ?? 'Failed to delete product.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
 }
+

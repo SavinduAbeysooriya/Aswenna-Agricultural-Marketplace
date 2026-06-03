@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
+import 'package:aswenna/screens/login_screen.dart';
 
 class CustomerOrdersScreen extends StatefulWidget {
   const CustomerOrdersScreen({super.key});
@@ -20,7 +21,22 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
     _loadOrders();
   }
 
+  void _redirectToLogin() {
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   Future<void> _loadOrders() async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      _redirectToLogin();
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -33,6 +49,13 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
           _orders = response['orders'] ?? [];
         });
       } else {
+        if (response['message']?.toString().toLowerCase().contains('expired') == true ||
+            response['message']?.toString().toLowerCase().contains('sign in') == true ||
+            response['message']?.toString().toLowerCase().contains('unauthenticated') == true ||
+            response['message']?.toString().toLowerCase().contains('unauthorized') == true) {
+          _redirectToLogin();
+          return;
+        }
         setState(() {
           _errorMessage = response['message'] ?? 'Failed to load orders.';
         });
@@ -42,9 +65,11 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
         _errorMessage = 'Network error: $e';
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -163,6 +188,10 @@ class OrderListItemCard extends StatelessWidget {
         statusColor = Colors.orange;
     }
 
+    final items = order['items'] as List? ?? [];
+    final sellers = items.map((item) => item['retailer']?['full_name'] ?? 'Retailer Shop').toSet().toList();
+    final sellersText = sellers.isEmpty ? 'Retailer Shop' : sellers.join(', ');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -211,9 +240,13 @@ class OrderListItemCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.store_rounded, color: AppTheme.deepLeafGreen, size: 18),
                     const SizedBox(width: 8),
-                    Text(
-                      order['retailer']?['full_name'] ?? 'Retailer Shop',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                    Expanded(
+                      child: Text(
+                        sellersText,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -283,7 +316,7 @@ class OrderDetailSheet extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Seller: ${order['retailer']?['full_name'] ?? 'Retailer'}',
+              'Sellers: ${items.map((item) => item['retailer']?['full_name'] ?? 'Retailer Shop').toSet().join(', ')}',
               style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 20),
@@ -364,7 +397,7 @@ class OrderDetailSheet extends StatelessWidget {
                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                 ),
                                 Text(
-                                  'Grade ${item['grade']} x ${item['quantity']}',
+                                  'Grade ${item['grade']} x ${item['quantity']} (${item['retailer']?['full_name'] ?? 'Seller'})',
                                   style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                                 ),
                               ],

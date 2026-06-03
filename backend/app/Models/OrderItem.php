@@ -14,6 +14,7 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'retailer_product_id',
+        'retailer_id',
         'quantity',
         'total_price',
         'discount_amount',
@@ -42,5 +43,13 @@ class OrderItem extends Model
     public function product()
     {
         return $this->belongsTo(RetailerProduct::class, 'retailer_product_id');
+    }
+
+    /**
+     * Get the retailer seller of this order item.
+     */
+    public function retailer()
+    {
+        return $this->belongsTo(User::class, 'retailer_id');
     }
 }

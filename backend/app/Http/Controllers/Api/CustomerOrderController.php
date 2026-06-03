@@ -20,7 +20,7 @@ class CustomerOrderController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $orders = CustomerOrder::with(['retailer', 'items.product.crop'])
+        $orders = CustomerOrder::with(['items.retailer', 'items.product.crop'])
             ->where('customer_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -38,7 +38,7 @@ class CustomerOrderController extends Controller
     public function show($id, Request $request)
     {
         $user = $request->user();
-        $order = CustomerOrder::with(['retailer', 'items.product.crop', 'deliveryPartner'])
+        $order = CustomerOrder::with(['items.retailer', 'items.product.crop', 'deliveryPartner'])
             ->where('id', $id)
             ->where('customer_id', $user->id)
             ->first();
@@ -119,27 +119,39 @@ class CustomerOrderController extends Controller
             }
         }
 
-        // Group the request cart items by their retailer seller ID
-        $itemsByRetailer = [];
-        foreach ($cartReqItems as $item) {
-            $product = $products->get($item['retailer_product_id']);
-            $retailerId = $product->seller_id;
-            $itemsByRetailer[$retailerId][] = [
-                'product' => $product,
-                'quantity' => (float) $item['quantity'],
-            ];
-        }
-
         DB::beginTransaction();
-        $createdOrders = [];
 
         try {
-            foreach ($itemsByRetailer as $retailerId => $group) {
-                $retailerUser = $group[0]['product']->seller;
+            // Find distinct retailers and compile calculations
+            $distinctRetailers = [];
+            $subtotal = 0.00;
+            $discountAmount = 0.00;
 
-                // 1. Calculate Distance & Delivery Fee
+            foreach ($cartReqItems as $item) {
+                $prod = $products->get($item['retailer_product_id']);
+                $qty = (float) $item['quantity'];
+
+                // Add retailer to distinct list
+                if ($prod->seller) {
+                    $distinctRetailers[$prod->seller_id] = $prod->seller;
+                }
+
+                $unitPrice = (float) $prod->price_per_unit;
+                $discountPrice = $prod->discount_price_per_unit ? (float) $prod->discount_price_per_unit : null;
+
+                if ($discountPrice !== null && $discountPrice > 0) {
+                    $subtotal += ($discountPrice * $qty);
+                    $discountAmount += (($unitPrice - $discountPrice) * $qty);
+                } else {
+                    $subtotal += ($unitPrice * $qty);
+                }
+            }
+
+            // Calculate Delivery Fee for each retailer
+            $totalDeliveryFee = 0.00;
+            foreach ($distinctRetailers as $retailerId => $retailerUser) {
                 $distanceKm = null;
-                $deliveryFee = 250.00; // default flat rate
+                $retailerDeliveryFee = 250.00; // default flat rate per retailer
 
                 if ($custLat !== null && $custLng !== null && $retailerUser->latitude !== null && $retailerUser->longitude !== null) {
                     $distanceKm = $this->calculateHaversineDistance(
@@ -149,92 +161,72 @@ class CustomerOrderController extends Controller
                         (float)$retailerUser->longitude
                     );
                     // LKR 200 Base + LKR 80 per kilometer
-                    $deliveryFee = round(200.00 + ($distanceKm * 80.00), 2);
+                    $retailerDeliveryFee = round(200.00 + ($distanceKm * 80.00), 2);
                 }
+                $totalDeliveryFee += $retailerDeliveryFee;
+            }
 
-                // 2. Compute Totals
-                $subtotal = 0.00;
-                $discountAmount = 0.00;
+            $systemCommission = round($subtotal * 0.05, 2); // 5% marketplace fee
+            $totalAmount = $subtotal + $totalDeliveryFee;
 
-                foreach ($group as $entry) {
-                    $prod = $entry['product'];
-                    $qty = $entry['quantity'];
+            // 1. Create the Order Record
+            $orderNumber = 'ORD-RETAIL-' . strtoupper(Str::random(4)) . '-' . time();
+            $order = CustomerOrder::create([
+                'order_number' => $orderNumber,
+                'customer_id' => $user->id,
+                'delivery_address' => $deliveryAddress,
+                'delivery_latitude' => $custLat,
+                'delivery_longitude' => $custLng,
+                'customer_note' => $customerNote,
+                'subtotal_amount' => $subtotal,
+                'discount_amount' => $discountAmount,
+                'delivery_fee' => $totalDeliveryFee,
+                'system_commission_amount' => $systemCommission,
+                'tax_amount' => 0.00,
+                'total_amount' => $totalAmount,
+                'payment_status' => 'pending',
+                'order_status' => 'pending',
+                'placed_at' => now(),
+            ]);
 
-                    $unitPrice = (float) $prod->price_per_unit;
-                    $discountPrice = $prod->discount_price_per_unit ? (float) $prod->discount_price_per_unit : null;
+            // 2. Create Order Items & Deduct Stock
+            foreach ($cartReqItems as $item) {
+                $prod = $products->get($item['retailer_product_id']);
+                $qty = (float) $item['quantity'];
 
-                    if ($discountPrice !== null && $discountPrice > 0) {
-                        $subtotal += ($discountPrice * $qty);
-                        $discountAmount += (($unitPrice - $discountPrice) * $qty);
-                    } else {
-                        $subtotal += ($unitPrice * $qty);
-                    }
-                }
+                $unitPrice = (float) $prod->price_per_unit;
+                $discountPrice = $prod->discount_price_per_unit ? (float) $prod->discount_price_per_unit : null;
+                
+                $itemTotal = $unitPrice * $qty;
+                $itemDiscount = $discountPrice !== null ? (($unitPrice - $discountPrice) * $qty) : 0.00;
+                $itemFinal = $itemTotal - $itemDiscount;
 
-                $systemCommission = round($subtotal * 0.05, 2); // 5% marketplace fee
-                $totalAmount = $subtotal + $deliveryFee;
-
-                // 3. Create the Order Record
-                $orderNumber = 'ORD-RETAIL-' . strtoupper(Str::random(4)) . '-' . time();
-                $order = CustomerOrder::create([
-                    'order_number' => $orderNumber,
-                    'customer_id' => $user->id,
-                    'retailer_seller_id' => $retailerId,
-                    'delivery_address' => $deliveryAddress,
-                    'delivery_latitude' => $custLat,
-                    'delivery_longitude' => $custLng,
-                    'customer_note' => $customerNote,
-                    'subtotal_amount' => $subtotal,
-                    'discount_amount' => $discountAmount,
-                    'delivery_fee' => $deliveryFee,
-                    'system_commission_amount' => $systemCommission,
-                    'tax_amount' => 0.00,
-                    'total_amount' => $totalAmount,
-                    'payment_status' => 'pending',
-                    'order_status' => 'pending',
-                    'placed_at' => now(),
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'retailer_product_id' => $prod->id,
+                    'retailer_id' => $prod->seller_id,
+                    'quantity' => $qty,
+                    'total_price' => $itemTotal,
+                    'discount_amount' => $itemDiscount,
+                    'final_price' => $itemFinal,
+                    'grade' => $prod->grade,
                 ]);
 
-                // 4. Create Order Items & Deduct Stock
-                foreach ($group as $entry) {
-                    $prod = $entry['product'];
-                    $qty = $entry['quantity'];
-
-                    $unitPrice = (float) $prod->price_per_unit;
-                    $discountPrice = $prod->discount_price_per_unit ? (float) $prod->discount_price_per_unit : null;
-                    
-                    $itemTotal = $unitPrice * $qty;
-                    $itemDiscount = $discountPrice !== null ? (($unitPrice - $discountPrice) * $qty) : 0.00;
-                    $itemFinal = $itemTotal - $itemDiscount;
-
-                    OrderItem::create([
-                        'order_id' => $order->id,
-                        'retailer_product_id' => $prod->id,
-                        'quantity' => $qty,
-                        'total_price' => $itemTotal,
-                        'discount_amount' => $itemDiscount,
-                        'final_price' => $itemFinal,
-                        'grade' => $prod->grade,
-                    ]);
-
-                    // Deduct stock
-                    $prod->stock_quantity -= $qty;
-                    if ($prod->stock_quantity <= 0) {
-                        $prod->stock_quantity = 0;
-                        $prod->status = 'out_of_stock';
-                    }
-                    $prod->save();
+                // Deduct stock
+                $prod->stock_quantity -= $qty;
+                if ($prod->stock_quantity <= 0) {
+                    $prod->stock_quantity = 0;
+                    $prod->status = 'out_of_stock';
                 }
-
-                $createdOrders[] = $order->load(['retailer', 'items.product.crop']);
+                $prod->save();
             }
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Checkout processed successfully. Created ' . count($createdOrders) . ' orders.',
-                'orders' => $createdOrders,
+                'message' => 'Checkout processed successfully.',
+                'orders' => [$order->load(['items.retailer', 'items.product.crop'])],
             ], 201);
 
         } catch (\Exception $e) {

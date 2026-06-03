@@ -1,0 +1,429 @@
+import 'package:flutter/material.dart';
+import 'package:aswenna/theme/app_theme.dart';
+import 'package:aswenna/services/api_service.dart';
+
+class CustomerOrdersScreen extends StatefulWidget {
+  const CustomerOrdersScreen({super.key});
+
+  @override
+  State<CustomerOrdersScreen> createState() => _CustomerOrdersScreenState();
+}
+
+class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
+  List<dynamic> _orders = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final response = await ApiService.getCustomerOrders();
+      if (response['success'] == true) {
+        setState(() {
+          _orders = response['orders'] ?? [];
+        });
+      } else {
+        setState(() {
+          _errorMessage = response['message'] ?? 'Failed to load orders.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Network error: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showOrderDetail(Map<String, dynamic> order) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => OrderDetailSheet(order: order),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.softGray,
+      appBar: AppBar(
+        title: const Text('My Retail Orders'),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.darkGreen),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: AppTheme.darkGreen),
+            onPressed: _loadOrders,
+          )
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
+          : _errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: Colors.red, size: 60),
+                        const SizedBox(height: 16),
+                        Text(_errorMessage!, style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        ElevatedButton(onPressed: _loadOrders, child: const Text('Try Again')),
+                      ],
+                    ),
+                  ),
+                )
+              : _orders.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.receipt_long_rounded, color: AppTheme.deepLeafGreen.withOpacity(0.4), size: 100),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'No orders found',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text('Place a retail order to track shipping progress!', style: TextStyle(color: Color(0xFF94A3B8))),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadOrders,
+                      color: AppTheme.deepLeafGreen,
+                      child: ListView.builder(
+                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _orders.length,
+                        itemBuilder: (context, index) {
+                          final order = _orders[index];
+                          return OrderListItemCard(
+                            order: order,
+                            onTap: () => _showOrderDetail(order),
+                          );
+                        },
+                      ),
+                    ),
+    );
+  }
+}
+
+class OrderListItemCard extends StatelessWidget {
+  final Map<String, dynamic> order;
+  final VoidCallback onTap;
+
+  const OrderListItemCard({
+    super.key,
+    required this.order,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final status = order['order_status'] ?? 'pending';
+    final total = double.parse(order['total_amount'].toString());
+    final date = DateTime.parse(order['created_at']);
+    final formattedDate = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+    Color statusColor;
+    switch (status) {
+      case 'completed':
+      case 'delivered':
+        statusColor = AppTheme.deepLeafGreen;
+        break;
+      case 'cancelled':
+        statusColor = Colors.red;
+        break;
+      case 'processing':
+      case 'confirmed':
+        statusColor = Colors.blue;
+        break;
+      default:
+        statusColor = Colors.orange;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.pureWhite,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.deepLeafGreen.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      order['order_number'] ?? 'Order No',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        status.toUpperCase().replaceAll('_', ' '),
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Icon(Icons.store_rounded, color: AppTheme.deepLeafGreen, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      order['retailer']?['full_name'] ?? 'Retailer Shop',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Placed on: $formattedDate',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                ),
+                const Divider(height: 24, color: AppTheme.softGray),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Total Cost', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                    Text(
+                      'LKR ${total.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class OrderDetailSheet extends StatelessWidget {
+  final Map<String, dynamic> order;
+
+  const OrderDetailSheet({super.key, required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = order['order_status'] ?? 'pending';
+    final subtotal = double.parse(order['subtotal_amount'].toString());
+    final deliveryFee = double.parse(order['delivery_fee'].toString());
+    final total = double.parse(order['total_amount'].toString());
+    final items = order['items'] as List? ?? [];
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.softGray,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(32),
+          topRight: Radius.circular(32),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: FractionallySizedBox(
+        heightFactor: 0.75,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 60,
+                height: 5,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(5)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              order['order_number'] ?? 'Order details',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Seller: ${order['retailer']?['full_name'] ?? 'Retailer'}',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 20),
+
+            // Order status visual bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.pureWhite,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: AppTheme.deepLeafGreen),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Shipping Stage', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                        Text(
+                          status.toUpperCase().replaceAll('_', ' '),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Items List
+            const Text('Ordered Items', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.pureWhite,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    final finalPrice = double.parse(item['final_price'].toString());
+                    final String? thumb = item['product']?['thumbnail_path'];
+                    final imageUrl = thumb != null ? ApiService.fileUrl(thumb) : null;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.softGray,
+                              borderRadius: BorderRadius.circular(8),
+                              image: imageUrl != null
+                                  ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                                  : null,
+                            ),
+                            child: imageUrl == null
+                                ? const Icon(Icons.eco_rounded, color: AppTheme.deepLeafGreen, size: 20)
+                                : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item['product']?['product_name'] ?? 'Product',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  'Grade ${item['grade']} x ${item['quantity']}',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            'LKR ${finalPrice.toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          )
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Shipping Cost and Totals Summary
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.pureWhite,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Items Subtotal', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text('LKR ${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Delivery Fee', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text('LKR ${deliveryFee.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const Divider(height: 20, color: AppTheme.softGray),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Grand Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.darkGreen)),
+                      Text(
+                        'LKR ${total.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -38,6 +38,7 @@ Route::post('/admin/reset-password', [AdminWebController::class, 'resetPasswordS
 Route::get('/admin/dashboard', [AdminWebController::class, 'dashboard'])->name('admin.dashboard');
 Route::get('/admin/crops', [AdminWebController::class, 'crops'])->name('admin.crops');
 Route::get('/admin/crop-growth-stages', [AdminWebController::class, 'cropGrowthStages'])->name('admin.crop-growth-stages');
+Route::get('/admin/withdrawals', [AdminWebController::class, 'withdrawals'])->name('admin.withdrawals');
 
 // CSRF Protected Secure Session Termination
 Route::post('/admin/logout', [AdminWebController::class, 'logout'])->name('admin.logout');

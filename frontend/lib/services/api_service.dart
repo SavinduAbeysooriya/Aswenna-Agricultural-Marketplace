@@ -3625,9 +3625,40 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> requestWithdrawal({
+    required double amount,
+    required String bankName,
+    required String bankBranch,
+    required String bankAccountHolderName,
+    required String bankAccountNumber,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/delivery/withdraw');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'amount': amount,
+          'bank_name': bankName,
+          'bank_branch': bankBranch,
+          'bank_account_holder_name': bankAccountHolderName,
+          'bank_account_number': bankAccountNumber,
+        }),
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
 
   // ===================================================================
-  // ?? DEBUG / TESTING: Create a test nearby delivery request
+  // 🧪 DEBUG / TESTING: Create a test nearby delivery request
   // ===================================================================
 
   static Future<Map<String, dynamic>> debugCreateTestDeliveryRequest() async {

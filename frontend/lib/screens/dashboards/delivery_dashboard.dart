@@ -1424,8 +1424,291 @@ class _EarningsTabState extends State<_EarningsTab> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: balance >= 100 ? () => _showWithdrawSheet(balance) : null,
+              icon: const Icon(Icons.account_balance_rounded, color: Colors.white, size: 18),
+              label: const Text(
+                'REQUEST WITHDRAWAL',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.deepLeafGreen,
+                disabledBackgroundColor: Colors.grey.shade300,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+          if (balance < 100) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'Minimum withdrawal amount is LKR 100.00',
+                style: TextStyle(fontSize: 11, color: Colors.red.shade700, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  void _showWithdrawSheet(double availableBalance) {
+    final formKey = GlobalKey<FormState>();
+    final amountController = TextEditingController(text: availableBalance.toStringAsFixed(2));
+    final bankNameController = TextEditingController();
+    final bankBranchController = TextEditingController();
+    final holderController = TextEditingController();
+    final numberController = TextEditingController();
+    bool isSubmitting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+              ),
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.deepLeafGreen.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.account_balance_rounded, color: AppTheme.deepLeafGreen, size: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Request Payout',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                                ),
+                                Text(
+                                  'Max available: LKR ${availableBalance.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 24),
+
+                      // Amount Field
+                      const Text(
+                        'WITHDRAWAL AMOUNT (LKR)',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8), letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          hintText: '0.00',
+                          prefixText: 'LKR ',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Enter amount';
+                          final amt = double.tryParse(val.trim());
+                          if (amt == null) return 'Enter a valid number';
+                          if (amt < 100) return 'Minimum withdrawal is LKR 100.00';
+                          if (amt > availableBalance) return 'Insufficient balance';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Bank Name Field
+                      const Text(
+                        'BANK NAME',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8), letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: bankNameController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Commercial Bank of Ceylon',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter bank name' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Bank Branch Field
+                      const Text(
+                        'BANK BRANCH',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8), letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: bankBranchController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Colombo Fort',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter branch name' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Account Holder Name Field
+                      const Text(
+                        'ACCOUNT HOLDER NAME',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8), letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: holderController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: 'Name as in bank account',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter account holder name' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Account Number Field
+                      const Text(
+                        'ACCOUNT NUMBER',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8), letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: numberController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          hintText: 'Enter account number',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter account number' : null,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Submit Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: isSubmitting
+                              ? null
+                              : () async {
+                                  if (formKey.currentState!.validate()) {
+                                    setSheetState(() => isSubmitting = true);
+                                    
+                                    final amt = double.parse(amountController.text.trim());
+                                    final result = await ApiService.requestWithdrawal(
+                                      amount: amt,
+                                      bankName: bankNameController.text.trim(),
+                                      bankBranch: bankBranchController.text.trim(),
+                                      bankAccountHolderName: holderController.text.trim(),
+                                      bankAccountNumber: numberController.text.trim(),
+                                    );
+
+                                    if (mounted) {
+                                      Navigator.pop(context); // close bottom sheet
+                                      
+                                      if (result['success'] == true) {
+                                        // Refresh the main earnings tab
+                                        _load();
+                                        
+                                        // Show success pop up
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                            title: const Text('✅ Payout Requested', style: TextStyle(fontWeight: FontWeight.w800)),
+                                            content: const Text(
+                                              'Your withdrawal request has been submitted and is pending review by administrators.',
+                                              style: TextStyle(color: Color(0xFF475569)),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: const Text('OK', style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('❌ ${result['message'] ?? 'Failed to submit withdrawal request.'}'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.deepLeafGreen,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: isSubmitting
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text(
+                                  'SUBMIT REQUEST',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: Colors.white),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

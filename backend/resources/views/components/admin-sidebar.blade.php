@@ -59,8 +59,8 @@
                 <span>Escrow & Commissions</span>
             </a>
             
-            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
-                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
+            <a href="{{ route('admin.withdrawals') }}" class="group flex items-center space-x-3 px-3 py-2 rounded-xl {{ request()->routeIs('admin.withdrawals*') ? 'bg-emerald-50 text-emerald-700 font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold' }} text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg {{ request()->routeIs('admin.withdrawals*') ? 'bg-emerald-100 text-emerald-600 shadow-inner' : 'bg-transparent group-hover:bg-white text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm' }} flex items-center justify-center transition-all">
                     <i class="fa-solid fa-landmark text-xs"></i>
                 </div>
                 <span>Withdraw Requests</span>

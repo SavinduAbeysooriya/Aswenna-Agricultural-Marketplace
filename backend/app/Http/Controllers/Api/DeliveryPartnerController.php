@@ -786,4 +786,113 @@ class DeliveryPartnerController extends Controller
             'retailer'       => $firstRetailer?->full_name ?? 'Retailer',
         ]);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PARTNER: Request a payout withdrawal
+    // POST /api/delivery/withdraw
+    // ─────────────────────────────────────────────────────────────────────────
+    public function requestWithdrawal(Request $request)
+    {
+        $user = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'amount'                   => 'required|numeric|min:100',
+            'bank_name'                => 'required|string|max:255',
+            'bank_branch'              => 'required|string|max:255',
+            'bank_account_holder_name' => 'required|string|max:255',
+            'bank_account_number'      => 'required|string|max:255',
+        ], [
+            'amount.min' => 'The minimum withdrawal amount is LKR 100.00.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors(), 'message' => $validator->errors()->first()], 422);
+        }
+
+        $amount = round((float)$request->input('amount'), 2);
+
+        DB::beginTransaction();
+        try {
+            // Lock the wallet row for update to prevent race conditions
+            $wallet = DB::table('user_wallets')
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$wallet || (float)$wallet->available_balance < $amount) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Insufficient wallet balance for this withdrawal.'], 400);
+            }
+
+            $balanceBefore = (float)$wallet->available_balance;
+            $balanceAfter  = round($balanceBefore - $amount, 2);
+
+            // 1. Create the withdraw request
+            $requestId = DB::table('withdraw_requests')->insertGetId([
+                'user_id'                  => $user->id,
+                'request_amount'           => $amount,
+                'bank_name'                => $request->input('bank_name'),
+                'bank_branch'              => $request->input('bank_branch'),
+                'bank_account_holder_name' => $request->input('bank_account_holder_name'),
+                'bank_account_number'      => $request->input('bank_account_number'),
+                'status'                   => 'pending',
+                'requested_ip'             => $request->ip(),
+                'created_at'               => now(),
+                'updated_at'               => now(),
+            ]);
+
+            // 2. Hold the amount in wallet (deduct from available, add to pending)
+            DB::table('user_wallets')->where('user_id', $user->id)->update([
+                'available_balance' => $balanceAfter,
+                'pending_balance'   => DB::raw('pending_balance + ' . $amount),
+                'last_updated_at'   => now(),
+                'updated_at'        => now(),
+            ]);
+
+            // 3. Record pending withdrawal transaction
+            DB::table('wallet_transactions')->insert([
+                'user_id'           => $user->id,
+                'amount'            => -$amount,
+                'balance_before'    => $balanceBefore,
+                'balance_after'     => $balanceAfter,
+                'transaction_type'  => 'withdrawal',
+                'description'       => 'Withdrawal request to ' . $request->input('bank_name') . ' (Acc: ' . $request->input('bank_account_number') . ')',
+                'status'            => 'pending',
+                'record_created_at' => now(),
+                'created_at'        => now(),
+                'updated_at'        => now(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Withdrawal request submitted successfully.',
+                'withdraw_request_id' => $requestId,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Failed to process withdrawal request: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PARTNER: Get past and pending withdrawal requests
+    // GET /api/delivery/withdrawals
+    // ─────────────────────────────────────────────────────────────────────────
+    public function getMyWithdrawals(Request $request)
+    {
+        $user = $request->user();
+
+        $withdrawals = DB::table('withdraw_requests')
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get();
+
+        return response()->json([
+            'success'     => true,
+            'withdrawals' => $withdrawals,
+        ]);
+    }
 }

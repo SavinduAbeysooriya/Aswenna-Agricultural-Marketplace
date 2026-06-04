@@ -139,6 +139,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/delivery/orders/{orderId}/update-status', [DeliveryPartnerController::class, 'updateDeliveryStatus']);
     // Get delivery earnings
     Route::get('/delivery/earnings', [DeliveryPartnerController::class, 'getEarnings']);
+    // Request a wallet withdrawal
+    Route::post('/delivery/withdraw', [DeliveryPartnerController::class, 'requestWithdrawal']);
+    // Get past and pending withdrawal requests
+    Route::get('/delivery/withdrawals', [DeliveryPartnerController::class, 'getMyWithdrawals']);
     // 🧪 DEBUG: Create a test delivery request (for testing the delivery dashboard)
     Route::post('/delivery/debug-create-test-request', [DeliveryPartnerController::class, 'debugCreateTestRequest']);
 });

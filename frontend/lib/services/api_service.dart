@@ -3676,4 +3676,72 @@ class ApiService {
       return {'success': false, 'message': 'Network error: $e'};
     }
   }
+
+  // ===================================================================
+  // Order Feedback & Reviews
+  // ===================================================================
+
+  static Future<Map<String, dynamic>> getRetailerOrders() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/retailer/orders');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> submitOrderReview({
+    required int orderId,
+    required int reviewedTo,
+    required int ratings,
+    required String feedback,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/orders/$orderId/reviews');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'reviewed_to': reviewedTo,
+          'ratings': ratings,
+          'feedback': feedback,
+        }),
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getOrderReviews(int orderId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/orders/$orderId/reviews');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
 }

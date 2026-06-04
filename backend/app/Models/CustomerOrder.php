@@ -80,4 +80,20 @@ class CustomerOrder extends Model
     {
         return $this->hasMany(OrderItem::class, 'order_id');
     }
+
+    /**
+     * Get the retailers associated with this order.
+     */
+    public function retailers()
+    {
+        return $this->hasManyThrough(User::class, OrderItem::class, 'order_id', 'id', 'id', 'retailer_id');
+    }
+
+    /**
+     * Get the reviews associated with this order.
+     */
+    public function reviews()
+    {
+        return $this->hasMany(OrderReview::class, 'order_id');
+    }
 }

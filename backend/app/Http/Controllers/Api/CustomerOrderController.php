@@ -20,7 +20,7 @@ class CustomerOrderController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $orders = CustomerOrder::with(['items.retailer', 'items.product.crop'])
+        $orders = CustomerOrder::with(['items.retailer', 'items.product.crop', 'deliveryPartner', 'reviews'])
             ->where('customer_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -38,7 +38,7 @@ class CustomerOrderController extends Controller
     public function show($id, Request $request)
     {
         $user = $request->user();
-        $order = CustomerOrder::with(['items.retailer', 'items.product.crop', 'deliveryPartner'])
+        $order = CustomerOrder::with(['items.retailer', 'items.product.crop', 'deliveryPartner', 'reviews'])
             ->where('id', $id)
             ->where('customer_id', $user->id)
             ->first();
@@ -359,6 +359,34 @@ class CustomerOrderController extends Controller
             'total_weight_kg' => round($totalWeight, 2),
             'rate_per_km' => $ratePerKm,
             'delivery_fee' => $deliveryFee,
+        ], 200);
+    }
+
+    /**
+     * GET /api/retailer/orders
+     * List all orders that contain products from the authenticated retailer.
+     */
+    public function getRetailerOrders(Request $request)
+    {
+        $user = $request->user();
+
+        $orders = CustomerOrder::with(['items.retailer', 'items.product.crop', 'customer', 'deliveryPartner', 'reviews'])
+            ->whereHas('items', function ($query) use ($user) {
+                $query->where('retailer_id', $user->id);
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        foreach ($orders as $order) {
+            $retailerItems = $order->items->filter(function ($item) use ($user) {
+                return $item->retailer_id === $user->id;
+            })->values();
+            $order->retailer_items = $retailerItems;
+        }
+
+        return response()->json([
+            'success' => true,
+            'orders' => $orders,
         ], 200);
     }
 

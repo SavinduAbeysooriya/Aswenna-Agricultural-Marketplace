@@ -6,6 +6,8 @@ import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
 import 'package:aswenna/screens/market_rates/retailer_profile_screen.dart';
 import 'package:aswenna/screens/dashboards/retailer_products_screen.dart';
 
+import 'package:aswenna/screens/dashboards/retailer_orders_screen.dart';
+
 class RetailerDashboard extends StatefulWidget {
   const RetailerDashboard({super.key});
 
@@ -15,16 +17,27 @@ class RetailerDashboard extends StatefulWidget {
 
 class _RetailerDashboardState extends State<RetailerDashboard> {
   List<dynamic> _products = [];
+  List<dynamic> _orders = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
+    _fetchDashboardData();
+  }
+
+  Future<void> _fetchDashboardData() async {
+    if (mounted) setState(() => _isLoading = true);
+    await Future.wait([
+      _fetchProducts(),
+      _fetchOrders(),
+    ]);
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _fetchProducts() async {
-    setState(() => _isLoading = true);
     try {
       final response = await ApiService.getRetailerProducts();
       if (response['success'] == true && mounted) {
@@ -33,11 +46,20 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
         });
       }
     } catch (e) {
-      // Fail silently or show dialog
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+      // Fail silently
+    }
+  }
+
+  Future<void> _fetchOrders() async {
+    try {
+      final response = await ApiService.getRetailerOrders();
+      if (response['success'] == true && mounted) {
+        setState(() {
+          _orders = response['orders'] ?? [];
+        });
       }
+    } catch (e) {
+      // Fail silently
     }
   }
 
@@ -45,7 +67,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RetailerProductsScreen()),
-    ).then((_) => _fetchProducts());
+    ).then((_) => _fetchDashboardData());
   }
 
   @override
@@ -78,7 +100,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
       ),
       body: RefreshIndicator(
         color: AppTheme.deepLeafGreen,
-        onRefresh: _fetchProducts,
+        onRefresh: _fetchDashboardData,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           padding: const EdgeInsets.all(20),
@@ -123,7 +145,22 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildMiniMetric('Total Sales', 'LKR 45K'),
-                        _buildMiniMetric('Orders', '12 Done'),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const RetailerOrdersScreen()),
+                            ).then((_) => _fetchDashboardData());
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.lightMint,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: _buildMiniMetric('Orders', '${_orders.length} Sales'),
+                          ),
+                        ),
                         _buildMiniMetric('Inventory', '${_products.length} Items'),
                       ],
                     ),

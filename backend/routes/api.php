@@ -45,6 +45,8 @@ Route::middleware('auth:sanctum')->get('/buyer/profile', [AuthController::class,
 Route::middleware('auth:sanctum')->post('/buyer/profile', [AuthController::class, 'updateBuyerProfile']);
 Route::middleware('auth:sanctum')->get('/retail-seller/profile', [AuthController::class, 'retailSellerProfile']);
 Route::middleware('auth:sanctum')->post('/retail-seller/profile', [AuthController::class, 'updateRetailSellerProfile']);
+Route::middleware('auth:sanctum')->get('/delivery/profile', [AuthController::class, 'deliveryPartnerProfile']);
+Route::middleware('auth:sanctum')->post('/delivery/profile', [AuthController::class, 'updateDeliveryPartnerProfile']);
 Route::middleware('auth:sanctum')->post('/user/add-role', [AuthController::class, 'addRole']);
 
 Route::middleware('auth:sanctum')->group(function () {

@@ -2858,7 +2858,20 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
       Navigator.of(context).pop(Map<String, dynamic>.from(result['profile']));
     } else {
       setState(() {
-        _errorMessage = result['message'] ?? 'Failed to update profile.';
+        if (result['errors'] != null && result['errors'] is Map) {
+          final errorsMap = result['errors'] as Map<String, dynamic>;
+          final buffer = StringBuffer();
+          errorsMap.forEach((key, value) {
+            if (value is List) {
+              buffer.writeln('${key}: ${value.join(', ')}');
+            } else {
+              buffer.writeln('${key}: ${value}');
+            }
+          });
+          _errorMessage = buffer.toString().trim();
+        } else {
+          _errorMessage = result['message'] ?? 'Failed to update profile.';
+        }
       });
     }
   }

@@ -136,9 +136,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         });
 
         if (_latitude != null && _longitude != null) {
-          _mapController?.animateCamera(
-            CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
-          );
+          try {
+            _mapController?.animateCamera(
+              CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
+            );
+          } catch (e) {
+            // Fail silently if map is disposed or not ready
+          }
         }
       } else {
         setState(() {
@@ -155,13 +159,16 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   Future<void> _useGPS() async {
+    if (!mounted) return;
     setState(() => _isLocating = true);
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enable device location services.')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enable device location services.')),
+          );
+        }
         return;
       }
       var permission = await Geolocator.checkPermission();
@@ -169,21 +176,29 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permissions are required.')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are required.')),
+          );
+        }
         return;
       }
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
-      _updateCoordinates(LatLng(position.latitude, position.longitude));
+      if (mounted) {
+        _updateCoordinates(LatLng(position.latitude, position.longitude));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to acquire location: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to acquire location: $e')),
+        );
+      }
     } finally {
-      setState(() => _isLocating = false);
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
     }
   }
 
@@ -198,19 +213,24 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       ),
     );
 
-    if (picked != null && picked['latitude'] != null && picked['longitude'] != null) {
+    if (picked != null && picked['latitude'] != null && picked['longitude'] != null && mounted) {
       _updateCoordinates(LatLng(picked['latitude']!, picked['longitude']!));
     }
   }
 
   void _updateCoordinates(LatLng coords) {
+    if (!mounted) return;
     setState(() {
       _latitude = coords.latitude;
       _longitude = coords.longitude;
     });
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(coords, 15),
-    );
+    try {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(coords, 15),
+      );
+    } catch (e) {
+      // Fail silently if map is disposed or not ready
+    }
   }
 
   Future<void> _pickProfilePicture() async {
@@ -283,7 +303,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         _loadProfile();
       } else {
         setState(() {
-          _errorMessage = response['message'] ?? 'Failed to update profile.';
+          if (response['errors'] != null && response['errors'] is Map) {
+            final errorsMap = response['errors'] as Map<String, dynamic>;
+            final buffer = StringBuffer();
+            errorsMap.forEach((key, value) {
+              if (value is List) {
+                buffer.writeln('${key}: ${value.join(', ')}');
+              } else {
+                buffer.writeln('${key}: ${value}');
+              }
+            });
+            _errorMessage = buffer.toString().trim();
+          } else {
+            _errorMessage = response['message'] ?? 'Failed to update profile.';
+          }
         });
       }
     } catch (e) {

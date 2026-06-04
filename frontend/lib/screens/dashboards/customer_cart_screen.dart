@@ -92,9 +92,13 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
         });
 
         if (_latitude != null && _longitude != null) {
-          _mapController?.animateCamera(
-            CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
-          );
+          try {
+            _mapController?.animateCamera(
+              CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
+            );
+          } catch (e) {
+            // Fail silently if map is disposed
+          }
           _updateDeliveryFee();
         }
       }
@@ -162,20 +166,30 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
-      setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-      });
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 15),
-      );
-      _updateDeliveryFee();
+      if (mounted) {
+        setState(() {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+        });
+        try {
+          _mapController?.animateCamera(
+            CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 15),
+          );
+        } catch (e) {
+          // Fail silently
+        }
+        _updateDeliveryFee();
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to get location: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
     } finally {
-      setState(() => _isLocating = false);
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
     }
   }
 
@@ -190,14 +204,18 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
       ),
     );
 
-    if (picked != null && picked['latitude'] != null && picked['longitude'] != null) {
+    if (picked != null && picked['latitude'] != null && picked['longitude'] != null && mounted) {
       setState(() {
         _latitude = picked['latitude']!;
         _longitude = picked['longitude']!;
       });
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
-      );
+      try {
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
+        );
+      } catch (e) {
+        // Fail silently
+      }
       _updateDeliveryFee();
     }
   }
@@ -530,11 +548,16 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                                     _mapController = controller;
                                   },
                                   onTap: (coords) {
+                                    if (!mounted) return;
                                     setState(() {
                                       _latitude = coords.latitude;
                                       _longitude = coords.longitude;
                                     });
-                                    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(coords, 15));
+                                    try {
+                                      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(coords, 15));
+                                    } catch (e) {
+                                      // Fail silently
+                                    }
                                     _updateDeliveryFee();
                                   },
                                   zoomControlsEnabled: false,

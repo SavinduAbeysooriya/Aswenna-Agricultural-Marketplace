@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 
 class AdminWebController extends Controller
 {
@@ -494,6 +495,285 @@ class AdminWebController extends Controller
             'role' => $role,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
+    }
+
+    /**
+     * Show the comprehensive profile page for a selected user.
+     */
+    public function userProfile(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $user = User::findOrFail($id);
+        $roles = is_string($user->role) ? json_decode($user->role, true) : $user->role;
+        $roles = is_array($roles) ? $roles : [$user->role];
+
+        // 1. Fetch Verification Documents & Specific Data
+        $documents = DB::table('user_verification_documents')
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $farmerData = null;
+        $retailSellerData = null;
+        $deliveryPartnerData = null;
+
+        if (in_array('farmer', $roles, true)) {
+            $farmerData = DB::table('farmer_verification_data')->where('user_id', $user->id)->first();
+        }
+        if (in_array('retail_seller', $roles, true)) {
+            $retailSellerData = DB::table('retail_seller_verification_data')->where('user_id', $user->id)->first();
+        }
+        if (in_array('delivery_partner', $roles, true)) {
+            $deliveryPartnerData = DB::table('delivery_partner_verification_data')->where('user_id', $user->id)->first();
+        }
+
+        // 2. Fetch Wallet & Transactions Ledger
+        $wallet = DB::table('user_wallets')->where('user_id', $user->id)->first();
+        $transactions = DB::table('wallet_transactions')
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        // 3. Fetch Reviews & Ratings & Listed Items
+        $reviews = collect();
+        $averageRating = 0;
+        $listings = collect();
+
+        if (in_array('farmer', $roles, true)) {
+            $reviews = DB::table('buyer_farmer_reviews')
+                ->where('farmer_id', $user->id)
+                ->join('users', 'buyer_farmer_reviews.reviewed_by', '=', 'users.id')
+                ->select('buyer_farmer_reviews.*', 'users.full_name as reviewer_name', 'users.profile_picture_path as reviewer_avatar')
+                ->orderByDesc('buyer_farmer_reviews.created_at')
+                ->get();
+            $averageRating = DB::table('buyer_farmer_reviews')->where('farmer_id', $user->id)->avg('ratings') ?: 0;
+            
+            $listings = DB::table('harvest_listings')
+                ->where('farmer_id', $user->id)
+                ->join('crops', 'harvest_listings.crop_id', '=', 'crops.id')
+                ->select('harvest_listings.*', 'crops.cropname as crop_name')
+                ->orderByDesc('harvest_listings.created_at')
+                ->get();
+        } elseif (in_array('retail_seller', $roles, true)) {
+            $reviews = DB::table('retailer_customer_delivery_partner_reviews')
+                ->where('reviewed_to', $user->id)
+                ->join('users', 'retailer_customer_delivery_partner_reviews.reviewed_by', '=', 'users.id')
+                ->select('retailer_customer_delivery_partner_reviews.*', 'users.full_name as reviewer_name', 'users.profile_picture_path as reviewer_avatar')
+                ->orderByDesc('retailer_customer_delivery_partner_reviews.created_at')
+                ->get();
+            $averageRating = DB::table('retailer_customer_delivery_partner_reviews')->where('reviewed_to', $user->id)->avg('ratings') ?: 0;
+            
+            $listings = DB::table('retailer_products')
+                ->where('seller_id', $user->id)
+                ->join('crops', 'retailer_products.crop_id', '=', 'crops.id')
+                ->select('retailer_products.*', 'crops.cropname as crop_name')
+                ->orderByDesc('retailer_products.created_at')
+                ->get();
+        } elseif (in_array('delivery_partner', $roles, true)) {
+            $reviews = DB::table('retailer_customer_delivery_partner_reviews')
+                ->where('reviewed_to', $user->id)
+                ->join('users', 'retailer_customer_delivery_partner_reviews.reviewed_by', '=', 'users.id')
+                ->select('retailer_customer_delivery_partner_reviews.*', 'users.full_name as reviewer_name', 'users.profile_picture_path as reviewer_avatar')
+                ->orderByDesc('retailer_customer_delivery_partner_reviews.created_at')
+                ->get();
+            $averageRating = DB::table('retailer_customer_delivery_partner_reviews')->where('reviewed_to', $user->id)->avg('ratings') ?: 0;
+        }
+
+        // 4. Fetch History (Rides, Purchases, Bids)
+        $history = collect();
+        if (in_array('delivery_partner', $roles, true)) {
+            $history = DB::table('customer_orders')
+                ->where('delivery_partner_id', $user->id)
+                ->join('users as customers', 'customer_orders.customer_id', '=', 'customers.id')
+                ->select('customer_orders.*', 'customers.full_name as customer_name')
+                ->orderByDesc('customer_orders.created_at')
+                ->get();
+        } elseif (in_array('customer', $roles, true)) {
+            $history = DB::table('customer_orders')
+                ->where('customer_id', $user->id)
+                ->join('users as sellers', 'customer_orders.retailer_seller_id', '=', 'sellers.id')
+                ->select('customer_orders.*', 'sellers.full_name as seller_name')
+                ->orderByDesc('customer_orders.created_at')
+                ->get();
+        } elseif (in_array('buyer', $roles, true)) {
+            $history = DB::table('confirmed_bids')
+                ->where('confirmed_bids.buyer_id', $user->id)
+                ->join('harvest_listings', 'confirmed_bids.harvest_listing_id', '=', 'harvest_listings.id')
+                ->join('crops', 'harvest_listings.crop_id', '=', 'crops.id')
+                ->select('confirmed_bids.*', 'crops.cropname as crop_name', 'harvest_listings.grade')
+                ->orderByDesc('confirmed_bids.created_at')
+                ->get();
+        }
+
+        return view('admin.users.profile', [
+            'user' => $user,
+            'roles' => $roles,
+            'documents' => $documents,
+            'farmerData' => $farmerData,
+            'retailSellerData' => $retailSellerData,
+            'deliveryPartnerData' => $deliveryPartnerData,
+            'wallet' => $wallet,
+            'transactions' => $transactions,
+            'reviews' => $reviews,
+            'averageRating' => $averageRating,
+            'listings' => $listings,
+            'history' => $history,
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
+     * Approve verification status for a user.
+     */
+    public function approveUserProfile(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $user = User::findOrFail($id);
+        $roles = is_string($user->role) ? json_decode($user->role, true) : $user->role;
+        $roles = is_array($roles) ? $roles : [$user->role];
+
+        DB::transaction(function () use ($user, $roles) {
+            $user->update(['is_verified' => true]);
+
+            if (in_array('retail_seller', $roles, true)) {
+                DB::table('retail_seller_verification_data')
+                    ->where('user_id', $user->id)
+                    ->update([
+                        'status' => 'verified',
+                        'rejected_reason' => null,
+                        'updated_at' => now(),
+                    ]);
+            }
+            
+            if (in_array('delivery_partner', $roles, true)) {
+                DB::table('delivery_partner_verification_data')
+                    ->where('user_id', $user->id)
+                    ->update([
+                        'status' => 'verified',
+                        'rejected_reason' => null,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            // Sync standard pending documents to approved
+            DB::table('user_verification_documents')
+                ->where('user_id', $user->id)
+                ->where('verification_status', 'pending')
+                ->update([
+                    'verification_status' => 'approved',
+                    'verified_at' => now(),
+                    'verified_by' => session('admin_session.user_id') ?? auth()->id(),
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return back()->with('status', 'User verification approved successfully.');
+    }
+
+    /**
+     * Reject verification status for a user.
+     */
+    public function rejectUserProfile(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'rejection_reason' => 'required|string|min:4|max:500',
+        ]);
+
+        $user = User::findOrFail($id);
+        $roles = is_string($user->role) ? json_decode($user->role, true) : $user->role;
+        $roles = is_array($roles) ? $roles : [$user->role];
+        $reason = $request->input('rejection_reason');
+
+        DB::transaction(function () use ($user, $roles, $reason) {
+            $user->update(['is_verified' => false]);
+
+            if (in_array('retail_seller', $roles, true)) {
+                DB::table('retail_seller_verification_data')
+                    ->where('user_id', $user->id)
+                    ->update([
+                        'status' => 'rejected',
+                        'rejected_reason' => $reason,
+                        'updated_at' => now(),
+                    ]);
+            }
+            
+            if (in_array('delivery_partner', $roles, true)) {
+                DB::table('delivery_partner_verification_data')
+                    ->where('user_id', $user->id)
+                    ->update([
+                        'status' => 'rejected',
+                        'rejected_reason' => $reason,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            // Set document status to rejected
+            $latestDoc = DB::table('user_verification_documents')
+                ->where('user_id', $user->id)
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($latestDoc) {
+                DB::table('user_verification_documents')
+                    ->where('id', $latestDoc->id)
+                    ->update([
+                        'verification_status' => 'rejected',
+                        'rejection_reason' => $reason,
+                        'verified_at' => now(),
+                        'verified_by' => session('admin_session.user_id') ?? auth()->id(),
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                DB::table('user_verification_documents')->insert([
+                    'user_id' => $user->id,
+                    'document_type' => in_array('farmer', $roles, true) ? 'farming_license' : 'national_id',
+                    'front_image_path' => 'placeholder_rejected',
+                    'verification_status' => 'rejected',
+                    'rejection_reason' => $reason,
+                    'verified_at' => now(),
+                    'verified_by' => session('admin_session.user_id') ?? auth()->id(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        });
+
+        return back()->with('status', 'User verification rejected with explanation.');
+    }
+
+    /**
+     * Toggle the user's active/banned status.
+     */
+    public function toggleUserActiveProfile(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $user = User::findOrFail($id);
+        
+        // Prevent admins deactivating themselves
+        if ($user->id === session('admin_session.user_id') || $user->id === auth()->id()) {
+            return back()->withErrors(['error' => 'You cannot deactivate your own administrative profile.']);
+        }
+
+        $newState = !$user->is_active;
+        $user->update(['is_active' => $newState]);
+
+        $statusLabel = $newState ? 'activated' : 'deactivated';
+
+        return back()->with('status', "User account has been successfully {$statusLabel}.");
     }
 
     private function ensureAdminSession(Request $request)

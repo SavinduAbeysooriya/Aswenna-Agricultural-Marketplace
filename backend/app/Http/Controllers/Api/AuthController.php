@@ -920,14 +920,14 @@ class AuthController extends Controller
             'gap_certificate_number' => 'nullable|string|max:255',
             'gap_certificate_expiry' => 'nullable|date',
             'total_lands' => 'nullable|integer|min:0',
-            'farming_license_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-            'organic_certificate_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
-            'gap_certificate_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'farming_license_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+            'organic_certificate_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+            'gap_certificate_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
             'other_certificates' => 'nullable|array',
             'other_certificates.*.title' => 'nullable|string|max:255',
             'other_certificates.*.existing_path' => 'nullable|string|max:500',
             'other_certificate_files' => 'nullable|array',
-            'other_certificate_files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'other_certificate_files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
         ]);
 
         if ($validator->fails()) {
@@ -1086,9 +1086,9 @@ class AuthController extends Controller
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'document_type' => 'nullable|string|max:100',
-            'front_image' => 'nullable|file|image|max:5120',
-            'back_image' => 'nullable|file|image|max:5120',
-            'profile_picture' => 'nullable|file|image|max:2048',
+            'front_image' => 'nullable|file|image|max:20480',
+            'back_image' => 'nullable|file|image|max:20480',
+            'profile_picture' => 'nullable|file|image|max:10240',
         ]);
 
         if ($validator->fails()) {
@@ -1243,10 +1243,10 @@ class AuthController extends Controller
             'ownership_type' => 'nullable|string|max:50',
             
             // Image Files
-            'br_image' => 'nullable|file|image|max:5120',
+            'br_image' => 'nullable|file|image|max:20480',
             'shop_photos' => 'nullable|array',
-            'shop_photos.*' => 'nullable|file|image|max:5120',
-            'profile_picture' => 'nullable|file|image|max:2048',
+            'shop_photos.*' => 'nullable|file|image|max:20480',
+            'profile_picture' => 'nullable|file|image|max:10240',
         ]);
 
         if ($validator->fails()) {
@@ -1332,6 +1332,231 @@ class AuthController extends Controller
     }
 
     /**
+     * Return the authenticated delivery partner's complete profile details.
+     */
+    public function deliveryPartnerProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('delivery_partner', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This profile is only available for delivery partner accounts.'
+            ], 403);
+        }
+
+        $verificationData = DB::table('delivery_partner_verification_data')
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($verificationData) {
+            $verificationData->insurance_image_url = $this->publicFileUrl($verificationData->insurance_image_path);
+            $verificationData->revenue_license_image_url = $this->publicFileUrl($verificationData->revenue_license_image_path);
+            $verificationData->vehicle_front_image_url = $this->publicFileUrl($verificationData->vehicle_front_image);
+            $verificationData->vehicle_back_image_url = $this->publicFileUrl($verificationData->vehicle_back_image);
+        }
+
+        // Also fetch general driving license user_verification_documents (if uploaded)
+        $documents = DB::table('user_verification_documents')
+            ->where('user_id', $user->id)
+            ->where('document_type', 'driving_license')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($document) {
+                $document->front_image_url = $this->publicFileUrl($document->front_image_path);
+                $document->back_image_url = $this->publicFileUrl($document->back_image_path);
+                return $document;
+            });
+
+        return response()->json([
+            'success' => true,
+            'profile' => [
+                'user' => $user,
+                'verification_data' => $verificationData,
+                'documents' => $documents,
+            ],
+        ], 200);
+    }
+
+    /**
+     * Update the authenticated delivery partner's profile details & verification docs.
+     */
+    public function updateDeliveryPartnerProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('delivery_partner', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This profile is only available for delivery partner accounts.'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'full_name' => 'required|string|max:255',
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
+            'phone_number' => 'required|string|unique:users,phone_number,' . $user->id,
+            'phone_number_2' => 'nullable|string|max:50',
+            'national_id' => 'nullable|string|max:100|unique:users,national_id,' . $user->id,
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'district' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            
+            // Delivery Partner specific
+            'driving_license_expiry_date' => 'nullable|date',
+            'vehicle_type' => 'nullable|string|max:100',
+            'vehicle_make' => 'nullable|string|max:100',
+            'model' => 'nullable|string|max:100',
+            'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+            'color' => 'nullable|string|max:50',
+            'registration_number' => 'nullable|string|max:100',
+            'insurance_expiry' => 'nullable|date',
+            'revenue_license_expiry' => 'nullable|date',
+            'max_weight' => 'nullable|numeric|min:0',
+
+            // Files
+            'insurance_image' => 'nullable|file|image|max:20480',
+            'revenue_license_image' => 'nullable|file|image|max:20480',
+            'vehicle_front_image' => 'nullable|file|image|max:20480',
+            'vehicle_back_image' => 'nullable|file|image|max:20480',
+            'profile_picture' => 'nullable|file|image|max:10240',
+
+            // Driving License Document
+            'front_image' => 'nullable|file|image|max:20480',
+            'back_image' => 'nullable|file|image|max:20480',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors occurred.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // Update User details
+            $user->update([
+                'full_name' => $request->full_name,
+                'email' => $request->email,
+                'phone_number' => $request->phone_number,
+                'phone_number_2' => $request->phone_number_2,
+                'national_id' => $request->national_id,
+                'address' => $request->address,
+                'city' => $request->city,
+                'district' => $request->district,
+                'province' => $request->province,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+            ]);
+
+            if ($request->hasFile('profile_picture')) {
+                $picPath = $request->file('profile_picture')->store('profile-pictures/' . $user->id, 'public');
+                $user->update(['profile_picture_path' => $picPath]);
+            }
+
+            // Get existing verification data
+            $existing = DB::table('delivery_partner_verification_data')
+                ->where('user_id', $user->id)
+                ->first();
+
+            $insurancePath = $existing->insurance_image_path ?? null;
+            if ($request->hasFile('insurance_image')) {
+                $insurancePath = $request->file('insurance_image')->store('delivery-partner-verifications/' . $user->id, 'public');
+            }
+
+            $revenueLicensePath = $existing->revenue_license_image_path ?? null;
+            if ($request->hasFile('revenue_license_image')) {
+                $revenueLicensePath = $request->file('revenue_license_image')->store('delivery-partner-verifications/' . $user->id, 'public');
+            }
+
+            $vehicleFrontPath = $existing->vehicle_front_image ?? null;
+            if ($request->hasFile('vehicle_front_image')) {
+                $vehicleFrontPath = $request->file('vehicle_front_image')->store('delivery-partner-vehicles/' . $user->id, 'public');
+            }
+
+            $vehicleBackPath = $existing->vehicle_back_image ?? null;
+            if ($request->hasFile('vehicle_back_image')) {
+                $vehicleBackPath = $request->file('vehicle_back_image')->store('delivery-partner-vehicles/' . $user->id, 'public');
+            }
+
+            // Save/Update delivery partner verification data, reset status to pending when edited
+            DB::table('delivery_partner_verification_data')->updateOrInsert(
+                ['user_id' => $user->id],
+                [
+                    'driving_license_expiry_date' => $request->driving_license_expiry_date,
+                    'vehicle_type' => $request->vehicle_type,
+                    'vehicle_make' => $request->vehicle_make,
+                    'model' => $request->model,
+                    'year' => $request->year,
+                    'color' => $request->color,
+                    'registration_number' => $request->registration_number,
+                    'insurance_image_path' => $insurancePath,
+                    'revenue_license_image_path' => $revenueLicensePath,
+                    'insurance_expiry' => $request->insurance_expiry,
+                    'revenue_license_expiry' => $request->revenue_license_expiry,
+                    'vehicle_front_image' => $vehicleFrontPath,
+                    'vehicle_back_image' => $vehicleBackPath,
+                    'max_weight' => $request->max_weight,
+                    'status' => 'pending', // Reset verification status to pending when edited
+                    'updated_at' => now(),
+                    'created_at' => $existing->created_at ?? now(),
+                ]
+            );
+
+            // Save driving license in user_verification_documents (only driving license allowed)
+            if ($request->hasFile('front_image')) {
+                $frontPath = $request->file('front_image')->store('delivery-partner-license/' . $user->id, 'public');
+                $backPath = $request->hasFile('back_image') 
+                    ? $request->file('back_image')->store('delivery-partner-license/' . $user->id, 'public') 
+                    : null;
+
+                DB::table('user_verification_documents')->insert([
+                    'user_id' => $user->id,
+                    'document_type' => 'driving_license',
+                    'front_image_path' => $frontPath,
+                    'back_image_path' => $backPath,
+                    'verification_status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            DB::commit();
+
+            return $this->deliveryPartnerProfile($request);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update delivery partner profile.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * POST /api/user/add-role
      * Adds a new role to the authenticated user's roles array and sets up verification data if needed.
      */
@@ -1361,6 +1586,16 @@ class AuthController extends Controller
                         'user_id' => $user->id,
                         'br_number' => null,
                         'shop_address' => null,
+                        'status' => 'pending',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            } elseif ($newRole === 'delivery_partner') {
+                $exists = DB::table('delivery_partner_verification_data')->where('user_id', $user->id)->exists();
+                if (!$exists) {
+                    DB::table('delivery_partner_verification_data')->insert([
+                        'user_id' => $user->id,
                         'status' => 'pending',
                         'created_at' => now(),
                         'updated_at' => now(),

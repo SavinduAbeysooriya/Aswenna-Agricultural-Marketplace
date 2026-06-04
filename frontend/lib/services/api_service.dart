@@ -1170,6 +1170,120 @@ class ApiService {
 
   }
 
+  static Future<Map<String, dynamic>> getDeliveryPartnerProfile() async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+
+    final url = Uri.parse('$baseUrl/delivery/profile');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to load delivery partner profile.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to load delivery partner profile.',
+        'error': e.toString(),
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateDeliveryPartnerProfile(
+    Map<String, dynamic> data, {
+    String? frontImagePath,
+    String? backImagePath,
+    String? insuranceImagePath,
+    String? revenueLicenseImagePath,
+    String? vehicleFrontImagePath,
+    String? vehicleBackImagePath,
+    String? profilePicturePath,
+  }) async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+
+    final url = Uri.parse('$baseUrl/delivery/profile');
+    try {
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      data.forEach((key, value) {
+        if (value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      if (frontImagePath != null && frontImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('front_image', frontImagePath));
+      }
+      if (backImagePath != null && backImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('back_image', backImagePath));
+      }
+      if (insuranceImagePath != null && insuranceImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('insurance_image', insuranceImagePath));
+      }
+      if (revenueLicenseImagePath != null && revenueLicenseImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('revenue_license_image', revenueLicenseImagePath));
+      }
+      if (vehicleFrontImagePath != null && vehicleFrontImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('vehicle_front_image', vehicleFrontImagePath));
+      }
+      if (vehicleBackImagePath != null && vehicleBackImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('vehicle_back_image', vehicleBackImagePath));
+      }
+      if (profilePicturePath != null && profilePicturePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('profile_picture', profilePicturePath));
+      }
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+      final Map<String, dynamic> responseData = jsonDecode(responseBody);
+
+      if (streamedResponse.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to update delivery partner profile.',
+        'errors': responseData['errors'],
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to update delivery partner profile.',
+        'error': e.toString(),
+      };
+    }
+  }
+
   /**
    * Fetch the authenticated retail seller's complete profile details.
    */

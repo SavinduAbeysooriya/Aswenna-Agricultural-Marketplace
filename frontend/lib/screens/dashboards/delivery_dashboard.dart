@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/login_screen.dart';
+import 'package:aswenna/screens/dashboards/delivery_profile_screen.dart';
 
 /// Safely converts any API value (String/int/double/null) to double.
 double _toDouble(dynamic v, [double fallback = 0.0]) {
@@ -351,6 +352,16 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
                       onPressed: _loadNearbyOrders,
                       icon: const Icon(Icons.refresh_rounded,
                           color: Colors.white),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.account_circle_outlined,
+                          color: Colors.white),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
+                        ).then((_) => _initLocationAndLoad());
+                      },
                     ),
                     // 🧪 Test button in header
                     _isCreatingTest
@@ -792,6 +803,16 @@ class _ActiveDeliveriesTabState extends State<_ActiveDeliveriesTab> {
                   icon: const Icon(Icons.refresh_rounded,
                       color: AppTheme.deepLeafGreen),
                   onPressed: _load,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.account_circle_outlined,
+                      color: AppTheme.deepLeafGreen),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
+                    ).then((_) => _load());
+                  },
                 ),
               ],
             ),
@@ -1281,6 +1302,17 @@ class _EarningsTabState extends State<_EarningsTab> {
                               GestureDetector(
                                 onTap: _load,
                                 child: const Icon(Icons.refresh_rounded,
+                                    color: Colors.white70, size: 20),
+                              ),
+                              const SizedBox(width: 14),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
+                                  ).then((_) => _load());
+                                },
+                                child: const Icon(Icons.account_circle_outlined,
                                     color: Colors.white70, size: 20),
                               ),
                             ],

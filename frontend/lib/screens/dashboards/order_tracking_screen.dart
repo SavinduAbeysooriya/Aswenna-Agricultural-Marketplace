@@ -87,13 +87,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         });
 
         // Pan map to partner location if available
-        if (_mapController != null && newOrder != null) {
+        if (_mapController != null && newOrder != null && mounted) {
           final pLat = _tdn(newOrder['partner_lat']);
           final pLng = _tdn(newOrder['partner_lng']);
           if (pLat != null && pLng != null) {
-            _mapController!.animateCamera(
-              CameraUpdate.newLatLng(LatLng(pLat, pLng)),
-            );
+            try {
+              _mapController!.animateCamera(
+                CameraUpdate.newLatLng(LatLng(pLat, pLng)),
+              );
+            } catch (e) {
+              // Fail silently if map is disposed
+            }
           }
         }
       } else {

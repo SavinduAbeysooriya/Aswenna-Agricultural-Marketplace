@@ -108,11 +108,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // ─── Reviews ───────────────────────────────────────────────────────────────
     Route::post('/confirmed-bids/{confirmedBidId}/reviews', [ReviewController::class, 'submitReview']);
     Route::get('/farmers/{farmerId}/reviews', [ReviewController::class, 'getFarmerReviews']);
+    Route::post('/orders/{orderId}/reviews', [ReviewController::class, 'submitOrderReview']);
+    Route::get('/orders/{orderId}/reviews', [ReviewController::class, 'getOrderReviews']);
 
     // ─── Retailer Products CRUD ──────────────────────────────────────────────────
     Route::get('/retailer/products/rate-limit/{cropId}/{grade}', [RetailerProductController::class, 'rateLimitInfo']);
     Route::post('/retailer/products/{id}', [RetailerProductController::class, 'update']); // Support multipart/form-data for updates
     Route::apiResource('/retailer/products', RetailerProductController::class)->except(['update']);
+    Route::get('/retailer/orders', [CustomerOrderController::class, 'getRetailerOrders']);
 
     // ─── Customer Shop & Checkout ───────────────────────────────────────────────
     Route::get('/customer/products', [CustomerProductController::class, 'index']);

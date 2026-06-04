@@ -3,6 +3,7 @@ import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/dashboards/order_tracking_screen.dart';
+import 'package:aswenna/screens/dashboards/order_review_dialog.dart';
 
 class CustomerOrdersScreen extends StatefulWidget {
   const CustomerOrdersScreen({super.key});
@@ -80,7 +81,27 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => OrderDetailSheet(order: order),
-    );
+    ).then((_) {
+      _loadOrders();
+    });
+  }
+
+  void _openReviewDialog(int orderId, int targetId, String name, String role) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => OrderReviewDialog(
+        orderId: orderId,
+        reviewedToId: targetId,
+        recipientName: name,
+        recipientRole: role,
+      ),
+    ).then((success) {
+      if (success == true) {
+        _loadOrders();
+      }
+    });
   }
 
   @override
@@ -147,6 +168,7 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
                           return OrderListItemCard(
                             order: order,
                             onTap: () => _showOrderDetail(order),
+                            onOpenReview: (targetId, name, role) => _openReviewDialog(order['id'], targetId, name, role),
                           );
                         },
                       ),
@@ -158,11 +180,13 @@ class _CustomerOrdersScreenState extends State<CustomerOrdersScreen> {
 class OrderListItemCard extends StatelessWidget {
   final Map<String, dynamic> order;
   final VoidCallback onTap;
+  final Function(int targetId, String name, String role) onOpenReview;
 
   const OrderListItemCard({
     super.key,
     required this.order,
     required this.onTap,
+    required this.onOpenReview,
   });
 
   @override
@@ -192,6 +216,95 @@ class OrderListItemCard extends StatelessWidget {
     final items = order['items'] as List? ?? [];
     final sellers = items.map((item) => item['retailer']?['full_name'] ?? 'Retailer Shop').toSet().toList();
     final sellersText = sellers.isEmpty ? 'Retailer Shop' : sellers.join(', ');
+
+    // Build rating buttons for delivered/completed orders
+    final ratingButtons = <Widget>[];
+    final isDeliveredOrCompleted = status == 'delivered' || status == 'completed';
+
+    if (isDeliveredOrCompleted) {
+      final reviews = order['reviews'] as List? ?? [];
+      final customerId = order['customer_id'] as int?;
+
+      // 1. Check each unique retailer seller
+      final uniqueRetailers = <int, Map<String, dynamic>>{};
+      for (var item in items) {
+        final retailer = item['retailer'];
+        if (retailer != null && retailer['id'] != null) {
+          uniqueRetailers[retailer['id'] as int] = retailer as Map<String, dynamic>;
+        }
+      }
+
+      for (var entry in uniqueRetailers.entries) {
+        final retailerId = entry.key;
+        final retailer = entry.value;
+        final retailerName = retailer['full_name'] ?? 'Retailer';
+
+        final hasReviewedRetailer = reviews.any((review) =>
+            review['reviewed_by'] == customerId && review['reviewed_to'] == retailerId);
+
+        if (!hasReviewedRetailer) {
+          final buttonText = uniqueRetailers.length == 1 ? 'Rate Seller' : 'Rate Seller: $retailerName';
+          ratingButtons.add(
+            GestureDetector(
+              onTap: () => onOpenReview(retailerId, retailerName, 'Retailer'),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                margin: const EdgeInsets.only(top: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentGold.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.accentGold.withOpacity(0.5)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.star_rate_rounded, color: AppTheme.accentGold, size: 16),
+                    const SizedBox(width: 6),
+                    Text(buttonText, style: const TextStyle(color: AppTheme.accentGold, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      }
+
+      // 2. Check delivery partner
+      final deliveryPartner = order['deliveryPartner'];
+      final deliveryPartnerId = order['delivery_partner_id'] as int?;
+      if (deliveryPartnerId != null) {
+        final partnerName = deliveryPartner != null ? (deliveryPartner['full_name'] ?? 'Delivery Partner') : 'Delivery Partner';
+        final hasReviewedPartner = reviews.any((review) =>
+            review['reviewed_by'] == customerId && review['reviewed_to'] == deliveryPartnerId);
+
+        if (!hasReviewedPartner) {
+          ratingButtons.add(
+            GestureDetector(
+              onTap: () => onOpenReview(deliveryPartnerId, partnerName, 'Delivery Partner'),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                margin: const EdgeInsets.only(top: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentGold.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.accentGold.withOpacity(0.5)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.star_rate_rounded, color: AppTheme.accentGold, size: 16),
+                    SizedBox(width: 6),
+                    Text('Rate Delivery Partner', style: TextStyle(color: AppTheme.accentGold, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -300,6 +413,9 @@ class OrderListItemCard extends StatelessWidget {
                       ),
                     ),
                   ],
+
+                // Add rating buttons if any are applicable
+                if (ratingButtons.isNotEmpty) ...ratingButtons,
               ],
             ),
           ),
@@ -309,18 +425,87 @@ class OrderListItemCard extends StatelessWidget {
   }
 }
 
-class OrderDetailSheet extends StatelessWidget {
+class OrderDetailSheet extends StatefulWidget {
   final Map<String, dynamic> order;
 
   const OrderDetailSheet({super.key, required this.order});
 
   @override
+  State<OrderDetailSheet> createState() => _OrderDetailSheetState();
+}
+
+class _OrderDetailSheetState extends State<OrderDetailSheet> {
+  List<dynamic> _existingReviews = [];
+  bool _isLoadingReviews = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReviews();
+  }
+
+  Future<void> _loadReviews() async {
+    final status = widget.order['order_status'] ?? 'pending';
+    if (status != 'delivered' && status != 'completed') {
+      setState(() => _isLoadingReviews = false);
+      return;
+    }
+
+    setState(() => _isLoadingReviews = true);
+    try {
+      final res = await ApiService.getOrderReviews(widget.order['id']);
+      if (res['success'] == true && mounted) {
+        setState(() {
+          _existingReviews = res['reviews'] ?? [];
+          _isLoadingReviews = false;
+        });
+      } else {
+        if (mounted) setState(() => _isLoadingReviews = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingReviews = false);
+    }
+  }
+
+  bool _hasReviewed(int userId) {
+    return _existingReviews.any((review) =>
+        review['reviewed_to'] == userId && review['reviewed_by'] == widget.order['customer_id']);
+  }
+
+  int? _getReviewRating(int userId) {
+    for (var r in _existingReviews) {
+      if (r['reviewed_to'] == userId && r['reviewed_by'] == widget.order['customer_id']) {
+        return int.tryParse(r['ratings'].toString());
+      }
+    }
+    return null;
+  }
+
+  void _openReviewDialog(int targetId, String name, String role) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => OrderReviewDialog(
+        orderId: widget.order['id'],
+        reviewedToId: targetId,
+        recipientName: name,
+        recipientRole: role,
+      ),
+    ).then((success) {
+      if (success == true) {
+        _loadReviews();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final status = order['order_status'] ?? 'pending';
-    final subtotal = double.parse(order['subtotal_amount'].toString());
-    final deliveryFee = double.parse(order['delivery_fee'].toString());
-    final total = double.parse(order['total_amount'].toString());
-    final items = order['items'] as List? ?? [];
+    final status = widget.order['order_status'] ?? 'pending';
+    final subtotal = double.parse(widget.order['subtotal_amount'].toString());
+    final deliveryFee = double.parse(widget.order['delivery_fee'].toString());
+    final total = double.parse(widget.order['total_amount'].toString());
+    final items = widget.order['items'] as List? ?? [];
 
     return Container(
       decoration: const BoxDecoration(
@@ -332,62 +517,63 @@ class OrderDetailSheet extends StatelessWidget {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: FractionallySizedBox(
-        heightFactor: 0.75,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 60,
-                height: 5,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(5)),
+        heightFactor: 0.85,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 60,
+                  height: 5,
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(5)),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              order['order_number'] ?? 'Order details',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Sellers: ${items.map((item) => item['retailer']?['full_name'] ?? 'Retailer Shop').toSet().join(', ')}',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
+              Text(
+                widget.order['order_number'] ?? 'Order details',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Sellers: ${items.map((item) => item['retailer']?['full_name'] ?? 'Retailer Shop').toSet().join(', ')}',
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 20),
 
-            // Order status visual bar
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.pureWhite,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline_rounded, color: AppTheme.deepLeafGreen),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Shipping Stage', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                        Text(
-                          status.toUpperCase().replaceAll('_', ' '),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
-                        ),
-                      ],
+              // Order status visual bar
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.pureWhite,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: AppTheme.deepLeafGreen),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Shipping Stage', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                          Text(
+                            status.toUpperCase().replaceAll('_', ' '),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Items List
-            const Text('Ordered Items', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Container(
+              // Items List
+              const Text('Ordered Items', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 8),
+              Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppTheme.pureWhite,
@@ -395,7 +581,7 @@ class OrderDetailSheet extends StatelessWidget {
                 ),
                 child: ListView.builder(
                   shrinkWrap: true,
-                  physics: const BouncingScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: items.length,
                   itemBuilder: (context, index) {
                     final item = items[index];
@@ -447,48 +633,189 @@ class OrderDetailSheet extends StatelessWidget {
                   },
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Shipping Cost and Totals Summary
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.pureWhite,
-                borderRadius: BorderRadius.circular(16),
+              // Shipping Cost and Totals Summary
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.pureWhite,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Items Subtotal', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        Text('LKR ${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Delivery Fee', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        Text('LKR ${deliveryFee.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const Divider(height: 20, color: AppTheme.softGray),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Grand Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.darkGreen)),
+                        Text(
+                          'LKR ${total.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Items Subtotal', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                      Text('LKR ${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Delivery Fee', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                      Text('LKR ${deliveryFee.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const Divider(height: 20, color: AppTheme.softGray),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Grand Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.darkGreen)),
-                      Text(
-                        'LKR ${total.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
-                      ),
-                    ],
+
+              // Feedback & Ratings
+              if (status == 'delivered' || status == 'completed') ...[
+                const SizedBox(height: 20),
+                const Text(
+                  'Feedback & Ratings',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.darkGreen),
+                ),
+                const SizedBox(height: 8),
+                if (_isLoadingReviews)
+                  const Center(child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(color: AppTheme.deepLeafGreen, strokeWidth: 2),
+                  ))
+                else ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.pureWhite,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        // 1. Rate Retailers
+                        ...() {
+                          final uniqueRetailers = <int, Map<String, dynamic>>{};
+                          for (var item in items) {
+                            final retailer = item['retailer'];
+                            if (retailer != null && retailer['id'] != null) {
+                              uniqueRetailers[retailer['id'] as int] = retailer as Map<String, dynamic>;
+                            }
+                          }
+
+                          return uniqueRetailers.values.map((retailer) {
+                            final retailerId = retailer['id'] as int;
+                            final retailerName = retailer['full_name'] ?? 'Retailer';
+                            
+                            final reviewed = _hasReviewed(retailerId);
+                            final rating = _getReviewRating(retailerId);
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          retailerName,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const Text('Retail Seller', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                      ],
+                                    ),
+                                  ),
+                                  if (reviewed)
+                                    Row(
+                                      children: List.generate(5, (star) => Icon(
+                                        Icons.star_rounded,
+                                        color: star < (rating ?? 0) ? AppTheme.accentGold : Colors.grey[300],
+                                        size: 16,
+                                      )),
+                                    )
+                                  else
+                                    TextButton.icon(
+                                      onPressed: () => _openReviewDialog(retailerId, retailerName, 'Retailer'),
+                                      icon: const Icon(Icons.rate_review_rounded, size: 14, color: AppTheme.deepLeafGreen),
+                                      label: const Text('Rate Seller', style: TextStyle(fontSize: 11, color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        backgroundColor: AppTheme.lightMint,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          });
+                        }(),
+
+                        // 2. Rate Delivery Partner
+                        if (widget.order['deliveryPartner'] != null) ...[
+                          const Divider(height: 16, color: AppTheme.softGray),
+                          Builder(
+                            builder: (context) {
+                              final partner = widget.order['deliveryPartner'];
+                              final partnerId = partner['id'] as int;
+                              final partnerName = partner['full_name'] ?? 'Delivery Partner';
+                              final reviewed = _hasReviewed(partnerId);
+                              final rating = _getReviewRating(partnerId);
+
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          partnerName,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const Text('Delivery Partner', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                      ],
+                                    ),
+                                  ),
+                                  if (reviewed)
+                                    Row(
+                                      children: List.generate(5, (star) => Icon(
+                                        Icons.star_rounded,
+                                        color: star < (rating ?? 0) ? AppTheme.accentGold : Colors.grey[300],
+                                        size: 16,
+                                      )),
+                                    )
+                                  else
+                                    TextButton.icon(
+                                      onPressed: () => _openReviewDialog(partnerId, partnerName, 'Delivery Partner'),
+                                      icon: const Icon(Icons.local_shipping_rounded, size: 14, color: AppTheme.deepLeafGreen),
+                                      label: const Text('Rate Partner', style: TextStyle(fontSize: 11, color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        backgroundColor: AppTheme.lightMint,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            }
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
-              ),
-            ),
-          ],
+              ],
+            ],
+          ),
         ),
       ),
     );

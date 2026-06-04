@@ -196,7 +196,7 @@ class CustomerOrderController extends Controller
 
             $totalDeliveryFee = round($totalDistance * $ratePerKm, 2);
 
-            $systemCommission = round($subtotal * 0.05, 2); // 5% marketplace fee
+            $systemCommission = round(($subtotal * 0.05) + ($totalDeliveryFee * 0.05), 2); // 5% marketplace fee + 5% of delivery fee
             $totalAmount = $subtotal + $totalDeliveryFee;
 
             // 1. Create the Order Record

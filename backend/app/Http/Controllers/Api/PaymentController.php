@@ -231,13 +231,20 @@ class PaymentController extends Controller
                         $buyerWallet = DB::table('user_wallets')->where('user_id', $confirmedBid->buyer_id)->first();
                         if ($buyerWallet) {
                             $buyerBefore = (float)$buyerWallet->available_balance;
-                            $buyerAfter  = $buyerBefore; // External card payment doesn't decrease wallet deposit balance
+                            $buyerAfter  = $buyerBefore - $totalPaid;
+                            DB::table('user_wallets')
+                                ->where('user_id', $confirmedBid->buyer_id)
+                                ->update([
+                                    'available_balance' => $buyerAfter,
+                                    'last_updated_at' => now(),
+                                    'updated_at' => now(),
+                                ]);
                         } else {
                             $buyerBefore = 0.00;
-                            $buyerAfter  = 0.00;
+                            $buyerAfter  = -$totalPaid;
                             DB::table('user_wallets')->insert([
                                 'user_id' => $confirmedBid->buyer_id,
-                                'available_balance' => 0.00,
+                                'available_balance' => $buyerAfter,
                                 'pending_balance' => 0.00,
                                 'total_earned' => 0.00,
                                 'total_withdrawn' => 0.00,
@@ -373,13 +380,20 @@ class PaymentController extends Controller
             $buyerWallet = DB::table('user_wallets')->where('user_id', $confirmedBid->buyer_id)->first();
             if ($buyerWallet) {
                 $buyerBefore = (float)$buyerWallet->available_balance;
-                $buyerAfter  = $buyerBefore; // External card payment doesn't decrease wallet deposit balance
+                $buyerAfter  = $buyerBefore - $totalPaid;
+                DB::table('user_wallets')
+                    ->where('user_id', $confirmedBid->buyer_id)
+                    ->update([
+                        'available_balance' => $buyerAfter,
+                        'last_updated_at' => now(),
+                        'updated_at' => now(),
+                    ]);
             } else {
                 $buyerBefore = 0.00;
-                $buyerAfter  = 0.00;
+                $buyerAfter  = -$totalPaid;
                 DB::table('user_wallets')->insert([
                     'user_id' => $confirmedBid->buyer_id,
-                    'available_balance' => 0.00,
+                    'available_balance' => $buyerAfter,
                     'pending_balance' => 0.00,
                     'total_earned' => 0.00,
                     'total_withdrawn' => 0.00,
@@ -659,17 +673,74 @@ class PaymentController extends Controller
                     ]);
                 }
 
+                // 3.1 Credit delivery partner (if assigned) their delivery fee minus 5% platform commission
+                if ($order->delivery_partner_id && (float)$order->delivery_fee > 0) {
+                    $delFee = (float)$order->delivery_fee;
+                    $delCommission = round($delFee * 0.05, 2);
+                    $delNet = round($delFee - $delCommission, 2);
+                    $dpId = $order->delivery_partner_id;
+
+                    $dpWallet = DB::table('user_wallets')->where('user_id', $dpId)->first();
+                    if ($dpWallet) {
+                        $dpBefore = (float)$dpWallet->available_balance;
+                        $dpAfter  = $dpBefore + $delNet;
+                        $dpTotalEarned = (float)$dpWallet->total_earned + $delNet;
+
+                        DB::table('user_wallets')
+                            ->where('user_id', $dpId)
+                            ->update([
+                                'available_balance' => $dpAfter,
+                                'total_earned' => $dpTotalEarned,
+                                'last_updated_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                    } else {
+                        $dpBefore = 0.00;
+                        $dpAfter  = $delNet;
+                        DB::table('user_wallets')->insert([
+                            'user_id' => $dpId,
+                            'available_balance' => $dpAfter,
+                            'pending_balance' => 0.00,
+                            'total_earned' => $dpAfter,
+                            'total_withdrawn' => 0.00,
+                            'last_updated_at' => now(),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+
+                    // Record Delivery Partner Earnings Transaction
+                    DB::table('wallet_transactions')->insert([
+                        'user_id' => $dpId,
+                        'amount' => $delNet,
+                        'balance_before' => $dpBefore,
+                        'balance_after' => $dpAfter,
+                        'transaction_type' => 'other',
+                        'description' => "Delivery Earnings for Order #{$order->order_number} (Base: LKR {$delFee}, 5% System Commission: -LKR {$delCommission} deducted)",
+                        'status' => 'completed',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
                 // 4. Update Customer Wallet (log as expense)
                 $custWallet = DB::table('user_wallets')->where('user_id', $order->customer_id)->first();
                 if ($custWallet) {
                     $custBefore = (float)$custWallet->available_balance;
-                    $custAfter  = $custBefore; // External card payment doesn't decrease wallet deposit balance
+                    $custAfter  = $custBefore - $totalPaid;
+                    DB::table('user_wallets')
+                        ->where('user_id', $order->customer_id)
+                        ->update([
+                            'available_balance' => $custAfter,
+                            'last_updated_at' => now(),
+                            'updated_at' => now(),
+                        ]);
                 } else {
                     $custBefore = 0.00;
-                    $custAfter  = 0.00;
+                    $custAfter  = -$totalPaid;
                     DB::table('user_wallets')->insert([
                         'user_id' => $order->customer_id,
-                        'available_balance' => 0.00,
+                        'available_balance' => $custAfter,
                         'pending_balance' => 0.00,
                         'total_earned' => 0.00,
                         'total_withdrawn' => 0.00,
@@ -693,6 +764,19 @@ class PaymentController extends Controller
                 ]);
             }
             DB::commit();
+
+            // After successful payment, create a delivery request so nearby delivery
+            // partners can see and accept this order
+            if ($order && $order->payment_status === 'pending') {
+                // Note: $order was fetched before the update so payment_status is still 'pending'
+                // We call this after commit to avoid transaction conflicts
+                try {
+                    DeliveryPartnerController::createDeliveryRequestForOrder($orderId);
+                } catch (\Exception $e) {
+                    logger()->warning('Could not create delivery request: ' . $e->getMessage());
+                }
+            }
+
             return true;
         } catch (\Exception $e) {
             DB::rollBack();

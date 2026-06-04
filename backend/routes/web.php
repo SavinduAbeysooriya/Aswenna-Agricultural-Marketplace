@@ -39,6 +39,8 @@ Route::get('/admin/dashboard', [AdminWebController::class, 'dashboard'])->name('
 Route::get('/admin/crops', [AdminWebController::class, 'crops'])->name('admin.crops');
 Route::get('/admin/crop-growth-stages', [AdminWebController::class, 'cropGrowthStages'])->name('admin.crop-growth-stages');
 Route::get('/admin/withdrawals', [AdminWebController::class, 'withdrawals'])->name('admin.withdrawals');
+Route::get('/admin/users/roles', [AdminWebController::class, 'userRoles'])->name('admin.users.roles');
+Route::get('/admin/users/{role}', [AdminWebController::class, 'usersList'])->name('admin.users.index');
 
 // CSRF Protected Secure Session Termination
 Route::post('/admin/logout', [AdminWebController::class, 'logout'])->name('admin.logout');

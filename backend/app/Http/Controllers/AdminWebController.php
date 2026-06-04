@@ -440,6 +440,62 @@ class AdminWebController extends Controller
         ]);
     }
 
+    /**
+     * Show the user roles selection screen with registration counters.
+     */
+    public function userRoles(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $users = User::all();
+        $roleCounts = [
+            'farmer' => 0,
+            'buyer' => 0,
+            'retail_seller' => 0,
+            'delivery_partner' => 0,
+            'customer' => 0,
+            'admin' => 0,
+        ];
+
+        foreach ($users as $user) {
+            $roles = $user->role;
+            if (is_array($roles)) {
+                foreach ($roles as $role) {
+                    if (array_key_exists($role, $roleCounts)) {
+                        $roleCounts[$role]++;
+                    }
+                }
+            }
+        }
+
+        return view('admin.users.roles', [
+            'roleCounts' => $roleCounts,
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
+     * Show the users list for a selected role.
+     */
+    public function usersList(Request $request, $role)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $validRoles = ['farmer', 'buyer', 'retail_seller', 'delivery_partner', 'customer', 'admin'];
+        if (!in_array($role, $validRoles, true)) {
+            abort(404, 'Invalid user role.');
+        }
+
+        return view('admin.users.index', [
+            'role' => $role,
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
     private function ensureAdminSession(Request $request)
     {
         // Reconstruct admin_session if the user was remembered via cookie but session expired

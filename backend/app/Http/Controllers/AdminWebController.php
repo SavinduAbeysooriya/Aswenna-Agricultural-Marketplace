@@ -426,6 +426,20 @@ class AdminWebController extends Controller
         ]);
     }
 
+    /**
+     * Show delivery partner withdrawal requests management.
+     */
+    public function withdrawals(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        return view('admin.withdrawals', [
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
     private function ensureAdminSession(Request $request)
     {
         // Reconstruct admin_session if the user was remembered via cookie but session expired

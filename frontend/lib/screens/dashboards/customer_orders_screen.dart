@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/login_screen.dart';
+import 'package:aswenna/screens/dashboards/order_tracking_screen.dart';
 
 class CustomerOrdersScreen extends StatefulWidget {
   const CustomerOrdersScreen({super.key});
@@ -266,6 +267,39 @@ class OrderListItemCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                // Track button for active deliveries
+                if (status == 'out_for_delivery' || status == 'picked_up' || status == 'on_the_way' || status == 'delivered') ...
+                  [
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => OrderTrackingScreen(
+                            orderId: order['id'],
+                            orderNumber: order['order_number'] ?? '',
+                          ),
+                        ),
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.lightMint,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.freshGreen),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.location_on_rounded, color: AppTheme.deepLeafGreen, size: 16),
+                            SizedBox(width: 6),
+                            Text('Track Order', style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
               ],
             ),
           ),

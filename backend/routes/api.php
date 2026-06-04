@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\RetailerProductController;
 use App\Http\Controllers\Api\CustomerProductController;
 use App\Http\Controllers\Api\CustomerOrderController;
+use App\Http\Controllers\Api\DeliveryPartnerController;
 
 // ─── Public Auth Routes ────────────────────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
@@ -99,8 +100,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Payments ──────────────────────────────────────────────────────────────
     Route::post('/buyer/confirmed-bids/{confirmedBidId}/initiate-payment', [PaymentController::class, 'initiatePayment']);
+    Route::post('/customer/orders/{orderId}/initiate-payment', [PaymentController::class, 'initiateRetailOrderPayment']);
     Route::get('/user/wallet', [PaymentController::class, 'getWalletDetails']);
     Route::post('/payment/debug-simulate-success', [PaymentController::class, 'debugSimulateSuccess']);
+    Route::post('/payment/debug-simulate-retail-order-success', [PaymentController::class, 'debugSimulateRetailOrderSuccess']);
 
     // ─── Reviews ───────────────────────────────────────────────────────────────
     Route::post('/confirmed-bids/{confirmedBidId}/reviews', [ReviewController::class, 'submitReview']);
@@ -113,9 +116,35 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ─── Customer Shop & Checkout ───────────────────────────────────────────────
     Route::get('/customer/products', [CustomerProductController::class, 'index']);
+    Route::post('/customer/orders/calculate-delivery', [CustomerOrderController::class, 'calculateDelivery']);
     Route::post('/customer/orders', [CustomerOrderController::class, 'store']);
     Route::get('/customer/orders', [CustomerOrderController::class, 'index']);
     Route::get('/customer/orders/{id}', [CustomerOrderController::class, 'show']);
+
+    // ─── Customer Order Tracking ─────────────────────────────────────────────────
+    Route::get('/customer/orders/{orderId}/track', [DeliveryPartnerController::class, 'trackOrder']);
+
+    // ─── Delivery Partner Routes ──────────────────────────────────────────────────
+    // Live location update
+    Route::post('/delivery/location', [DeliveryPartnerController::class, 'updateLocation']);
+    // Get nearby open delivery requests
+    Route::get('/delivery/nearby-orders', [DeliveryPartnerController::class, 'getNearbyOrders']);
+    // Accept a delivery request
+    Route::post('/delivery/requests/{requestId}/accept', [DeliveryPartnerController::class, 'acceptDeliveryRequest']);
+    // Reject a delivery request
+    Route::post('/delivery/requests/{requestId}/reject', [DeliveryPartnerController::class, 'rejectDeliveryRequest']);
+    // Get my active deliveries
+    Route::get('/delivery/my-deliveries', [DeliveryPartnerController::class, 'getMyDeliveries']);
+    // Update delivery status + location
+    Route::post('/delivery/orders/{orderId}/update-status', [DeliveryPartnerController::class, 'updateDeliveryStatus']);
+    // Get delivery earnings
+    Route::get('/delivery/earnings', [DeliveryPartnerController::class, 'getEarnings']);
+    // Request a wallet withdrawal
+    Route::post('/delivery/withdraw', [DeliveryPartnerController::class, 'requestWithdrawal']);
+    // Get past and pending withdrawal requests
+    Route::get('/delivery/withdrawals', [DeliveryPartnerController::class, 'getMyWithdrawals']);
+    // 🧪 DEBUG: Create a test delivery request (for testing the delivery dashboard)
+    Route::post('/delivery/debug-create-test-request', [DeliveryPartnerController::class, 'debugCreateTestRequest']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

@@ -118,8 +118,7 @@ class DatabaseSeeder extends Seeder
                 'district' => 'Colombo',
                 'province' => 'Western',
                 'latitude' => 6.9142,
-                'longitude' => 79.8517,
-            ]
+                'longitude' => 79.8517,            ]
         );
 
         // ---------------------------------------------------------

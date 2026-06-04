@@ -23,6 +23,15 @@ new class extends Component
     public $selectedUserVerificationData = null;
     public string $rejectionReason = '';
 
+    // Expanded Profile parameters
+    public string $activeTab = 'verification'; // verification, wallet, performance, history
+    public $selectedUserWallet = null;
+    public $selectedUserTransactions = [];
+    public $selectedUserReviews = [];
+    public $selectedUserRating = 0;
+    public $selectedUserListings = [];
+    public $selectedUserHistory = [];
+
     public function mount(string $role): void
     {
         $this->role = $role;
@@ -61,13 +70,16 @@ new class extends Component
     }
 
     // Modal Control
-    public function openDetailsModal(int $userId): void
+    public function openDetailsModal(int $userId, string $defaultTab = 'verification'): void
     {
         $this->selectedUserId = $userId;
         $this->rejectionReason = '';
+        $this->activeTab = $defaultTab;
+        
         $user = User::findOrFail($userId);
-
         $this->selectedUserDetails = $user;
+
+        // 1. Fetch Verification Documents & Specific Data
         $this->selectedUserDocuments = DB::table('user_verification_documents')
             ->where('user_id', $userId)
             ->orderByDesc('created_at')
@@ -89,13 +101,103 @@ new class extends Component
             $this->selectedUserVerificationData = null;
         }
 
+        // 2. Fetch Wallet & Transactions
+        $this->selectedUserWallet = DB::table('user_wallets')->where('user_id', $userId)->first();
+        $this->selectedUserTransactions = DB::table('wallet_transactions')
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        // 3. Fetch Performance & Ratings & Listed Items
+        if ($this->role === 'farmer') {
+            $this->selectedUserReviews = DB::table('buyer_farmer_reviews')
+                ->where('farmer_id', $userId)
+                ->join('users', 'buyer_farmer_reviews.reviewed_by', '=', 'users.id')
+                ->select('buyer_farmer_reviews.*', 'users.full_name as reviewer_name', 'users.profile_picture_path as reviewer_avatar')
+                ->orderByDesc('buyer_farmer_reviews.created_at')
+                ->get();
+            $this->selectedUserRating = DB::table('buyer_farmer_reviews')->where('farmer_id', $userId)->avg('ratings') ?: 0;
+            
+            $this->selectedUserListings = DB::table('harvest_listings')
+                ->where('farmer_id', $userId)
+                ->join('crops', 'harvest_listings.crop_id', '=', 'crops.id')
+                ->select('harvest_listings.*', 'crops.cropname as crop_name')
+                ->orderByDesc('harvest_listings.created_at')
+                ->get();
+        } elseif ($this->role === 'retail_seller') {
+            $this->selectedUserReviews = DB::table('retailer_customer_delivery_partner_reviews')
+                ->where('reviewed_to', $userId)
+                ->join('users', 'retailer_customer_delivery_partner_reviews.reviewed_by', '=', 'users.id')
+                ->select('retailer_customer_delivery_partner_reviews.*', 'users.full_name as reviewer_name', 'users.profile_picture_path as reviewer_avatar')
+                ->orderByDesc('retailer_customer_delivery_partner_reviews.created_at')
+                ->get();
+            $this->selectedUserRating = DB::table('retailer_customer_delivery_partner_reviews')->where('reviewed_to', $userId)->avg('ratings') ?: 0;
+            
+            $this->selectedUserListings = DB::table('retailer_products')
+                ->where('seller_id', $userId)
+                ->join('crops', 'retailer_products.crop_id', '=', 'crops.id')
+                ->select('retailer_products.*', 'crops.cropname as crop_name')
+                ->orderByDesc('retailer_products.created_at')
+                ->get();
+        } elseif ($this->role === 'delivery_partner') {
+            $this->selectedUserReviews = DB::table('retailer_customer_delivery_partner_reviews')
+                ->where('reviewed_to', $userId)
+                ->join('users', 'retailer_customer_delivery_partner_reviews.reviewed_by', '=', 'users.id')
+                ->select('retailer_customer_delivery_partner_reviews.*', 'users.full_name as reviewer_name', 'users.profile_picture_path as reviewer_avatar')
+                ->orderByDesc('retailer_customer_delivery_partner_reviews.created_at')
+                ->get();
+            $this->selectedUserRating = DB::table('retailer_customer_delivery_partner_reviews')->where('reviewed_to', $userId)->avg('ratings') ?: 0;
+            
+            $this->selectedUserListings = [];
+        } else {
+            $this->selectedUserReviews = [];
+            $this->selectedUserRating = 0;
+            $this->selectedUserListings = [];
+        }
+
+        // 4. Fetch History (Dispatches, Purchases, Bids)
+        if ($this->role === 'delivery_partner') {
+            $this->selectedUserHistory = DB::table('customer_orders')
+                ->where('delivery_partner_id', $userId)
+                ->join('users as customers', 'customer_orders.customer_id', '=', 'customers.id')
+                ->select('customer_orders.*', 'customers.full_name as customer_name')
+                ->orderByDesc('customer_orders.created_at')
+                ->get();
+        } elseif ($this->role === 'customer') {
+            $this->selectedUserHistory = DB::table('customer_orders')
+                ->where('customer_id', $userId)
+                ->join('users as sellers', 'customer_orders.retailer_seller_id', '=', 'sellers.id')
+                ->select('customer_orders.*', 'sellers.full_name as seller_name')
+                ->orderByDesc('customer_orders.created_at')
+                ->get();
+        } elseif ($this->role === 'buyer') {
+            $this->selectedUserHistory = DB::table('confirmed_bids')
+                ->where('confirmed_bids.buyer_id', $userId)
+                ->join('harvest_listings', 'confirmed_bids.harvest_listing_id', '=', 'harvest_listings.id')
+                ->join('crops', 'harvest_listings.crop_id', '=', 'crops.id')
+                ->select('confirmed_bids.*', 'crops.cropname as crop_name', 'harvest_listings.grade')
+                ->orderByDesc('confirmed_bids.created_at')
+                ->get();
+        } else {
+            $this->selectedUserHistory = [];
+        }
+
         $this->showDetailsModal = true;
+    }
+
+    public function changeTab(string $tab): void
+    {
+        $this->activeTab = $tab;
     }
 
     public function closeDetailsModal(): void
     {
         $this->showDetailsModal = false;
-        $this->reset(['selectedUserId', 'selectedUserDetails', 'selectedUserDocuments', 'selectedUserVerificationData', 'rejectionReason']);
+        $this->reset([
+            'selectedUserId', 'selectedUserDetails', 'selectedUserDocuments', 'selectedUserVerificationData', 'rejectionReason',
+            'activeTab', 'selectedUserWallet', 'selectedUserTransactions', 'selectedUserReviews', 'selectedUserRating', 'selectedUserListings', 'selectedUserHistory'
+        ]);
     }
 
     // Action Methods
@@ -104,10 +206,8 @@ new class extends Component
         $user = User::findOrFail($userId);
         
         DB::transaction(function () use ($user, $userId) {
-            // Update user is_verified
             $user->update(['is_verified' => true]);
 
-            // Sync with specific tables based on role
             if ($this->role === 'retail_seller') {
                 DB::table('retail_seller_verification_data')
                     ->where('user_id', $userId)
@@ -125,7 +225,6 @@ new class extends Component
                         'updated_at' => now(),
                     ]);
             } else {
-                // For farmer, buyer, customer - set pending docs to approved
                 DB::table('user_verification_documents')
                     ->where('user_id', $userId)
                     ->where('verification_status', 'pending')
@@ -138,7 +237,7 @@ new class extends Component
             }
         });
 
-        $this->closeDetailsModal();
+        $this->openDetailsModal($userId, $this->activeTab);
         $this->dispatch('user-saved', message: 'User verification approved successfully.');
     }
 
@@ -151,10 +250,8 @@ new class extends Component
         $user = User::findOrFail($userId);
 
         DB::transaction(function () use ($user, $userId) {
-            // Update user is_verified to false
             $user->update(['is_verified' => false]);
 
-            // Sync with specific tables based on role
             if ($this->role === 'retail_seller') {
                 DB::table('retail_seller_verification_data')
                     ->where('user_id', $userId)
@@ -172,7 +269,6 @@ new class extends Component
                         'updated_at' => now(),
                     ]);
             } else {
-                // For farmer, buyer, customer
                 $latestDoc = DB::table('user_verification_documents')
                     ->where('user_id', $userId)
                     ->orderByDesc('created_at')
@@ -204,7 +300,7 @@ new class extends Component
             }
         });
 
-        $this->closeDetailsModal();
+        $this->openDetailsModal($userId, $this->activeTab);
         $this->dispatch('user-saved', message: 'User verification rejected with explanation.');
     }
 
@@ -560,7 +656,6 @@ new class extends Component
                                 $statusBadge = 'bg-emerald-50 text-emerald-700 border-emerald-100';
                                 $statusLabel = 'Approved';
                             } else {
-                                // Find status from documents/verifications
                                 if ($role === 'retail_seller') {
                                     $statusVal = DB::table('retail_seller_verification_data')->where('user_id', $u->id)->value('status') ?? 'pending';
                                     if ($statusVal === 'pending') {
@@ -580,7 +675,6 @@ new class extends Component
                                         $statusLabel = 'Rejected';
                                     }
                                 } else {
-                                    // farmers, buyers, customers
                                     $latestDocStatus = DB::table('user_verification_documents')->where('user_id', $u->id)->orderByDesc('created_at')->value('verification_status');
                                     if ($latestDocStatus === 'pending') {
                                         $statusBadge = 'bg-amber-50 text-amber-700 border-amber-100';
@@ -589,7 +683,6 @@ new class extends Component
                                         $statusBadge = 'bg-rose-50 text-rose-600 border-rose-100';
                                         $statusLabel = 'Rejected';
                                     } elseif ($role === 'farmer') {
-                                        // farmers with verification data but no documents
                                         if (DB::table('farmer_verification_data')->where('user_id', $u->id)->exists()) {
                                             $statusBadge = 'bg-amber-50 text-amber-700 border-amber-100';
                                             $statusLabel = 'Pending Audit';
@@ -601,13 +694,16 @@ new class extends Component
                         <tr class="align-middle hover:bg-slate-50/70 transition" wire:key="user-row-{{ $u->id }}">
                             <td class="px-5 py-4 min-w-[280px]">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200/60 overflow-hidden flex items-center justify-center text-slate-500 font-extrabold text-xs shrink-0 shadow-inner">
-                                        @if ($u->profile_picture_path)
-                                            <img src="{{ Str::startsWith($u->profile_picture_path, ['http://', 'https://']) ? $u->profile_picture_path : asset('storage/' . $u->profile_picture_path) }}" alt="{{ $u->full_name }}" class="w-full h-full object-cover">
-                                        @else
-                                            <span>{{ strtoupper(substr($u->full_name, 0, 2)) }}</span>
-                                        @endif
-                                    </div>
+                                    <a href="{{ route('admin.users.profile', $u->id) }}" class="relative group" title="Click avatar to view profile">
+                                        <div class="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200/60 overflow-hidden flex items-center justify-center text-slate-500 font-extrabold text-xs shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-300">
+                                            @if ($u->profile_picture_path)
+                                                <img src="{{ Str::startsWith($u->profile_picture_path, ['http://', 'https://']) ? $u->profile_picture_path : asset('storage/' . $u->profile_picture_path) }}" alt="{{ $u->full_name }}" class="w-full h-full object-cover">
+                                            @else
+                                                <span>{{ strtoupper(substr($u->full_name, 0, 2)) }}</span>
+                                            @endif
+                                        </div>
+                                        <span class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white text-[9px] font-black"><i class="fa-solid fa-eye text-xs"></i></span>
+                                    </a>
                                     <div class="min-w-0">
                                         <p class="text-sm font-extrabold text-slate-900 truncate">{{ $u->full_name }}</p>
                                         <p class="text-[10px] text-slate-400 font-bold mt-0.5">UID #US{{ str_pad($u->id, 5, '0', STR_PAD_LEFT) }}</p>
@@ -626,12 +722,18 @@ new class extends Component
                                 <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider {{ $statusBadge }}">{{ $statusLabel }}</span>
                                 <p class="text-[9px] text-slate-400 font-semibold mt-1.5">Joined {{ $u->created_at->format('M d, Y') }}</p>
                             </td>
-                            <td class="px-5 py-4 min-w-[240px]">
+                            <td class="px-5 py-4 min-w-[290px]">
                                 <div class="flex flex-wrap justify-end gap-2">
-                                    <button type="button" wire:click="openDetailsModal({{ $u->id }})" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-extrabold transition">
-                                        <i class="fa-solid fa-folder-open text-[10px]"></i>
-                                        Inspect Documents
-                                    </button>
+                                    <!-- View Profile Icon Button -->
+                                    <a href="{{ route('admin.users.profile', $u->id) }}" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-extrabold border border-emerald-100/55 transition" title="View Wallet, listings, and feedback records">
+                                        <i class="fa-solid fa-address-card text-[11px]"></i>
+                                        View Profile
+                                    </a>
+
+                                    <a href="{{ route('admin.users.profile', $u->id) }}" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-extrabold transition">
+                                        <i class="fa-solid fa-clipboard-check text-[10px]"></i>
+                                        Audit Docs
+                                    </a>
                                     
                                     @if ($role !== 'admin')
                                         @if ($u->is_active)
@@ -733,359 +835,612 @@ new class extends Component
                     </button>
                 </div>
 
+                <!-- Modal Tabs Selector -->
+                <div class="px-6 border-b border-slate-100 flex gap-1 bg-slate-50 shrink-0 overflow-x-auto">
+                    <button type="button" wire:click="changeTab('verification')" class="px-4 py-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap {{ $activeTab === 'verification' ? 'border-emerald-600 text-emerald-700 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-900' }}">
+                        <i class="fa-solid fa-clipboard-check mr-1.5"></i> Credentials & Audit
+                    </button>
+                    <button type="button" wire:click="changeTab('wallet')" class="px-4 py-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap {{ $activeTab === 'wallet' ? 'border-emerald-600 text-emerald-700 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-900' }}">
+                        <i class="fa-solid fa-wallet mr-1.5"></i> Wallet & Finance
+                    </button>
+                    @if (in_array($role, ['farmer', 'retail_seller', 'delivery_partner'], true))
+                        <button type="button" wire:click="changeTab('performance')" class="px-4 py-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap {{ $activeTab === 'performance' ? 'border-emerald-600 text-emerald-700 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-900' }}">
+                            <i class="fa-solid fa-star mr-1.5"></i> Marketplace & Ratings
+                        </button>
+                    @endif
+                    @if (in_array($role, ['delivery_partner', 'customer', 'buyer'], true))
+                        <button type="button" wire:click="changeTab('history')" class="px-4 py-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap {{ $activeTab === 'history' ? 'border-emerald-600 text-emerald-700 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-900' }}">
+                            <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Rides & Activities
+                        </button>
+                    @endif
+                </div>
+
                 <!-- Modal Body -->
                 <div class="flex-1 p-6 overflow-y-auto space-y-6">
-                    <!-- General Details Grid -->
-                    <div class="bg-slate-50/50 border border-slate-100 rounded-2xl p-5 space-y-4">
-                        <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-address-card mr-2"></i>Profile Information</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <span class="text-[10px] font-bold text-slate-400 block">Email Address</span>
-                                <strong class="text-xs text-slate-800 block mt-1 break-words">{{ $u->email ?? 'Not Registered' }}</strong>
-                            </div>
-                            <div>
-                                <span class="text-[10px] font-bold text-slate-400 block">Phone Numbers</span>
-                                <strong class="text-xs text-slate-800 block mt-1">{{ $u->phone_number }} {{ $u->phone_number_2 ? '/ ' . $u->phone_number_2 : '' }}</strong>
-                            </div>
-                            <div>
-                                <span class="text-[10px] font-bold text-slate-400 block">National Identity Number</span>
-                                <strong class="text-xs text-slate-800 block mt-1">{{ $u->national_id ?? 'Not Provided' }}</strong>
-                            </div>
-                            <div class="md:col-span-2">
-                                <span class="text-[10px] font-bold text-slate-400 block">Registered Address</span>
-                                <strong class="text-xs text-slate-800 block mt-1">{{ $u->address ?? 'Not Provided' }}, {{ $u->city ?? '' }}, {{ $u->district ?? '' }} ({{ $u->province ?? '' }})</strong>
-                            </div>
-                            <div>
-                                <span class="text-[10px] font-bold text-slate-400 block">Geo Coordinates</span>
-                                <strong class="text-xs text-slate-800 block mt-1">
-                                    @if ($u->latitude && $u->longitude)
-                                        {{ $u->latitude }}, {{ $u->longitude }}
-                                        <a href="https://www.google.com/maps/search/?api=1&query={{ $u->latitude }},{{ $u->longitude }}" target="_blank" class="ml-1.5 text-emerald-600 hover:text-emerald-700"><i class="fa-solid fa-map-location-dot"></i></a>
-                                    @else
-                                        Not Available
-                                    @endif
-                                </strong>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Role Specific Verifications -->
-                    @if ($role === 'farmer' && $selectedUserVerificationData)
-                        @php
-                            $f = $selectedUserVerificationData;
-                        @endphp
-                        <div class="space-y-4">
-                            <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-seedling mr-2"></i>Farming Certificates & Licenses</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <!-- Farming License -->
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Farming License</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">{{ $f->farming_license_number ?? 'No Number Provided' }}</strong>
-                                    </div>
-                                    @if ($f->farming_license_path)
-                                        @php
-                                            $licenseUrl = Str::startsWith($f->farming_license_path, ['http://', 'https://']) ? $f->farming_license_path : (Str::startsWith($f->farming_license_path, 'storage/') ? asset($f->farming_license_path) : asset('storage/' . $f->farming_license_path));
-                                        @endphp
-                                        <div class="mt-4">
-                                            <a href="{{ $licenseUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition">
-                                                <i class="fa-solid fa-file-pdf"></i>
-                                                View License File
-                                            </a>
-                                        </div>
-                                    @else
-                                        <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
-                                    @endif
+                    
+                    <!-- TAB 1: Credentials & Audit -->
+                    @if ($activeTab === 'verification')
+                        <!-- General Details Grid -->
+                        <div class="bg-slate-50/50 border border-slate-100 rounded-2xl p-5 space-y-4">
+                            <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-address-card mr-2"></i>Profile Information</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 block">Email Address</span>
+                                    <strong class="text-xs text-slate-800 block mt-1 break-words">{{ $u->email ?? 'Not Registered' }}</strong>
                                 </div>
-
-                                <!-- Organic Cert -->
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Organic Certification</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">{{ $f->organic_certificate_number ?? 'No Certificate Number' }}</strong>
-                                        @if ($f->organic_certificate_expiry)
-                                            <span class="text-[10px] text-slate-400 block mt-1">Expiry: {{ $f->organic_certificate_expiry }}</span>
-                                        @endif
-                                    </div>
-                                    @if ($f->organic_certificate_path)
-                                        @php
-                                            $organicUrl = Str::startsWith($f->organic_certificate_path, ['http://', 'https://']) ? $f->organic_certificate_path : (Str::startsWith($f->organic_certificate_path, 'storage/') ? asset($f->organic_certificate_path) : asset('storage/' . $f->organic_certificate_path));
-                                        @endphp
-                                        <div class="mt-4">
-                                            <a href="{{ $organicUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition">
-                                                <i class="fa-solid fa-file-pdf"></i>
-                                                View Organic Cert
-                                            </a>
-                                        </div>
-                                    @else
-                                        <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
-                                    @endif
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 block">Phone Numbers</span>
+                                    <strong class="text-xs text-slate-800 block mt-1">{{ $u->phone_number }} {{ $u->phone_number_2 ? '/ ' . $u->phone_number_2 : '' }}</strong>
                                 </div>
-
-                                <!-- GAP Cert -->
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">GAP Certification</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">{{ $f->gap_certificate_number ?? 'No GAP Number' }}</strong>
-                                        @if ($f->gap_certificate_expiry)
-                                            <span class="text-[10px] text-slate-400 block mt-1">Expiry: {{ $f->gap_certificate_expiry }}</span>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 block">National Identity Number</span>
+                                    <strong class="text-xs text-slate-800 block mt-1">{{ $u->national_id ?? 'Not Provided' }}</strong>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <span class="text-[10px] font-bold text-slate-400 block">Registered Address</span>
+                                    <strong class="text-xs text-slate-800 block mt-1">{{ $u->address ?? 'Not Provided' }}, {{ $u->city ?? '' }}, {{ $u->district ?? '' }} ({{ $u->province ?? '' }})</strong>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 block">Geo Coordinates</span>
+                                    <strong class="text-xs text-slate-800 block mt-1">
+                                        @if ($u->latitude && $u->longitude)
+                                            {{ $u->latitude }}, {{ $u->longitude }}
+                                            <a href="https://www.google.com/maps/search/?api=1&query={{ $u->latitude }},{{ $u->longitude }}" target="_blank" class="ml-1.5 text-emerald-600 hover:text-emerald-700"><i class="fa-solid fa-map-location-dot"></i></a>
+                                        @else
+                                            Not Available
                                         @endif
-                                    </div>
-                                    @if ($f->gap_certificate_path)
-                                        @php
-                                            $gapUrl = Str::startsWith($f->gap_certificate_path, ['http://', 'https://']) ? $f->gap_certificate_path : (Str::startsWith($f->gap_certificate_path, 'storage/') ? asset($f->gap_certificate_path) : asset('storage/' . $f->gap_certificate_path));
-                                        @endphp
-                                        <div class="mt-4">
-                                            <a href="{{ $gapUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition">
-                                                <i class="fa-solid fa-file-pdf"></i>
-                                                View GAP Cert
-                                            </a>
-                                        </div>
-                                    @else
-                                        <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
-                                    @endif
+                                    </strong>
                                 </div>
                             </div>
                         </div>
-                    @endif
 
-                    @if ($role === 'retail_seller' && $selectedUserVerificationData)
-                        @php
-                            $r = $selectedUserVerificationData;
-                            $brUrl = Str::startsWith($r->br_image_path, ['http://', 'https://']) ? $r->br_image_path : (Str::startsWith($r->br_image_path, 'storage/') ? asset($r->br_image_path) : asset('storage/' . $r->br_image_path));
-                        @endphp
-                        <div class="space-y-4">
-                            <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-store mr-2"></i>Business Registration & Shop Photos</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">BR Number</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">{{ $r->br_number ?? 'Not Provided' }}</strong>
-                                    </div>
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">BR Date Range</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">Issue: {{ $r->br_issue_date ?? 'N/A' }}<br>Expiry: {{ $r->br_expiry_date ?? 'N/A' }}</strong>
-                                    </div>
-                                </div>
-
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Business / Ownership</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">Type: {{ ucwords(str_replace('_', ' ', $r->business_type ?? 'N/A')) }}<br>Ownership: {{ ucwords(str_replace('_', ' ', $r->ownership_type ?? 'N/A')) }}</strong>
-                                    </div>
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Shop Postal Code</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">{{ $r->postal_code ?? 'N/A' }}</strong>
-                                    </div>
-                                </div>
-
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">BR Document Image</span>
-                                    </div>
-                                    @if ($r->br_image_path)
-                                        <div class="mt-4">
-                                            <a href="{{ $brUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-100 transition">
-                                                <i class="fa-solid fa-image"></i>
-                                                Open BR File
-                                            </a>
+                        <!-- Role Specific Verifications -->
+                        @if ($role === 'farmer' && $selectedUserVerificationData)
+                            @php
+                                $f = $selectedUserVerificationData;
+                            @endphp
+                            <div class="space-y-4">
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-seedling mr-2"></i>Farming Certificates & Licenses</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <!-- Farming License -->
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Farming License</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">{{ $f->farming_license_number ?? 'No Number Provided' }}</strong>
                                         </div>
-                                    @else
-                                        <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
-                                    @endif
-                                </div>
-                            </div>
-
-                            @if ($r->shop_photos)
-                                @php
-                                    $photos = json_decode($r->shop_photos, true) ?: [];
-                                @endphp
-                                @if (count($photos) > 0)
-                                    <div class="bg-slate-50/50 border border-slate-100 rounded-2xl p-5 space-y-3">
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Shop Premises Gallery</span>
-                                        <div class="flex flex-wrap gap-4 mt-2">
-                                            @foreach ($photos as $photo)
-                                                @php
-                                                    $pUrl = Str::startsWith($photo, ['http://', 'https://']) ? $photo : (Str::startsWith($photo, 'storage/') ? asset($photo) : asset('storage/' . $photo));
-                                                @endphp
-                                                <a href="{{ $pUrl }}" target="_blank" class="w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:scale-105 transition-transform">
-                                                    <img src="{{ $pUrl }}" alt="Shop photo" class="w-full h-full object-cover">
+                                        @if ($f->farming_license_path)
+                                            @php
+                                                $licenseUrl = Str::startsWith($f->farming_license_path, ['http://', 'https://']) ? $f->farming_license_path : (Str::startsWith($f->farming_license_path, 'storage/') ? asset($f->farming_license_path) : asset('storage/' . $f->farming_license_path));
+                                            @endphp
+                                            <div class="mt-4">
+                                                <a href="{{ $licenseUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition">
+                                                    <i class="fa-solid fa-file-pdf"></i>
+                                                    View License File
                                                 </a>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endif
-                            @endif
-                        </div>
-                    @endif
-
-                    @if ($role === 'delivery_partner' && $selectedUserVerificationData)
-                        @php
-                            $d = $selectedUserVerificationData;
-                            $insUrl = Str::startsWith($d->insurance_image_path, ['http://', 'https://']) ? $d->insurance_image_path : (Str::startsWith($d->insurance_image_path, 'storage/') ? asset($d->insurance_image_path) : asset('storage/' . $d->insurance_image_path));
-                            $revUrl = Str::startsWith($d->revenue_license_image_path, ['http://', 'https://']) ? $d->revenue_license_image_path : (Str::startsWith($d->revenue_license_image_path, 'storage/') ? asset($d->revenue_license_image_path) : asset('storage/' . $d->revenue_license_image_path));
-                        @endphp
-                        <div class="space-y-4">
-                            <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-truck-fast mr-2"></i>Vehicle & License Parameters</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Vehicle Specification</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">{{ ucwords(str_replace('_', ' ', $d->vehicle_type ?? 'N/A')) }} • {{ $d->vehicle_make ?? '' }} {{ $d->model ?? '' }} ({{ $d->year ?? '' }})</strong>
-                                    </div>
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Color & Max Weight</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">Color: {{ $d->color ?? 'N/A' }}<br>Max Capacity: {{ $d->max_weight ?? 'N/A' }} kg</strong>
-                                    </div>
-                                </div>
-
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Registration Number</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">{{ $d->registration_number ?? 'N/A' }}</strong>
-                                    </div>
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Driver License Expiry</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">{{ $d->driving_license_expiry_date ?? 'N/A' }}</strong>
-                                    </div>
-                                </div>
-
-                                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-                                    <div>
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Insurance & Revenue Expiry</span>
-                                        <strong class="text-xs text-slate-800 block mt-1">Insurance: {{ $d->insurance_expiry ?? 'N/A' }}<br>Revenue: {{ $d->revenue_license_expiry ?? 'N/A' }}</strong>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 border border-slate-100 rounded-2xl p-5">
-                                <div class="flex flex-col justify-between">
-                                    <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Insurance Certificate</span>
-                                    @if ($d->insurance_image_path)
-                                        <div class="mt-4">
-                                            <a href="{{ $insUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-100 transition">
-                                                <i class="fa-solid fa-shield-halved"></i>
-                                                View Insurance Document
-                                            </a>
-                                        </div>
-                                    @else
-                                        <span class="text-[10px] text-slate-400 italic mt-4 block">No insurance document uploaded</span>
-                                    @endif
-                                </div>
-
-                                <div class="flex flex-col justify-between">
-                                    <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Revenue License</span>
-                                    @if ($d->revenue_license_image_path)
-                                        <div class="mt-4">
-                                            <a href="{{ $revUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-100 transition">
-                                                <i class="fa-solid fa-passport"></i>
-                                                View Revenue License
-                                            </a>
-                                        </div>
-                                    @else
-                                        <span class="text-[10px] text-slate-400 italic mt-4 block">No revenue license uploaded</span>
-                                    @endif
-                                </div>
-                            </div>
-
-                            <!-- Vehicle Photos -->
-                            @if ($d->vehicle_front_image || $d->vehicle_back_image)
-                                <div class="bg-slate-50/50 border border-slate-100 rounded-2xl p-5 space-y-3">
-                                    <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Vehicle Photos</span>
-                                    <div class="flex flex-wrap gap-4 mt-2">
-                                        @if ($d->vehicle_front_image)
-                                            @php
-                                                $vfUrl = Str::startsWith($d->vehicle_front_image, ['http://', 'https://']) ? $d->vehicle_front_image : (Str::startsWith($d->vehicle_front_image, 'storage/') ? asset($d->vehicle_front_image) : asset('storage/' . $d->vehicle_front_image));
-                                            @endphp
-                                            <a href="{{ $vfUrl }}" target="_blank" class="w-32 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:scale-105 transition-transform flex flex-col bg-white">
-                                                <img src="{{ $vfUrl }}" alt="Vehicle front" class="w-full h-20 object-cover">
-                                                <span class="text-[8px] text-center font-bold uppercase text-slate-400 py-0.5">Front View</span>
-                                            </a>
+                                            </div>
+                                        @else
+                                            <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
                                         @endif
-                                        @if ($d->vehicle_back_image)
+                                    </div>
+
+                                    <!-- Organic Cert -->
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Organic Certification</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">{{ $f->organic_certificate_number ?? 'No Certificate Number' }}</strong>
+                                            @if ($f->organic_certificate_expiry)
+                                                <span class="text-[10px] text-slate-400 block mt-1">Expiry: {{ $f->organic_certificate_expiry }}</span>
+                                            @endif
+                                        </div>
+                                        @if ($f->organic_certificate_path)
                                             @php
-                                                $vbUrl = Str::startsWith($d->vehicle_back_image, ['http://', 'https://']) ? $d->vehicle_back_image : (Str::startsWith($d->vehicle_back_image, 'storage/') ? asset($d->vehicle_back_image) : asset('storage/' . $d->vehicle_back_image));
+                                                $organicUrl = Str::startsWith($f->organic_certificate_path, ['http://', 'https://']) ? $f->organic_certificate_path : (Str::startsWith($f->organic_certificate_path, 'storage/') ? asset($f->organic_certificate_path) : asset('storage/' . $f->organic_certificate_path));
                                             @endphp
-                                            <a href="{{ $vbUrl }}" target="_blank" class="w-32 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:scale-105 transition-transform flex flex-col bg-white">
-                                                <img src="{{ $vbUrl }}" alt="Vehicle back" class="w-full h-20 object-cover">
-                                                <span class="text-[8px] text-center font-bold uppercase text-slate-400 py-0.5">Back View</span>
-                                            </a>
+                                            <div class="mt-4">
+                                                <a href="{{ $organicUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition">
+                                                    <i class="fa-solid fa-file-pdf"></i>
+                                                    View Organic Cert
+                                                </a>
+                                            </div>
+                                        @else
+                                            <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
+                                        @endif
+                                    </div>
+
+                                    <!-- GAP Cert -->
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">GAP Certification</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">{{ $f->gap_certificate_number ?? 'No GAP Number' }}</strong>
+                                            @if ($f->gap_certificate_expiry)
+                                                <span class="text-[10px] text-slate-400 block mt-1">Expiry: {{ $f->gap_certificate_expiry }}</span>
+                                            @endif
+                                        </div>
+                                        @if ($f->gap_certificate_path)
+                                            @php
+                                                $gapUrl = Str::startsWith($f->gap_certificate_path, ['http://', 'https://']) ? $f->gap_certificate_path : (Str::startsWith($f->gap_certificate_path, 'storage/') ? asset($f->gap_certificate_path) : asset('storage/' . $f->gap_certificate_path));
+                                            @endphp
+                                            <div class="mt-4">
+                                                <a href="{{ $gapUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition">
+                                                    <i class="fa-solid fa-file-pdf"></i>
+                                                    View GAP Cert
+                                                </a>
+                                            </div>
+                                        @else
+                                            <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
                                         @endif
                                     </div>
                                 </div>
-                            @endif
-                        </div>
-                    @endif
+                            </div>
+                        @endif
 
-                    @if (in_array($role, ['buyer', 'customer', 'farmer'], true) && count($selectedUserDocuments) > 0)
-                        <div class="space-y-4">
-                            <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-folder-open mr-2"></i>Uploaded Verification Documents</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                @foreach ($selectedUserDocuments as $doc)
+                        @if ($role === 'retail_seller' && $selectedUserVerificationData)
+                            @php
+                                $r = $selectedUserVerificationData;
+                                $brUrl = Str::startsWith($r->br_image_path, ['http://', 'https://']) ? $r->br_image_path : (Str::startsWith($r->br_image_path, 'storage/') ? asset($r->br_image_path) : asset('storage/' . $r->br_image_path));
+                            @endphp
+                            <div class="space-y-4">
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-store mr-2"></i>Business Registration & Shop Photos</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">BR Number</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">{{ $r->br_number ?? 'Not Provided' }}</strong>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">BR Date Range</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">Issue: {{ $r->br_issue_date ?? 'N/A' }}<br>Expiry: {{ $r->br_expiry_date ?? 'N/A' }}</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Business / Ownership</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">Type: {{ ucwords(str_replace('_', ' ', $r->business_type ?? 'N/A')) }}<br>Ownership: {{ ucwords(str_replace('_', ' ', $r->ownership_type ?? 'N/A')) }}</strong>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Shop Postal Code</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">{{ $r->postal_code ?? 'N/A' }}</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">BR Document Image</span>
+                                        </div>
+                                        @if ($r->br_image_path)
+                                            <div class="mt-4">
+                                                <a href="{{ $brUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-100 transition">
+                                                    <i class="fa-solid fa-image"></i>
+                                                    Open BR File
+                                                </a>
+                                            </div>
+                                        @else
+                                            <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                @if ($r->shop_photos)
                                     @php
-                                        $fUrl = Str::startsWith($doc->front_image_path, ['http://', 'https://']) ? $doc->front_image_path : (Str::startsWith($doc->front_image_path, 'storage/') ? asset($doc->front_image_path) : asset('storage/' . $doc->front_image_path));
-                                        $bUrl = $doc->back_image_path ? (Str::startsWith($doc->back_image_path, ['http://', 'https://']) ? $doc->back_image_path : (Str::startsWith($doc->back_image_path, 'storage/') ? asset($doc->back_image_path) : asset('storage/' . $doc->back_image_path))) : null;
-                                        $badgeClass = [
-                                            'pending' => 'bg-amber-50 text-amber-700 border-amber-100',
-                                            'approved' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                                            'rejected' => 'bg-rose-50 text-rose-700 border-rose-100',
-                                        ][$doc->verification_status] ?? 'bg-slate-50 text-slate-600 border-slate-100';
+                                        $photos = json_decode($r->shop_photos, true) ?: [];
                                     @endphp
-                                    <div class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
-                                        <div class="flex justify-between items-center">
-                                            <div>
-                                                <strong class="text-xs text-slate-800 uppercase tracking-wider block">{{ ucwords(str_replace('_', ' ', $doc->document_type)) }}</strong>
-                                                <span class="text-[9px] text-slate-400 font-semibold block mt-0.5">Uploaded on {{ \Carbon\Carbon::parse($doc->created_at)->format('M d, Y') }}</span>
-                                            </div>
-                                            <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider {{ $badgeClass }}">{{ $doc->verification_status }}</span>
-                                        </div>
-
-                                        <!-- Document Images -->
-                                        @if ($doc->front_image_path !== 'placeholder_rejected')
-                                            <div class="flex gap-4">
-                                                <a href="{{ $fUrl }}" target="_blank" class="w-1/2 h-28 rounded-xl border border-slate-200 overflow-hidden shadow-inner flex flex-col bg-slate-50">
-                                                    <img src="{{ $fUrl }}" alt="Doc front" class="w-full h-24 object-cover">
-                                                    <span class="text-[8px] text-center font-bold uppercase text-slate-400 py-0.5">Front View</span>
-                                                </a>
-                                                @if ($bUrl)
-                                                    <a href="{{ $bUrl }}" target="_blank" class="w-1/2 h-28 rounded-xl border border-slate-200 overflow-hidden shadow-inner flex flex-col bg-slate-50">
-                                                        <img src="{{ $bUrl }}" alt="Doc back" class="w-full h-24 object-cover">
-                                                        <span class="text-[8px] text-center font-bold uppercase text-slate-400 py-0.5">Back View</span>
+                                    @if (count($photos) > 0)
+                                        <div class="bg-slate-50/50 border border-slate-100 rounded-2xl p-5 space-y-3">
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Shop Premises Gallery</span>
+                                            <div class="flex flex-wrap gap-4 mt-2">
+                                                @foreach ($photos as $photo)
+                                                    @php
+                                                        $pUrl = Str::startsWith($photo, ['http://', 'https://']) ? $photo : (Str::startsWith($photo, 'storage/') ? asset($photo) : asset('storage/' . $photo));
+                                                    @endphp
+                                                    <a href="{{ $pUrl }}" target="_blank" class="w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:scale-105 transition-transform">
+                                                        <img src="{{ $pUrl }}" alt="Shop photo" class="w-full h-full object-cover">
                                                     </a>
-                                                @endif
+                                                @endforeach
                                             </div>
-                                        @endif
+                                        </div>
+                                    @endif
+                                @endif
+                            </div>
+                        @endif
 
-                                        @if ($doc->rejection_reason)
-                                            <div class="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-100">
-                                                <strong>Rejection Reason:</strong> {{ $doc->rejection_reason }}
+                        @if ($role === 'delivery_partner' && $selectedUserVerificationData)
+                            @php
+                                $d = $selectedUserVerificationData;
+                                $insUrl = Str::startsWith($d->insurance_image_path, ['http://', 'https://']) ? $d->insurance_image_path : (Str::startsWith($d->insurance_image_path, 'storage/') ? asset($d->insurance_image_path) : asset('storage/' . $d->insurance_image_path));
+                                $revUrl = Str::startsWith($d->revenue_license_image_path, ['http://', 'https://']) ? $d->revenue_license_image_path : (Str::startsWith($d->revenue_license_image_path, 'storage/') ? asset($d->revenue_license_image_path) : asset('storage/' . $d->revenue_license_image_path));
+                            @endphp
+                            <div class="space-y-4">
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-truck-fast mr-2"></i>Vehicle & License Parameters</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Vehicle Specification</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">{{ ucwords(str_replace('_', ' ', $d->vehicle_type ?? 'N/A')) }} • {{ $d->vehicle_make ?? '' }} {{ $d->model ?? '' }} ({{ $d->year ?? '' }})</strong>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Color & Max Weight</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">Color: {{ $d->color ?? 'N/A' }}<br>Max Capacity: {{ $d->max_weight ?? 'N/A' }} kg</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Registration Number</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">{{ $d->registration_number ?? 'N/A' }}</strong>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Driver License Expiry</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">{{ $d->driving_license_expiry_date ?? 'N/A' }}</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
+                                        <div>
+                                            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Insurance & Revenue Expiry</span>
+                                            <strong class="text-xs text-slate-800 block mt-1">Insurance: {{ $d->insurance_expiry ?? 'N/A' }}<br>Revenue: {{ $d->revenue_license_expiry ?? 'N/A' }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 border border-slate-100 rounded-2xl p-5">
+                                    <div class="flex flex-col justify-between">
+                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Insurance Certificate</span>
+                                        @if ($d->insurance_image_path)
+                                            <div class="mt-4">
+                                                <a href="{{ $insUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-100 transition">
+                                                    <i class="fa-solid fa-shield-halved"></i>
+                                                    View Insurance Document
+                                                </a>
                                             </div>
+                                        @else
+                                            <span class="text-[10px] text-slate-400 italic mt-4 block">No insurance document uploaded</span>
                                         @endif
                                     </div>
-                                @endforeach
+
+                                    <div class="flex flex-col justify-between">
+                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Revenue License</span>
+                                        @if ($d->revenue_license_image_path)
+                                            <div class="mt-4">
+                                                <a href="{{ $revUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-100 transition">
+                                                    <i class="fa-solid fa-passport"></i>
+                                                    View Revenue License
+                                                </a>
+                                            </div>
+                                        @else
+                                            <span class="text-[10px] text-slate-400 italic mt-4 block">No revenue license uploaded</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if (in_array($role, ['buyer', 'customer', 'farmer'], true) && count($selectedUserDocuments) > 0)
+                            <div class="space-y-4">
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-folder-open mr-2"></i>Uploaded Verification Documents</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    @foreach ($selectedUserDocuments as $doc)
+                                        @php
+                                            $fUrl = Str::startsWith($doc->front_image_path, ['http://', 'https://']) ? $doc->front_image_path : (Str::startsWith($doc->front_image_path, 'storage/') ? asset($doc->front_image_path) : asset('storage/' . $doc->front_image_path));
+                                            $bUrl = $doc->back_image_path ? (Str::startsWith($doc->back_image_path, ['http://', 'https://']) ? $doc->back_image_path : (Str::startsWith($doc->back_image_path, 'storage/') ? asset($doc->back_image_path) : asset('storage/' . $doc->back_image_path))) : null;
+                                            $badgeClass = [
+                                                'pending' => 'bg-amber-50 text-amber-700 border-amber-100',
+                                                'approved' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                                                'rejected' => 'bg-rose-50 text-rose-700 border-rose-100',
+                                            ][$doc->verification_status] ?? 'bg-slate-50 text-slate-600 border-slate-100';
+                                        @endphp
+                                        <div class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
+                                            <div class="flex justify-between items-center">
+                                                <div>
+                                                    <strong class="text-xs text-slate-800 uppercase tracking-wider block">{{ ucwords(str_replace('_', ' ', $doc->document_type)) }}</strong>
+                                                    <span class="text-[9px] text-slate-400 font-semibold block mt-0.5">Uploaded on {{ \Carbon\Carbon::parse($doc->created_at)->format('M d, Y') }}</span>
+                                                </div>
+                                                <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider {{ $badgeClass }}">{{ $doc->verification_status }}</span>
+                                            </div>
+
+                                            @if ($doc->front_image_path !== 'placeholder_rejected')
+                                                <div class="flex gap-4">
+                                                    <a href="{{ $fUrl }}" target="_blank" class="w-1/2 h-28 rounded-xl border border-slate-200 overflow-hidden shadow-inner flex flex-col bg-slate-50 animate-pulse-slow">
+                                                        <img src="{{ $fUrl }}" alt="Doc front" class="w-full h-24 object-cover">
+                                                        <span class="text-[8px] text-center font-bold uppercase text-slate-400 py-0.5">Front View</span>
+                                                    </a>
+                                                    @if ($bUrl)
+                                                        <a href="{{ $bUrl }}" target="_blank" class="w-1/2 h-28 rounded-xl border border-slate-200 overflow-hidden shadow-inner flex flex-col bg-slate-50">
+                                                            <img src="{{ $bUrl }}" alt="Doc back" class="w-full h-24 object-cover">
+                                                            <span class="text-[8px] text-center font-bold uppercase text-slate-400 py-0.5">Back View</span>
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            @endif
+
+                                            @if ($doc->rejection_reason)
+                                                <div class="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-100">
+                                                    <strong>Rejection Reason:</strong> {{ $doc->rejection_reason }}
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        @if ($role === 'admin')
+                            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 text-center">
+                                <span class="text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-exclamation mr-1.5"></i>Administrators do not go through document verification pipelines.</span>
+                            </div>
+                        @endif
+
+                        <!-- Active Toggle (Banning) -->
+                        @if ($u->id !== session('admin_session.user_id') && $u->id !== auth()->id())
+                            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-6">
+                                <div>
+                                    <strong class="text-xs text-slate-800 block font-bold">Account Access Toggle</strong>
+                                    <span class="text-[10px] text-slate-400 font-semibold block mt-0.5">Banned users are locked out of their active sessions and mobile app dashboard.</span>
+                                </div>
+                                <button type="button" wire:click="toggleUserActive({{ $u->id }})" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition border {{ $u->is_active ? 'bg-rose-50 border-rose-100 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100' }}">
+                                    <i class="fa-solid {{ $u->is_active ? 'fa-user-slash' : 'fa-user-check' }}"></i>
+                                    {{ $u->is_active ? 'Deactivate / Ban User' : 'Restore / Activate User' }}
+                                </button>
+                            </div>
+                        @endif
+                    @endif
+
+                    <!-- TAB 2: Wallet & Finance -->
+                    @if ($activeTab === 'wallet')
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Wallet Stats Card -->
+                            <div class="md:col-span-1 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6 relative overflow-hidden flex flex-col justify-between">
+                                <div class="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50 rounded-full blur-2xl"></div>
+                                <div class="space-y-4">
+                                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block"><i class="fa-solid fa-wallet mr-1.5 text-emerald-500"></i>Account Wallet</span>
+                                    
+                                    @if ($selectedUserWallet)
+                                        <div>
+                                            <span class="text-[10px] font-bold text-slate-400 block">Available Balance</span>
+                                            <strong class="text-3xl font-black text-slate-900 block mt-1 tracking-tight">LKR {{ number_format($selectedUserWallet->available_balance, 2) }}</strong>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 pt-2">
+                                            <div>
+                                                <span class="text-[9px] font-bold text-slate-400 block">Pending Balance</span>
+                                                <strong class="text-xs text-amber-700 font-bold mt-0.5 block">LKR {{ number_format($selectedUserWallet->pending_balance, 2) }}</strong>
+                                            </div>
+                                            <div>
+                                                <span class="text-[9px] font-bold text-slate-400 block">Lifetime Earnings</span>
+                                                <strong class="text-xs text-emerald-700 font-bold mt-0.5 block">LKR {{ number_format($selectedUserWallet->total_earned, 2) }}</strong>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="py-4 text-center text-slate-400 text-xs font-semibold">
+                                            No active wallet found for this user.
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="pt-4 border-t border-slate-50">
+                                    <span class="text-[9px] font-semibold text-slate-400 leading-relaxed block">Commission and withdrawal fees apply according to system treasury policy.</span>
+                                </div>
+                            </div>
+
+                            <!-- Transactions List -->
+                            <div class="md:col-span-2 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block"><i class="fa-solid fa-list-ol mr-1.5 text-slate-400"></i>Recent Transaction Ledger</span>
+                                <div class="overflow-hidden border border-slate-100 rounded-xl">
+                                    <table class="min-w-full divide-y divide-slate-100 text-xs">
+                                        <thead class="bg-slate-50">
+                                            <tr>
+                                                <th class="px-4 py-2 text-left font-bold text-slate-400">Ledger Description</th>
+                                                <th class="px-4 py-2 text-left font-bold text-slate-400">Type</th>
+                                                <th class="px-4 py-2 text-right font-bold text-slate-400">Amount</th>
+                                                <th class="px-4 py-2 text-center font-bold text-slate-400">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 bg-white">
+                                            @forelse ($selectedUserTransactions as $tx)
+                                                @php
+                                                    $txTypeLabel = [
+                                                        'withdrawal' => 'Withdraw',
+                                                        'refund' => 'Refund',
+                                                        'commission' => 'Platform fee',
+                                                        'other' => 'Deposit/Bonus',
+                                                    ][$tx->transaction_type] ?? 'Transaction';
+                                                    $txColor = in_array($tx->transaction_type, ['withdrawal', 'commission'], true) ? 'text-rose-600 font-semibold' : 'text-emerald-600 font-bold';
+                                                    $txSign = in_array($tx->transaction_type, ['withdrawal', 'commission'], true) ? '-' : '+';
+                                                    
+                                                    $badgeTx = [
+                                                        'completed' => 'bg-emerald-50 text-emerald-700',
+                                                        'pending' => 'bg-amber-50 text-amber-700',
+                                                        'failed' => 'bg-rose-50 text-rose-700',
+                                                    ][$tx->status] ?? 'bg-slate-50 text-slate-500';
+                                                @endphp
+                                                <tr class="hover:bg-slate-50/50">
+                                                    <td class="px-4 py-2.5">
+                                                        <p class="font-bold text-slate-800">{{ $tx->description }}</p>
+                                                        <span class="text-[9px] text-slate-400 font-medium block mt-0.5">{{ \Carbon\Carbon::parse($tx->created_at)->format('M d, Y h:i A') }}</span>
+                                                    </td>
+                                                    <td class="px-4 py-2.5 font-semibold text-slate-500">{{ $txTypeLabel }}</td>
+                                                    <td class="px-4 py-2.5 text-right {{ $txColor }}">{{ $txSign }} LKR {{ number_format($tx->amount, 2) }}</td>
+                                                    <td class="px-4 py-2.5 text-center">
+                                                        <span class="inline-block px-2 py-0.5 rounded text-[9px] font-extrabold uppercase {{ $badgeTx }}">{{ $tx->status }}</span>
+                                                    </td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="4" class="px-4 py-6 text-center text-slate-400 italic">No transaction records found.</td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     @endif
 
-                    @if ($role === 'admin')
-                        <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 text-center">
-                            <span class="text-slate-400 text-xs font-semibold"><i class="fa-solid fa-circle-exclamation mr-1.5"></i>Administrators do not go through document verification pipelines.</span>
+                    <!-- TAB 3: Marketplace & Performance -->
+                    @if ($activeTab === 'performance')
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Ratings Overview -->
+                            <div class="md:col-span-1 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+                                <div class="space-y-3">
+                                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block"><i class="fa-solid fa-ranking-star mr-1.5 text-amber-500"></i>Overall Score</span>
+                                    <div class="flex items-baseline gap-2">
+                                        <strong class="text-4xl font-black text-slate-900 tracking-tight">{{ number_format($selectedUserRating, 1) }}</strong>
+                                        <span class="text-xs text-slate-400 font-bold">/ 5.0</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 text-amber-400">
+                                        @for ($i = 1; $i <= 5; $i++)
+                                            @if ($i <= round($selectedUserRating))
+                                                <i class="fa-solid fa-star text-xs"></i>
+                                            @else
+                                                <i class="fa-regular fa-star text-xs"></i>
+                                            @endif
+                                        @endfor
+                                        <span class="text-[10px] text-slate-400 font-bold ml-1.5">({{ count($selectedUserReviews) }} reviews)</span>
+                                    </div>
+                                </div>
+                                <div class="pt-4 border-t border-slate-100">
+                                    <span class="text-[9px] font-semibold text-slate-400 leading-normal block">Ratings and feedback comments are dynamically posted by verified retail customers and wholesale buyers.</span>
+                                </div>
+                            </div>
+
+                            <!-- Listings/Products List -->
+                            <div class="md:col-span-2 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                                    <i class="fa-solid fa-boxes-stacked mr-1.5 text-slate-400"></i>
+                                    {{ $role === 'farmer' ? 'Active Harvest Yields' : 'Retail Catalog Products' }}
+                                </span>
+                                <div class="overflow-hidden border border-slate-100 rounded-xl">
+                                    <table class="min-w-full divide-y divide-slate-100 text-xs">
+                                        <thead class="bg-slate-50">
+                                            <tr>
+                                                <th class="px-4 py-2 text-left font-bold text-slate-400">Listed Item</th>
+                                                <th class="px-4 py-2 text-right font-bold text-slate-400">Price / Unit</th>
+                                                <th class="px-4 py-2 text-right font-bold text-slate-400">Stock / Qty</th>
+                                                <th class="px-4 py-2 text-center font-bold text-slate-400">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 bg-white">
+                                            @forelse ($selectedUserListings as $item)
+                                                @php
+                                                    $itemStatus = $item->status ?? 'active';
+                                                    $itemBadge = [
+                                                        'active' => 'bg-emerald-50 text-emerald-700',
+                                                        'pending_approval' => 'bg-amber-50 text-amber-700',
+                                                        'out_of_stock' => 'bg-rose-50 text-rose-700',
+                                                        'inactive' => 'bg-slate-50 text-slate-500',
+                                                    ][$itemStatus] ?? 'bg-slate-50 text-slate-500';
+                                                    $unit = $item->unit_type ?? ($item->unit ?? 'kg');
+                                                @endphp
+                                                <tr class="hover:bg-slate-50/50">
+                                                    <td class="px-4 py-2.5">
+                                                        <p class="font-bold text-slate-800">{{ $item->product_name ?? ($item->crop_name ?? 'Market item') }}</p>
+                                                        <span class="text-[9px] text-slate-400 font-medium block mt-0.5">Grade {{ $item->grade }} • {{ $item->crop_name ?? 'Agricultural Crop' }}</span>
+                                                    </td>
+                                                    <td class="px-4 py-2.5 text-right font-extrabold text-slate-700">LKR {{ number_format($item->price_per_unit, 2) }}</td>
+                                                    <td class="px-4 py-2.5 text-right font-semibold text-slate-600">{{ number_format($item->stock_quantity ?? ($item->available_quantity ?? 0), 2) }} {{ $unit }}</td>
+                                                    <td class="px-4 py-2.5 text-center">
+                                                        <span class="inline-block px-2 py-0.5 rounded text-[9px] font-extrabold uppercase {{ $itemBadge }}">{{ $itemStatus }}</span>
+                                                    </td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="4" class="px-4 py-6 text-center text-slate-400 italic">No listed items found.</td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Feedback Comments List -->
+                        <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block"><i class="fa-solid fa-comments mr-1.5 text-slate-400"></i>Audited Feedback Reviews</span>
+                            <div class="space-y-4">
+                                @forelse ($selectedUserReviews as $rev)
+                                    <div class="p-4 bg-slate-50/50 border border-slate-100 rounded-2xl flex items-start gap-4">
+                                        <div class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden shadow-inner">
+                                            @if ($rev->reviewer_avatar)
+                                                <img src="{{ Str::startsWith($rev->reviewer_avatar, ['http://', 'https://']) ? $rev->reviewer_avatar : asset('storage/' . $rev->reviewer_avatar) }}" class="w-full h-full object-cover">
+                                            @else
+                                                <span>{{ strtoupper(substr($rev->reviewer_name ?? 'C', 0, 2)) }}</span>
+                                            @endif
+                                        </div>
+                                        <div class="space-y-1 flex-1 min-w-0">
+                                            <div class="flex items-center justify-between">
+                                                <strong class="text-xs font-bold text-slate-800">{{ $rev->reviewer_name }}</strong>
+                                                <div class="flex items-center text-amber-400 text-[10px]">
+                                                    @for ($i = 1; $i <= 5; $i++)
+                                                        @if ($i <= $rev->ratings)
+                                                            <i class="fa-solid fa-star"></i>
+                                                        @else
+                                                            <i class="fa-regular fa-star"></i>
+                                                        @endif
+                                                    @endfor
+                                                </div>
+                                            </div>
+                                            <p class="text-xs text-slate-600 font-medium leading-relaxed mt-1">{{ $rev->feedback }}</p>
+                                            <span class="text-[9px] text-slate-400 font-bold block mt-1.5">{{ \Carbon\Carbon::parse($rev->created_at)->diffForHumans() }}</span>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="py-6 text-center text-slate-400 italic text-xs">No feedback reviews have been registered.</div>
+                                @endforelse
+                            </div>
                         </div>
                     @endif
 
-                    <!-- Active Toggle (Banning) -->
-                    @if ($u->id !== session('admin_session.user_id') && $u->id !== auth()->id())
-                        <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <strong class="text-xs text-slate-800 block">Account Status Control</strong>
-                                <span class="text-[10px] text-slate-400 font-semibold block mt-0.5">If deactivated, the user is immediately banned from signing in on the platform.</span>
+                    <!-- TAB 4: History & Activity -->
+                    @if ($activeTab === 'history')
+                        <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block"><i class="fa-solid fa-history mr-1.5 text-slate-400"></i>Consolidated Operational Activity History</span>
+                            <div class="overflow-hidden border border-slate-100 rounded-xl">
+                                <table class="min-w-full divide-y divide-slate-100 text-xs">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-4 py-2.5 text-left font-bold text-slate-400">Reference / Activity</th>
+                                            <th class="px-4 py-2.5 text-left font-bold text-slate-400">{{ $role === 'delivery_partner' ? 'Customer' : ($role === 'customer' ? 'Seller' : 'Crop Yield') }}</th>
+                                            <th class="px-4 py-2.5 text-right font-bold text-slate-400">Transaction Value</th>
+                                            <th class="px-4 py-2.5 text-center font-bold text-slate-400">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 bg-white">
+                                        @forelse ($selectedUserHistory as $hist)
+                                            @php
+                                                $refNum = $hist->order_number ?? ('BID #CB' . str_pad($hist->id, 4, '0', STR_PAD_LEFT));
+                                                $destName = $hist->customer_name ?? ($hist->seller_name ?? ($hist->crop_name ?? 'Market Deal'));
+                                                $amountVal = $hist->total_amount ?? ($hist->total_amount ?? 0);
+                                                
+                                                $statusTxt = $hist->order_status ?? ($hist->payment_status ?? 'completed');
+                                                $histBadge = [
+                                                    'completed' => 'bg-emerald-50 text-emerald-700',
+                                                    'delivered' => 'bg-emerald-50 text-emerald-700',
+                                                    'paid' => 'bg-emerald-50 text-emerald-700',
+                                                    'pending' => 'bg-amber-50 text-amber-700',
+                                                    'processing' => 'bg-blue-50 text-blue-700',
+                                                    'cancelled' => 'bg-rose-50 text-rose-700',
+                                                ][$statusTxt] ?? 'bg-slate-50 text-slate-500';
+                                            @endphp
+                                            <tr class="hover:bg-slate-50/50">
+                                                <td class="px-4 py-3">
+                                                    <strong class="font-extrabold text-slate-800 block">{{ $refNum }}</strong>
+                                                    <span class="text-[9px] text-slate-400 font-medium block mt-0.5">Recorded: {{ \Carbon\Carbon::parse($hist->created_at)->format('M d, Y h:i A') }}</span>
+                                                </td>
+                                                <td class="px-4 py-3 font-semibold text-slate-600">{{ $destName }}</td>
+                                                <td class="px-4 py-3 text-right font-extrabold text-slate-800">LKR {{ number_format($amountVal, 2) }}</td>
+                                                <td class="px-4 py-3 text-center">
+                                                    <span class="inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider {{ $histBadge }}">{{ $statusTxt }}</span>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="4" class="px-4 py-8 text-center text-slate-400 italic">No operational logs exist for this user.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
                             </div>
-                            <button type="button" wire:click="toggleUserActive({{ $u->id }})" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition border {{ $u->is_active ? 'bg-rose-50 border-rose-100 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100' }}">
-                                <i class="fa-solid {{ $u->is_active ? 'fa-user-slash' : 'fa-user-check' }}"></i>
-                                {{ $u->is_active ? 'Ban / Deactivate Account' : 'Unban / Activate Account' }}
-                            </button>
                         </div>
                     @endif
+
                 </div>
 
                 <!-- Modal Footer Actions (Verification Approval/Rejection) -->
@@ -1112,20 +1467,16 @@ new class extends Component
                                 </button>
                             </div>
                         @else
-                            <!-- Revoke Verification -->
+                            <!-- Revoke Verification Form -->
                             <div class="w-full flex items-center justify-between p-4 bg-emerald-50/50 border border-emerald-100/50 rounded-2xl">
                                 <div class="flex items-center gap-2 text-emerald-800 text-xs font-bold">
                                     <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
                                     This user is currently verified & approved.
                                 </div>
-                                <button type="button" wire:confirm="Revoke verification for this user? This will set them back to unverified status." wire:click="rejectUser({{ $u->id }})" class="hidden inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition shadow-sm">
-                                    Revoke Status
-                                </button>
-                                <!-- Form to revoke -->
                                 <div class="flex gap-2 items-center flex-1 max-w-md justify-end ml-4">
                                     <input wire:model="rejectionReason" type="text" class="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100 transition" placeholder="Reason to revoke / reject...">
                                     <button type="button" wire:click="rejectUser({{ $u->id }})" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shrink-0">
-                                        Revoke
+                                        Revoke Status
                                     </button>
                                 </div>
                             </div>

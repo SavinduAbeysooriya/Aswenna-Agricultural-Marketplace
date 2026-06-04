@@ -41,6 +41,10 @@ Route::get('/admin/crop-growth-stages', [AdminWebController::class, 'cropGrowthS
 Route::get('/admin/withdrawals', [AdminWebController::class, 'withdrawals'])->name('admin.withdrawals');
 Route::get('/admin/users/roles', [AdminWebController::class, 'userRoles'])->name('admin.users.roles');
 Route::get('/admin/users/{role}', [AdminWebController::class, 'usersList'])->name('admin.users.index');
+Route::get('/admin/users/profile/{id}', [AdminWebController::class, 'userProfile'])->name('admin.users.profile');
+Route::post('/admin/users/profile/{id}/approve', [AdminWebController::class, 'approveUserProfile'])->name('admin.users.profile.approve');
+Route::post('/admin/users/profile/{id}/reject', [AdminWebController::class, 'rejectUserProfile'])->name('admin.users.profile.reject');
+Route::post('/admin/users/profile/{id}/toggle-active', [AdminWebController::class, 'toggleUserActiveProfile'])->name('admin.users.profile.toggle-active');
 
 // CSRF Protected Secure Session Termination
 Route::post('/admin/logout', [AdminWebController::class, 'logout'])->name('admin.logout');

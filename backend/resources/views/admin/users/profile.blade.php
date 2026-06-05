@@ -159,16 +159,36 @@
                                     <span class="text-slate-400 shrink-0">Home Address</span>
                                     <span class="text-slate-800 text-right">{{ $user->address ?? 'Not Provided' }}, {{ $user->city ?? '' }}, {{ $user->district ?? '' }}</span>
                                 </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Geo Location</span>
-                                    <span class="text-slate-800 text-right">
-                                        @if ($user->latitude && $user->longitude)
-                                            {{ $user->latitude }}, {{ $user->longitude }}
-                                            <a href="https://www.google.com/maps/search/?api=1&query={{ $user->latitude }},{{ $user->longitude }}" target="_blank" class="ml-1 text-emerald-600 hover:text-emerald-700"><i class="fa-solid fa-map-location-dot"></i></a>
-                                        @else
-                                            Not Mapped
-                                        @endif
-                                    </span>
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex justify-between items-center w-full">
+                                        <span class="text-slate-400">Geo Location</span>
+                                        <span class="text-slate-800 text-right">
+                                            @if ($user->latitude && $user->longitude)
+                                                {{ $user->latitude }}, {{ $user->longitude }}
+                                                <a href="https://www.google.com/maps/search/?api=1&query={{ $user->latitude }},{{ $user->longitude }}" target="_blank" class="ml-1 text-emerald-600 hover:text-emerald-700 transition duration-200"><i class="fa-solid fa-map-location-dot"></i></a>
+                                            @else
+                                                Not Mapped
+                                            @endif
+                                        </span>
+                                    </div>
+                                    @if ($user->latitude && $user->longitude)
+                                        <div class="group relative rounded-2xl overflow-hidden border border-slate-200/80 shadow-inner h-48 w-full mt-1 transition-all duration-300 hover:shadow-md hover:border-emerald-300">
+                                            <iframe 
+                                                class="w-full h-full border-0 rounded-2xl" 
+                                                src="https://maps.google.com/maps?q={{ $user->latitude }},{{ $user->longitude }}&z=15&output=embed" 
+                                                allowfullscreen="" 
+                                                loading="lazy" 
+                                                referrerpolicy="no-referrer-when-downgrade">
+                                            </iframe>
+                                            <!-- Subtle Hover Overlay -->
+                                            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                <a href="https://www.google.com/maps/search/?api=1&query={{ $user->latitude }},{{ $user->longitude }}" target="_blank" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold shadow-lg transition duration-200">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                                    Open Google Maps
+                                                </a>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-400">Registered On</span>

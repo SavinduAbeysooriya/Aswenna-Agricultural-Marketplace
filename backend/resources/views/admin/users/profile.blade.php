@@ -205,6 +205,16 @@
                                     <span class="text-slate-400">Registered On</span>
                                     <span class="text-slate-800 text-right">{{ $user->created_at->format('M d, Y h:i A') }}</span>
                                 </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Last Login Time</span>
+                                    <span class="text-slate-800 text-right">
+                                        @if ($user->last_login_at)
+                                            {{ $user->last_login_at->format('M d, Y h:i A') }}
+                                        @else
+                                            Never Logged In
+                                        @endif
+                                    </span>
+                                </div>
                             </div>
 
                             <!-- Audit Status Badges -->

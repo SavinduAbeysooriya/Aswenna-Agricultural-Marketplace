@@ -127,7 +127,14 @@
                                     @endif
                                 </div>
                                 
-                                <h3 class="mt-4 text-lg font-extrabold text-slate-900 font-poppins">{{ $user->full_name }}</h3>
+                                <h3 class="mt-4 text-lg font-extrabold text-slate-900 font-poppins flex items-center justify-center gap-1.5">
+                                    {{ $user->full_name }}
+                                    @if ($user->is_verified)
+                                        <span class="inline-flex items-center justify-center text-emerald-500" title="Verified User">
+                                            <i class="fa-solid fa-circle-check"></i>
+                                        </span>
+                                    @endif
+                                </h3>
                                 <p class="text-xs text-slate-400 font-bold mt-1">UID #US{{ str_pad($user->id, 5, '0', STR_PAD_LEFT) }}</p>
                                 
                                 <div class="flex flex-wrap justify-center gap-1.5 mt-4">

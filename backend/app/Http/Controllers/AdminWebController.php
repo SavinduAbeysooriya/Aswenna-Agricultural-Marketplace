@@ -512,8 +512,10 @@ class AdminWebController extends Controller
 
         // 1. Fetch Verification Documents & Specific Data
         $documents = DB::table('user_verification_documents')
-            ->where('user_id', $user->id)
-            ->orderByDesc('created_at')
+            ->leftJoin('users as verifier', 'user_verification_documents.verified_by', '=', 'verifier.id')
+            ->where('user_verification_documents.user_id', $user->id)
+            ->select('user_verification_documents.*', 'verifier.full_name as verifier_name')
+            ->orderByDesc('user_verification_documents.created_at')
             ->get();
 
         $farmerData = null;
@@ -867,6 +869,55 @@ class AdminWebController extends Controller
 
         return back()->with('status', 'User phone number has been verified successfully.');
     }
+
+    /**
+     * Approve individual verification document.
+     */
+    public function approveUserDocument(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        DB::table('user_verification_documents')
+            ->where('id', $id)
+            ->update([
+                'verification_status' => 'approved',
+                'rejection_reason' => null,
+                'verified_at' => now(),
+                'verified_by' => session('admin_session.user_id') ?? auth()->id(),
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('status', 'Document approved successfully.');
+    }
+
+    /**
+     * Reject individual verification document.
+     */
+    public function rejectUserDocument(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'rejection_reason' => 'required|string|min:4|max:500',
+        ]);
+
+        DB::table('user_verification_documents')
+            ->where('id', $id)
+            ->update([
+                'verification_status' => 'rejected',
+                'rejection_reason' => $request->input('rejection_reason'),
+                'verified_at' => now(),
+                'verified_by' => session('admin_session.user_id') ?? auth()->id(),
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('status', 'Document rejected with explanation.');
+    }
+
 
 
     private function ensureAdminSession(Request $request)

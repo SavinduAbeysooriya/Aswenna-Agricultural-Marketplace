@@ -674,6 +674,42 @@ class AdminWebController extends Controller
                 ]);
         });
 
+        // Dispatch success email to user
+        if ($user->email) {
+            try {
+                $userEmail = $user->email;
+                $userName = $user->full_name;
+                Mail::send([], [], function ($message) use ($userEmail, $userName) {
+                    $message->to($userEmail)
+                            ->subject('Aswenna Marketplace - Your Profile is Verified!')
+                            ->html('
+                                <div style="font-family: \'Inter\', sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                                    <div style="text-align: center; margin-bottom: 25px; border-bottom: 1px solid #f1f5f9; padding-bottom: 20px;">
+                                        <h2 style="color: #2e7d32; margin: 0; font-size: 24px; font-weight: 800;">Aswenna Platform Verification</h2>
+                                        <span style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; tracking-wider: 1px;">Seller Identity & Credentials Gate</span>
+                                    </div>
+                                    <div style="padding: 10px 0;">
+                                        <p style="font-size: 14px; color: #334155; font-weight: 600;">Hello ' . htmlspecialchars($userName) . ',</p>
+                                        <p style="font-size: 14px; color: #475569; line-height: 1.6;">We are thrilled to inform you that your Aswenna seller profile verification request has been reviewed and officially approved by the platform administration team!</p>
+                                        <div style="text-align: center; margin: 35px 0;">
+                                            <span style="font-size: 20px; font-weight: 800; color: #2e7d32; padding: 16px 24px; background-color: #e8f5e9; border-radius: 14px; border: 2px dashed #4caf50; display: inline-block;">
+                                                🎉 Your profile is verified! Start earning, congrats!
+                                            </span>
+                                        </div>
+                                        <p style="font-size: 14px; color: #475569; line-height: 1.6;">You are now eligible to create listings, connect with buyers/farmers, and conduct trades across the Aswenna marketplace platform. Log in to the mobile application or website dashboard to start your journey today.</p>
+                                        <p style="font-size: 12px; color: #64748b; line-height: 1.6; background-color: #f8fafc; padding: 12px; border-radius: 8px; border-left: 4px solid #d4a017;"><strong>Quick Tip:</strong> Make sure your listing details (pricing, crop quality, quantities) are kept up to date for maximum visibility and customer trust.</p>
+                                    </div>
+                                    <div style="text-align: center; margin-top: 25px; border-top: 1px solid #f1f5f9; padding-top: 20px; font-size: 10px; color: #94a3b8;">
+                                        &copy; ' . date('Y') . ' Aswenna Agricultural Marketplace. All Rights Reserved.
+                                    </div>
+                                </div>
+                            ');
+                });
+            } catch (\Exception $e) {
+                logger()->error('Verification Email dispatch failure: ' . $e->getMessage());
+            }
+        }
+
         return back()->with('status', 'User verification approved successfully.');
     }
 
@@ -749,6 +785,43 @@ class AdminWebController extends Controller
             }
         });
 
+        // Dispatch rejection email to user
+        if ($user->email) {
+            try {
+                $userEmail = $user->email;
+                $userName = $user->full_name;
+                $rejectionReason = $reason;
+                Mail::send([], [], function ($message) use ($userEmail, $userName, $rejectionReason) {
+                    $message->to($userEmail)
+                            ->subject('Aswenna Marketplace - Profile Verification Update')
+                            ->html('
+                                <div style="font-family: \'Inter\', sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                                    <div style="text-align: center; margin-bottom: 25px; border-bottom: 1px solid #f1f5f9; padding-bottom: 20px;">
+                                        <h2 style="color: #c2410c; margin: 0; font-size: 24px; font-weight: 800;">Aswenna Platform Verification</h2>
+                                        <span style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; tracking-wider: 1px;">Seller Identity & Credentials Gate</span>
+                                    </div>
+                                    <div style="padding: 10px 0;">
+                                        <p style="font-size: 14px; color: #334155; font-weight: 600;">Hello ' . htmlspecialchars($userName) . ',</p>
+                                        <p style="font-size: 14px; color: #475569; line-height: 1.6;">Thank you for submitting your verification details. Unfortunately, our administration team has rejected your request due to the following explanation:</p>
+                                        
+                                        <div style="margin: 25px 0; padding: 16px 20px; background-color: #fef2f2; border: 1px solid #fca5a5; border-radius: 12px; border-left: 4px solid #ef4444;">
+                                            <p style="margin: 0; font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; tracking-wider: 0.5px; margin-bottom: 6px;">Reason for Rejection</p>
+                                            <p style="margin: 0; font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">' . htmlspecialchars($rejectionReason) . '</p>
+                                        </div>
+
+                                        <p style="font-size: 14px; color: #475569; line-height: 1.6;"><strong>What should you do next?</strong> Please fix the issues mentioned above (e.g., upload clearer images, correct your profile details) and submit your verification documents again through the platform to activate your profile.</p>
+                                    </div>
+                                    <div style="text-align: center; margin-top: 25px; border-top: 1px solid #f1f5f9; padding-top: 20px; font-size: 10px; color: #94a3b8;">
+                                        &copy; ' . date('Y') . ' Aswenna Agricultural Marketplace. All Rights Reserved.
+                                    </div>
+                                </div>
+                            ');
+                });
+            } catch (\Exception $e) {
+                logger()->error('Rejection Email dispatch failure: ' . $e->getMessage());
+            }
+        }
+
         return back()->with('status', 'User verification rejected with explanation.');
     }
 
@@ -775,6 +848,26 @@ class AdminWebController extends Controller
 
         return back()->with('status', "User account has been successfully {$statusLabel}.");
     }
+
+    /**
+     * Manually verify the user's phone number.
+     */
+    public function verifyUserPhone(Request $request, $id, $type = 1)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $user = User::findOrFail($id);
+        if ($type == 2) {
+            $user->update(['phone_number_2_verified_at' => now()]);
+        } else {
+            $user->update(['phone_verified_at' => now()]);
+        }
+
+        return back()->with('status', 'User phone number has been verified successfully.');
+    }
+
 
     private function ensureAdminSession(Request $request)
     {

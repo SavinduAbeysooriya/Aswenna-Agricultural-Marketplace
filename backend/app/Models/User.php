@@ -35,6 +35,7 @@ class User extends Authenticatable
         'is_active',
         'email_verified_at',
         'phone_verified_at',
+        'phone_number_2_verified_at',
         'last_login_at',
     ];
 
@@ -58,6 +59,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
+            'phone_number_2_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
             'role' => 'array',

@@ -55,31 +55,7 @@
 
             <main class="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto w-full max-w-[1700px] mx-auto">
                 
-                <!-- Status Messages / Success Flash Banner -->
-                @if (session('status'))
-                    <div class="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-3 animate-fade-in shadow-sm">
-                        <div class="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shrink-0">
-                            <i class="fa-solid fa-circle-check"></i>
-                        </div>
-                        <p class="text-xs font-bold">{{ session('status') }}</p>
-                    </div>
-                @endif
 
-                @if ($errors->any())
-                    <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex flex-col gap-2 animate-fade-in shadow-sm">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600 shrink-0">
-                                <i class="fa-solid fa-triangle-exclamation"></i>
-                            </div>
-                            <p class="text-xs font-bold">Please correct the following errors:</p>
-                        </div>
-                        <ul class="list-disc pl-11 text-xs font-medium space-y-1">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
 
                 <!-- Navigation & Breadcrumbs -->
                 <section class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4 mb-8">
@@ -127,7 +103,14 @@
                                     @endif
                                 </div>
                                 
-                                <h3 class="mt-4 text-lg font-extrabold text-slate-900 font-poppins">{{ $user->full_name }}</h3>
+                                <h3 class="mt-4 text-lg font-extrabold text-slate-900 font-poppins flex items-center justify-center gap-1.5">
+                                    {{ $user->full_name }}
+                                    @if ($user->is_verified)
+                                        <span class="inline-flex items-center justify-center text-emerald-500" title="Verified User">
+                                            <i class="fa-solid fa-circle-check"></i>
+                                        </span>
+                                    @endif
+                                </h3>
                                 <p class="text-xs text-slate-400 font-bold mt-1">UID #US{{ str_pad($user->id, 5, '0', STR_PAD_LEFT) }}</p>
                                 
                                 <div class="flex flex-wrap justify-center gap-1.5 mt-4">
@@ -146,33 +129,95 @@
                                     <span class="text-slate-800 text-right select-all" id="user-email">{{ $user->email ?? 'Not Provided' }}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">National ID</span>
+                                    <span class="text-slate-800 text-right select-all">{{ $user->national_id ?? 'Not Provided' }}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
                                     <span class="text-slate-400">Mobile Phone</span>
-                                    <span class="text-slate-800 text-right">{{ $user->phone_number }}</span>
+                                    <span class="text-slate-800 text-right flex items-center gap-1.5 justify-end">
+                                        <a href="tel:{{ $user->phone_number }}" class="hover:text-emerald-700 hover:underline transition duration-200">{{ $user->phone_number }}</a>
+                                        @if ($user->phone_verified_at)
+                                            <span class="text-emerald-500 inline-flex items-center" title="Phone Verified at {{ \Carbon\Carbon::parse($user->phone_verified_at)->format('M d, Y h:i A') }}">
+                                                <i class="fa-solid fa-circle-check"></i>
+                                            </span>
+                                        @else
+                                            <form action="{{ route('admin.users.profile.verify-phone', [$user->id, 1]) }}" method="POST" class="inline-flex items-center">
+                                                @csrf
+                                                <button type="submit" class="text-slate-300 hover:text-emerald-500 transition duration-200 inline-flex items-center" title="Click to Manually Verify Phone Number">
+                                                    <i class="fa-regular fa-circle-check text-xs"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </span>
                                 </div>
                                 @if ($user->phone_number_2)
                                     <div class="flex justify-between items-center">
                                         <span class="text-slate-400">Secondary Phone</span>
-                                        <span class="text-slate-800 text-right">{{ $user->phone_number_2 }}</span>
+                                        <span class="text-slate-800 text-right flex items-center gap-1.5 justify-end">
+                                            <a href="tel:{{ $user->phone_number_2 }}" class="hover:text-emerald-700 hover:underline transition duration-200">{{ $user->phone_number_2 }}</a>
+                                            @if ($user->phone_number_2_verified_at)
+                                                <span class="text-emerald-500 inline-flex items-center" title="Phone Verified at {{ \Carbon\Carbon::parse($user->phone_number_2_verified_at)->format('M d, Y h:i A') }}">
+                                                    <i class="fa-solid fa-circle-check"></i>
+                                                </span>
+                                            @else
+                                                <form action="{{ route('admin.users.profile.verify-phone', [$user->id, 2]) }}" method="POST" class="inline-flex items-center">
+                                                    @csrf
+                                                    <button type="submit" class="text-slate-300 hover:text-emerald-500 transition duration-200 inline-flex items-center" title="Click to Manually Verify Phone Number">
+                                                        <i class="fa-regular fa-circle-check text-xs"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </span>
                                     </div>
                                 @endif
                                 <div class="flex justify-between items-start gap-4">
                                     <span class="text-slate-400 shrink-0">Home Address</span>
-                                    <span class="text-slate-800 text-right">{{ $user->address ?? 'Not Provided' }}, {{ $user->city ?? '' }}, {{ $user->district ?? '' }}</span>
+                                    <span class="text-slate-800 text-right">{{ implode(', ', array_filter([$user->address, $user->city, $user->district, $user->province])) ?: 'Not Provided' }}</span>
                                 </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Geo Location</span>
-                                    <span class="text-slate-800 text-right">
-                                        @if ($user->latitude && $user->longitude)
-                                            {{ $user->latitude }}, {{ $user->longitude }}
-                                            <a href="https://www.google.com/maps/search/?api=1&query={{ $user->latitude }},{{ $user->longitude }}" target="_blank" class="ml-1 text-emerald-600 hover:text-emerald-700"><i class="fa-solid fa-map-location-dot"></i></a>
-                                        @else
-                                            Not Mapped
-                                        @endif
-                                    </span>
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex justify-between items-center w-full">
+                                        <span class="text-slate-400">Geo Location</span>
+                                        <span class="text-slate-800 text-right">
+                                            @if ($user->latitude && $user->longitude)
+                                                {{ $user->latitude }}, {{ $user->longitude }}
+                                                <a href="https://www.google.com/maps/search/?api=1&query={{ $user->latitude }},{{ $user->longitude }}" target="_blank" class="ml-1 text-emerald-600 hover:text-emerald-700 transition duration-200"><i class="fa-solid fa-map-location-dot"></i></a>
+                                            @else
+                                                Not Mapped
+                                            @endif
+                                        </span>
+                                    </div>
+                                    @if ($user->latitude && $user->longitude)
+                                        <div class="group relative rounded-2xl overflow-hidden border border-slate-200/80 shadow-inner h-48 w-full mt-1 transition-all duration-300 hover:shadow-md hover:border-emerald-300">
+                                            <iframe 
+                                                class="w-full h-full border-0 rounded-2xl" 
+                                                src="https://maps.google.com/maps?q={{ $user->latitude }},{{ $user->longitude }}&z=15&output=embed" 
+                                                allowfullscreen="" 
+                                                loading="lazy" 
+                                                referrerpolicy="no-referrer-when-downgrade">
+                                            </iframe>
+                                            <!-- Subtle Hover Overlay -->
+                                            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                <a href="https://www.google.com/maps/search/?api=1&query={{ $user->latitude }},{{ $user->longitude }}" target="_blank" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold shadow-lg transition duration-200">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                                    Open Google Maps
+                                                </a>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-400">Registered On</span>
                                     <span class="text-slate-800 text-right">{{ $user->created_at->format('M d, Y h:i A') }}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Last Login Time</span>
+                                    <span class="text-slate-800 text-right">
+                                        @if ($user->last_login_at)
+                                            {{ $user->last_login_at->format('M d, Y h:i A') }}
+                                        @else
+                                            Never Logged In
+                                        @endif
+                                    </span>
                                 </div>
                             </div>
 
@@ -979,6 +1024,76 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
         }
+    </script>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-md w-[calc(100%-3rem)] sm:w-96 pointer-events-none"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('toast-container');
+
+            function showToast(message, type = 'success') {
+                const toast = document.createElement('div');
+                toast.className = `pointer-events-auto flex items-start gap-3 p-4 rounded-2xl border shadow-lg transform translate-y-4 opacity-0 transition-all duration-500 ease-out `;
+                
+                if (type === 'error' || type === 'danger') {
+                    // Red Toast
+                    toast.className += 'bg-rose-50 border-rose-100 text-rose-800';
+                    toast.innerHTML = `
+                        <div class="w-6 h-6 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-600 shrink-0 mt-0.5">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </div>
+                        <div class="flex-1 text-xs font-bold leading-relaxed">${message}</div>
+                        <button onclick="this.parentElement.remove()" class="text-rose-400 hover:text-rose-600 transition shrink-0 ml-1">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    `;
+                } else {
+                    // Green Toast
+                    toast.className += 'bg-emerald-50 border-emerald-100 text-emerald-800';
+                    toast.innerHTML = `
+                        <div class="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 shrink-0 mt-0.5">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                        <div class="flex-1 text-xs font-bold leading-relaxed">${message}</div>
+                        <button onclick="this.parentElement.remove()" class="text-emerald-400 hover:text-emerald-600 transition shrink-0 ml-1">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    `;
+                }
+
+                container.appendChild(toast);
+
+                // Force layout reflow for animation
+                void toast.offsetWidth;
+
+                // Animate In
+                toast.classList.remove('translate-y-4', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
+
+                // Auto disappear
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', 'translate-y-2');
+                    toast.addEventListener('transitionend', () => {
+                        toast.remove();
+                    });
+                }, 4000); // 4 seconds auto disappear
+            }
+
+            // Trigger Laravel flash messages
+            @if (session('status'))
+                const statusMsg = "{{ session('status') }}";
+                const isDanger = /reject|deactivate|ban|suspend|delete|error|fail/i.test(statusMsg);
+                showToast(statusMsg, isDanger ? 'error' : 'success');
+            @endif
+
+            @if ($errors->any())
+                @foreach ($errors->all() as $error)
+                    showToast("{{ $error }}", 'error');
+                @endforeach
+            @endif
+        });
     </script>
 </body>
 </html>

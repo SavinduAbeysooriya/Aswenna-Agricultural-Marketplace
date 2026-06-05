@@ -161,7 +161,7 @@
                                 @endif
                                 <div class="flex justify-between items-start gap-4">
                                     <span class="text-slate-400 shrink-0">Home Address</span>
-                                    <span class="text-slate-800 text-right">{{ $user->address ?? 'Not Provided' }}, {{ $user->city ?? '' }}, {{ $user->district ?? '' }}</span>
+                                    <span class="text-slate-800 text-right">{{ implode(', ', array_filter([$user->address, $user->city, $user->district, $user->province])) ?: 'Not Provided' }}</span>
                                 </div>
                                 <div class="flex flex-col gap-2">
                                     <div class="flex justify-between items-center w-full">

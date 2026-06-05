@@ -45,6 +45,9 @@ Route::get('/admin/users/profile/{id}', [AdminWebController::class, 'userProfile
 Route::post('/admin/users/profile/{id}/approve', [AdminWebController::class, 'approveUserProfile'])->name('admin.users.profile.approve');
 Route::post('/admin/users/profile/{id}/reject', [AdminWebController::class, 'rejectUserProfile'])->name('admin.users.profile.reject');
 Route::post('/admin/users/profile/{id}/toggle-active', [AdminWebController::class, 'toggleUserActiveProfile'])->name('admin.users.profile.toggle-active');
+Route::post('/admin/users/profile/{id}/verify-phone/{type}', [AdminWebController::class, 'verifyUserPhone'])->name('admin.users.profile.verify-phone');
+
+
 
 // CSRF Protected Secure Session Termination
 Route::post('/admin/logout', [AdminWebController::class, 'logout'])->name('admin.logout');

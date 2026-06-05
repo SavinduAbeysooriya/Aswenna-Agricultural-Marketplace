@@ -849,6 +849,26 @@ class AdminWebController extends Controller
         return back()->with('status', "User account has been successfully {$statusLabel}.");
     }
 
+    /**
+     * Manually verify the user's phone number.
+     */
+    public function verifyUserPhone(Request $request, $id, $type = 1)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $user = User::findOrFail($id);
+        if ($type == 2) {
+            $user->update(['phone_number_2_verified_at' => now()]);
+        } else {
+            $user->update(['phone_verified_at' => now()]);
+        }
+
+        return back()->with('status', 'User phone number has been verified successfully.');
+    }
+
+
     private function ensureAdminSession(Request $request)
     {
         // Reconstruct admin_session if the user was remembered via cookie but session expired

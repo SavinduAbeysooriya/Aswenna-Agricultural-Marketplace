@@ -146,6 +146,10 @@
                                     <span class="text-slate-800 text-right select-all" id="user-email">{{ $user->email ?? 'Not Provided' }}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">National ID</span>
+                                    <span class="text-slate-800 text-right select-all">{{ $user->national_id ?? 'Not Provided' }}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
                                     <span class="text-slate-400">Mobile Phone</span>
                                     <span class="text-slate-800 text-right">{{ $user->phone_number }}</span>
                                 </div>

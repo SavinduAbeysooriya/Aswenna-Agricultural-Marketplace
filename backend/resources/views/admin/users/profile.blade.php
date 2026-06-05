@@ -379,11 +379,33 @@
                                                 @foreach ($documents as $doc)
                                                     <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
                                                         <div>
-                                                            <div class="flex justify-between items-start">
+                                                            <div class="flex justify-between items-center">
                                                                 <span class="text-[10px] font-black uppercase text-slate-400">{{ str_replace('_', ' ', $doc->document_type) }}</span>
-                                                                <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider {{ $doc->verification_status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : ($doc->verification_status === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-amber-50 text-amber-700 border-amber-100') }} border">
-                                                                    {{ $doc->verification_status }}
-                                                                </span>
+                                                                <div class="flex items-center gap-2">
+                                                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider {{ $doc->verification_status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : ($doc->verification_status === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-amber-50 text-amber-700 border-amber-100') }} border">
+                                                                        {{ $doc->verification_status }}
+                                                                    </span>
+                                                                    @if ($doc->verification_status === 'pending')
+                                                                        <div class="flex items-center gap-1.5 border-l border-slate-200 pl-2">
+                                                                            <!-- Individual Document Approve Button -->
+                                                                            <form action="{{ route('admin.users.profile.document.approve', $doc->id) }}" method="POST" id="approve-doc-{{ $doc->id }}" class="inline-flex items-center">
+                                                                                @csrf
+                                                                                <button type="submit" class="text-slate-300 hover:text-emerald-500 transition duration-200 inline-flex items-center" title="Approve Document">
+                                                                                    <i class="fa-solid fa-circle-check text-sm"></i>
+                                                                                </button>
+                                                                            </form>
+                                                                            <!-- Individual Document Reject Button -->
+                                                                            <button type="button" onclick="rejectDocument({{ $doc->id }})" class="text-slate-300 hover:text-rose-500 transition duration-200 inline-flex items-center" title="Reject Document">
+                                                                                <i class="fa-solid fa-circle-xmark text-sm"></i>
+                                                                            </button>
+                                                                            <!-- Rejection Form -->
+                                                                            <form action="{{ route('admin.users.profile.document.reject', $doc->id) }}" method="POST" id="reject-doc-form-{{ $doc->id }}" class="hidden">
+                                                                                @csrf
+                                                                                <input type="hidden" name="rejection_reason" id="reject-reason-input-{{ $doc->id }}">
+                                                                            </form>
+                                                                        </div>
+                                                                    @endif
+                                                                </div>
                                                             </div>
                                                             @if ($doc->rejection_reason)
                                                                 <p class="mt-2 text-xs text-rose-600 font-semibold bg-rose-50/50 p-2.5 rounded-xl border border-rose-100/50"><strong>Rejection Reason:</strong> {{ $doc->rejection_reason }}</p>
@@ -404,9 +426,15 @@
                                                                 </div>
                                                             @endif
                                                         </div>
-                                                        <div class="mt-3 text-[10px] text-slate-400 font-semibold">
-                                                            Uploaded {{ date('M d, Y', strtotime($doc->created_at)) }}
-                                                        </div>
+                                                         <div class="mt-3 text-[10px] text-slate-400 font-semibold">
+                                                             <div>Uploaded {{ date('M d, Y', strtotime($doc->created_at)) }}</div>
+                                                             @if ($doc->verification_status === 'approved' && $doc->verified_at)
+                                                                 <div class="text-emerald-600 mt-1 flex items-center gap-1 font-bold">
+                                                                     <i class="fa-solid fa-circle-check text-[9px]"></i>
+                                                                     Verified at {{ date('M d, Y h:i A', strtotime($doc->verified_at)) }} by {{ $doc->verifier_name ?? 'System' }}
+                                                                 </div>
+                                                             @endif
+                                                         </div>
                                                     </div>
                                                 @endforeach
                                             </div>
@@ -1023,6 +1051,35 @@
             const modal = document.getElementById('lightbox-modal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+        }
+
+        // Individual Document Rejection Helper
+        function rejectDocument(docId) {
+            Swal.fire({
+                title: 'Reject Document',
+                input: 'textarea',
+                inputLabel: 'Specify the reason for rejection',
+                inputPlaceholder: 'e.g. Image blurry, invalid details...',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#475569',
+                confirmButtonText: 'Reject Document',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    popup: 'rounded-3xl shadow-2xl border border-slate-100'
+                },
+                inputValidator: (value) => {
+                    if (!value || value.trim().length < 4) {
+                        return 'Please enter a valid reason (min 4 characters).'
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const reason = result.value;
+                    document.getElementById('reject-reason-input-' + docId).value = reason;
+                    document.getElementById('reject-doc-form-' + docId).submit();
+                }
+            });
         }
     </script>
 

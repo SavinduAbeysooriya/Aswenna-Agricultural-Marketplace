@@ -401,6 +401,11 @@
                                 <button type="button" onclick="switchTab('tab-docs')" id="btn-tab-docs" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-emerald-600 text-emerald-700 font-extrabold" title="Credentials & Audit">
                                     <i class="fa-solid fa-clipboard-check"></i><span class="tab-text">Credentials & Audit</span>
                                 </button>
+                                @if ($farmerData)
+                                    <button type="button" onclick="switchTab('tab-lands')" id="btn-tab-lands" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Farming Lands">
+                                        <i class="fa-solid fa-map-location-dot"></i><span class="tab-text">Farming Lands</span>
+                                    </button>
+                                @endif
                                 <button type="button" onclick="switchTab('tab-wallet')" id="btn-tab-wallet" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Wallet & Finance">
                                     <i class="fa-solid fa-wallet"></i><span class="tab-text">Wallet & Finance</span>
                                 </button>
@@ -576,17 +581,6 @@
                                                     @endforeach
                                                 @endif
                                             </div>
-
-                                            <div class="p-4 bg-emerald-50/40 border border-emerald-100 rounded-2xl flex items-center justify-between text-xs font-semibold">
-                                                <div class="flex items-center gap-3">
-                                                    <i class="fa-solid fa-map-location text-emerald-600 text-base"></i>
-                                                    <div>
-                                                        <p class="text-slate-800 font-extrabold">Total Farming Lands Owned</p>
-                                                        <p class="text-slate-500 font-medium text-[11px]">System registered land plots managed by the farmer</p>
-                                                    </div>
-                                                </div>
-                                                <strong class="text-lg text-emerald-800 font-black">{{ $farmerData->total_lands }} Lands</strong>
-                                            </div>
                                         </div>
                                     @endif
 
@@ -747,11 +741,166 @@
                                             </div>
                                         </div>
                                     @endif
-
                                 </div>
 
-                                <!-- PANEL 2: Wallet & Finance -->
-                                <div id="tab-wallet" class="tab-content hidden animate-fade-in space-y-6">
+                                @if ($farmerData)
+                                    <div id="tab-lands" class="tab-content hidden animate-fade-in space-y-6">
+                                         <div class="p-4 bg-emerald-50/40 border border-emerald-100 rounded-2xl flex items-center justify-between text-xs font-semibold">
+                                             <div class="flex items-center gap-3">
+                                                 <i class="fa-solid fa-map-location-dot text-emerald-600 text-base"></i>
+                                                 <div>
+                                                     <p class="text-slate-800 font-extrabold">Total Farming Lands Owned</p>
+                                                     <p class="text-slate-500 font-medium text-[11px]">System registered land plots managed by the farmer</p>
+                                                 </div>
+                                             </div>
+                                             <strong class="text-lg text-emerald-800 font-black">{{ $farmerData->total_lands }} Lands</strong>
+                                         </div>
+
+                                         <!-- Lands List Section -->
+                                         @if ($farmerLands && $farmerLands->count() > 0)
+                                             <div class="space-y-4">
+                                                 <h5 class="text-xs font-extrabold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                                                     <i class="fa-solid fa-map text-emerald-600"></i> Registered Land Plots ({{ $farmerLands->count() }})
+                                                 </h5>
+                                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                     @foreach ($farmerLands as $land)
+                                                         <div class="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+                                                             <div>
+                                                                 <!-- Header with status and size -->
+                                                                 <div class="flex justify-between items-start">
+                                                                     <div>
+                                                                         <span class="text-[9px] font-black uppercase text-slate-400">Land ID #LND-{{ str_pad($land->id, 4, '0', STR_PAD_LEFT) }}</span>
+                                                                         <h6 class="text-sm font-black text-slate-900 mt-0.5">{{ $land->size }} Acres</h6>
+                                                                     </div>
+                                                                     <div class="flex items-center gap-2">
+                                                                         <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border {{ $land->status === 'verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : ($land->status === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-amber-50 text-amber-700 border-amber-100') }}">
+                                                                             {{ $land->status }}
+                                                                         </span>
+                                                                         @if ($land->status === 'pending')
+                                                                             <div class="flex items-center gap-1.5 border-l border-slate-200 pl-2">
+                                                                                 <!-- Individual Land Approve Button -->
+                                                                                 <form action="{{ route('admin.users.profile.land.approve', $land->id) }}" method="POST" id="approve-land-{{ $land->id }}" class="inline-flex items-center">
+                                                                                     @csrf
+                                                                                     <button type="submit" class="text-slate-300 hover:text-emerald-500 transition duration-200 inline-flex items-center" title="Approve Land">
+                                                                                         <i class="fa-solid fa-circle-check text-sm"></i>
+                                                                                     </button>
+                                                                                 </form>
+                                                                                 <!-- Individual Land Reject Button -->
+                                                                                 <button type="button" onclick="rejectLand({{ $land->id }})" class="text-slate-300 hover:text-rose-500 transition duration-200 inline-flex items-center" title="Reject Land">
+                                                                                     <i class="fa-solid fa-circle-xmark text-sm"></i>
+                                                                                 </button>
+                                                                                 <!-- Rejection Form -->
+                                                                                 <form action="{{ route('admin.users.profile.land.reject', $land->id) }}" method="POST" id="reject-land-form-{{ $land->id }}" class="hidden">
+                                                                                     @csrf
+                                                                                     <input type="hidden" name="rejected_reason" id="reject-land-reason-input-{{ $land->id }}">
+                                                                                 </form>
+                                                                             </div>
+                                                                         @endif
+                                                                     </div>
+                                                                 </div>
+
+                                                                 <!-- Details Grid -->
+                                                                 <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] font-semibold text-slate-600">
+                                                                     <div>
+                                                                         <span class="text-slate-400 block text-[9px] uppercase">Ownership</span>
+                                                                         <span class="text-slate-800 capitalize">{{ $land->ownership_type }}</span>
+                                                                     </div>
+                                                                     <div>
+                                                                         <span class="text-slate-400 block text-[9px] uppercase">Reg Number</span>
+                                                                         <span class="text-slate-800">{{ $land->registration_number ?? 'Not Provided' }}</span>
+                                                                     </div>
+                                                                     @if($land->latitude && $land->longitude)
+                                                                         <div class="col-span-2">
+                                                                             <span class="text-slate-400 block text-[9px] uppercase">Coordinates</span>
+                                                                             <span class="text-slate-800">
+                                                                                 {{ $land->latitude }}, {{ $land->longitude }}
+                                                                                 <a href="https://www.google.com/maps/search/?api=1&query={{ $land->latitude }},{{ $land->longitude }}" target="_blank" class="ml-1 text-emerald-600 hover:text-emerald-700 transition">
+                                                                                     <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                                                                 </a>
+                                                                             </span>
+                                                                             <div class="group relative rounded-xl overflow-hidden border border-slate-200 shadow-inner h-28 w-full mt-2 transition-all duration-300 hover:shadow-md hover:border-emerald-300">
+                                                                                 <iframe 
+                                                                                     class="w-full h-full border-0 rounded-xl" 
+                                                                                     src="https://maps.google.com/maps?q={{ $land->latitude }},{{ $land->longitude }}&z=14&output=embed" 
+                                                                                     allowfullscreen="" 
+                                                                                     loading="lazy" 
+                                                                                     referrerpolicy="no-referrer-when-downgrade">
+                                                                                 </iframe>
+                                                                             </div>
+                                                                         </div>
+                                                                     @endif
+                                                                 </div>
+
+                                                                 <!-- Rejection Reason if any -->
+                                                                 @if ($land->status === 'rejected' && $land->rejected_reason)
+                                                                     <div class="mt-3 p-2 bg-rose-50 border border-rose-100 rounded-xl text-[10px] text-rose-700 font-semibold">
+                                                                         <strong>Rejection Reason:</strong> {{ $land->rejected_reason }}
+                                                                     </div>
+                                                                 @endif
+
+                                                                 <!-- Notes if any -->
+                                                                 @if ($land->notes)
+                                                                     <div class="mt-3 p-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] text-slate-500 italic">
+                                                                         <strong>Notes:</strong> {{ $land->notes }}
+                                                                     </div>
+                                                                 @endif
+
+                                                                 <!-- Land Documents if any -->
+                                                                 @php
+                                                                     $landDocs = json_decode($land->land_documents_paths_and_document_titles ?? '[]', true) ?: [];
+                                                                 @endphp
+                                                                 @if (!empty($landDocs))
+                                                                     <div class="mt-4 pt-3 border-t border-slate-100">
+                                                                         <span class="text-[9px] font-black uppercase text-slate-400 block mb-1.5">Documents</span>
+                                                                         <div class="flex flex-wrap gap-2">
+                                                                             @foreach ($landDocs as $doc)
+                                                                                 <a href="{{ Str::startsWith($doc['path'], ['http://', 'https://']) ? $doc['path'] : asset('storage/' . $doc['path']) }}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/50 text-[10px] font-bold transition">
+                                                                                     <i class="fa-solid fa-file-invoice text-slate-400"></i> {{ $doc['title'] ?? 'Document' }}
+                                                                                 </a>
+                                                                             @endforeach
+                                                                         </div>
+                                                                     </div>
+                                                                 @endif
+
+                                                                 <!-- Land Images if any -->
+                                                                 @php
+                                                                     $landImgs = json_decode($land->land_images ?? '[]', true) ?: [];
+                                                                 @endphp
+                                                                 @if (!empty($landImgs))
+                                                                     <div class="mt-4 pt-3 border-t border-slate-100">
+                                                                         <span class="text-[9px] font-black uppercase text-slate-400 block mb-1.5">Land Images</span>
+                                                                         <div class="flex flex-wrap gap-2">
+                                                                             @foreach ($landImgs as $img)
+                                                                                 @php
+                                                                                     $imgUrl = Str::startsWith($img, ['http://', 'https://']) ? $img : asset('storage/' . $img);
+                                                                                 @endphp
+                                                                                 <div class="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 cursor-pointer group" onclick="openLightbox('{{ $imgUrl }}')">
+                                                                                     <img src="{{ $imgUrl }}" class="w-full h-full object-cover group-hover:scale-105 transition">
+                                                                                     <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[8px] font-black transition-opacity">
+                                                                                         <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                                                                     </div>
+                                                                                 </div>
+                                                                             @endforeach
+                                                                         </div>
+                                                                     </div>
+                                                                 @endif
+                                                             </div>
+                                                         </div>
+                                                     @endforeach
+                                                 </div>
+                                             </div>
+                                         @else
+                                             <div class="border border-dashed border-slate-250 rounded-2xl p-12 text-center text-slate-400 bg-slate-50/50">
+                                                 <i class="fa-solid fa-map-location-dot text-3xl text-slate-300 animate-pulse"></i>
+                                                 <p class="mt-3 text-xs font-bold">No Lands Registered On System</p>
+                                                 <p class="mt-1 text-[11px] text-slate-400">The farmer hasn't submitted any land plot records for audit yet.</p>
+                                             </div>
+                                         @endif
+                                     </div>
+                                 @endif
+
+                                 <!-- PANEL 2: Wallet & Finance -->
+                                 <div id="tab-wallet" class="tab-content hidden animate-fade-in space-y-6">
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div class="border border-slate-100 bg-[#FAFBFD] p-5 rounded-2xl shadow-sm">
                                             <span class="text-[10px] font-black uppercase text-slate-400 block">Available Balance</span>
@@ -1151,6 +1300,35 @@
                     const reason = result.value;
                     document.getElementById('reject-reason-input-' + docId).value = reason;
                     document.getElementById('reject-doc-form-' + docId).submit();
+                }
+            });
+        }
+
+        // Individual Land Rejection Helper
+        function rejectLand(landId) {
+            Swal.fire({
+                title: 'Reject Land Plot',
+                input: 'textarea',
+                inputLabel: 'Specify the reason for rejection',
+                inputPlaceholder: 'e.g. Invalid boundaries, wrong registration document...',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#475569',
+                confirmButtonText: 'Reject Land',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    popup: 'rounded-3xl shadow-2xl border border-slate-100'
+                },
+                inputValidator: (value) => {
+                    if (!value || value.trim().length < 4) {
+                        return 'Please enter a valid reason (min 4 characters).'
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const reason = result.value;
+                    document.getElementById('reject-land-reason-input-' + landId).value = reason;
+                    document.getElementById('reject-land-form-' + landId).submit();
                 }
             });
         }

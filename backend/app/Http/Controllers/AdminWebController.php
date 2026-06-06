@@ -519,11 +519,13 @@ class AdminWebController extends Controller
             ->get();
 
         $farmerData = null;
+        $farmerLands = collect();
         $retailSellerData = null;
         $deliveryPartnerData = null;
 
         if (in_array('farmer', $roles, true)) {
             $farmerData = DB::table('farmer_verification_data')->where('user_id', $user->id)->first();
+            $farmerLands = DB::table('lands')->where('farmer_id', $user->id)->orderByDesc('created_at')->get();
         }
         if (in_array('retail_seller', $roles, true)) {
             $retailSellerData = DB::table('retail_seller_verification_data')->where('user_id', $user->id)->first();
@@ -616,6 +618,7 @@ class AdminWebController extends Controller
             'roles' => $roles,
             'documents' => $documents,
             'farmerData' => $farmerData,
+            'farmerLands' => $farmerLands,
             'retailSellerData' => $retailSellerData,
             'deliveryPartnerData' => $deliveryPartnerData,
             'wallet' => $wallet,
@@ -916,6 +919,50 @@ class AdminWebController extends Controller
             ]);
 
         return back()->with('status', 'Document rejected with explanation.');
+    }
+
+    /**
+     * Verify and approve a land plot record.
+     */
+    public function approveUserLand(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        DB::table('lands')
+            ->where('id', $id)
+            ->update([
+                'status' => 'verified',
+                'rejected_reason' => null,
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('status', 'Success: Land plot verified successfully.');
+    }
+
+    /**
+     * Reject a land plot record with a specified reason.
+     */
+    public function rejectUserLand(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'rejected_reason' => 'required|string|min:4|max:500',
+        ]);
+
+        DB::table('lands')
+            ->where('id', $id)
+            ->update([
+                'status' => 'rejected',
+                'rejected_reason' => $request->input('rejected_reason'),
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('status', 'Land plot rejected with explanation.');
     }
 
 

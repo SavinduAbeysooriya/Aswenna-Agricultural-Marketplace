@@ -48,6 +48,8 @@ Route::post('/admin/users/profile/{id}/toggle-active', [AdminWebController::clas
 Route::post('/admin/users/profile/{id}/verify-phone/{type}', [AdminWebController::class, 'verifyUserPhone'])->name('admin.users.profile.verify-phone');
 Route::post('/admin/users/profile/document/{id}/approve', [AdminWebController::class, 'approveUserDocument'])->name('admin.users.profile.document.approve');
 Route::post('/admin/users/profile/document/{id}/reject', [AdminWebController::class, 'rejectUserDocument'])->name('admin.users.profile.document.reject');
+Route::post('/admin/users/profile/land/{id}/approve', [AdminWebController::class, 'approveUserLand'])->name('admin.users.profile.land.approve');
+Route::post('/admin/users/profile/land/{id}/reject', [AdminWebController::class, 'rejectUserLand'])->name('admin.users.profile.land.reject');
 
 
 

@@ -359,14 +359,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      message.message,
-                      style: TextStyle(
-                        color: isUser ? Colors.white : const Color(0xFF0F172A),
-                        fontSize: 14,
-                        height: 1.4,
-                      ),
-                    ),
+                    _buildFormattedMessage(message.message, isUser),
                     const SizedBox(height: 4),
                     Text(
                       _formatTime(message.dateAndTime),
@@ -483,6 +476,158 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLineRichText(String line, TextStyle baseStyle) {
+    final List<InlineSpan> spans = [];
+    final regExp = RegExp(r'(\*\*.*?\*\*|##.*?##|\*.*?\*|_.*?_)');
+    final matches = regExp.allMatches(line);
+    
+    int lastMatchEnd = 0;
+    for (final match in matches) {
+      if (match.start > lastMatchEnd) {
+        spans.add(TextSpan(
+          text: line.substring(lastMatchEnd, match.start),
+          style: baseStyle,
+        ));
+      }
+      
+      final matchText = match.group(0)!;
+      if (matchText.startsWith('**') && matchText.endsWith('**')) {
+        spans.add(TextSpan(
+          text: matchText.substring(2, matchText.length - 2),
+          style: baseStyle.copyWith(fontWeight: FontWeight.bold),
+        ));
+      } else if (matchText.startsWith('##') && matchText.endsWith('##')) {
+        spans.add(TextSpan(
+          text: matchText.substring(2, matchText.length - 2),
+          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ));
+      } else if (matchText.startsWith('*') && matchText.endsWith('*')) {
+        spans.add(TextSpan(
+          text: matchText.substring(1, matchText.length - 1),
+          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ));
+      } else if (matchText.startsWith('_') && matchText.endsWith('_')) {
+        spans.add(TextSpan(
+          text: matchText.substring(1, matchText.length - 1),
+          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ));
+      }
+      lastMatchEnd = match.end;
+    }
+    
+    if (lastMatchEnd < line.length) {
+      spans.add(TextSpan(
+        text: line.substring(lastMatchEnd),
+        style: baseStyle,
+      ));
+    }
+    
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+
+  Widget _buildFormattedMessage(String text, bool isUser) {
+    final lines = text.split('\n');
+    final List<Widget> widgets = [];
+    
+    final baseColor = isUser ? Colors.white : const Color(0xFF0F172A);
+    final bulletColor = isUser ? Colors.white.withOpacity(0.7) : AppTheme.deepLeafGreen;
+    
+    final baseTextStyle = TextStyle(
+      color: baseColor,
+      fontSize: 14,
+      height: 1.4,
+    );
+    
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final trimmed = line.trim();
+      
+      if (trimmed.startsWith('### ')) {
+        final headerText = line.replaceFirst('### ', '');
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: _buildLineRichText(
+            headerText,
+            TextStyle(
+              color: isUser ? Colors.white : AppTheme.darkGreen,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ));
+      } else if (trimmed.startsWith('## ')) {
+        final headerText = line.replaceFirst('## ', '');
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 6),
+          child: _buildLineRichText(
+            headerText,
+            TextStyle(
+              color: isUser ? Colors.white : AppTheme.darkGreen,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ));
+      } else if (trimmed.startsWith('# ')) {
+        final headerText = line.replaceFirst('# ', '');
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 8),
+          child: _buildLineRichText(
+            headerText,
+            TextStyle(
+              color: isUser ? Colors.white : AppTheme.darkGreen,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ));
+      } else if (trimmed.startsWith('- ')) {
+        final itemText = line.replaceFirst('- ', '');
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(left: 4, top: 2, bottom: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('• ', style: TextStyle(color: bulletColor, fontSize: 14, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: _buildLineRichText(itemText, baseTextStyle),
+              ),
+            ],
+          ),
+        ));
+      } else if (trimmed.startsWith('* ')) {
+        final itemText = line.replaceFirst('* ', '');
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(left: 4, top: 2, bottom: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('• ', style: TextStyle(color: bulletColor, fontSize: 14, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: _buildLineRichText(itemText, baseTextStyle),
+              ),
+            ],
+          ),
+        ));
+      } else {
+        if (line.isNotEmpty || i < lines.length - 1) {
+          widgets.add(Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: _buildLineRichText(line, baseTextStyle),
+          ));
+        }
+      }
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: widgets,
     );
   }
 

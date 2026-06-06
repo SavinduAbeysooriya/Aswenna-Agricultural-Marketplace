@@ -408,6 +408,9 @@
                                     <button type="button" onclick="switchTab('tab-logs')" id="btn-tab-logs" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Daily Cultivation Logs">
                                         <i class="fa-solid fa-seedling"></i><span class="tab-text">Daily Cultivation Logs</span>
                                     </button>
+                                    <button type="button" onclick="switchTab('tab-chatbot')" id="btn-tab-chatbot" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="AI Chat History">
+                                        <i class="fa-solid fa-robot"></i><span class="tab-text">AI Chat History</span>
+                                    </button>
                                 @endif
                                 <button type="button" onclick="switchTab('tab-wallet')" id="btn-tab-wallet" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Wallet & Finance">
                                     <i class="fa-solid fa-wallet"></i><span class="tab-text">Wallet & Finance</span>
@@ -941,11 +944,14 @@
                                      </div>
                                  @endif
 
-                                  @if ($farmerData)
-                                      <div id="tab-logs" class="tab-content hidden animate-fade-in space-y-6">
-                                          <livewire:admin.daily-cultivation-logs-table :farmer-id="$user->id" />
-                                      </div>
-                                  @endif
+                                 @if ($farmerData)
+                                     <div id="tab-logs" class="tab-content hidden animate-fade-in space-y-6">
+                                         <livewire:admin.daily-cultivation-logs-table :farmer-id="$user->id" />
+                                     </div>
+                                     <div id="tab-chatbot" class="tab-content hidden animate-fade-in space-y-6">
+                                         <livewire:admin.chatbot-history-table :farmer-id="$user->id" />
+                                     </div>
+                                 @endif
 
                                  <!-- PANEL 2: Wallet & Finance -->
                                  <div id="tab-wallet" class="tab-content hidden animate-fade-in space-y-6">

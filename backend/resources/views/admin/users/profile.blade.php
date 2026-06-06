@@ -770,7 +770,7 @@
                                                                  <div class="flex justify-between items-start">
                                                                      <div>
                                                                          <span class="text-[9px] font-black uppercase text-slate-400">Land ID #LND-{{ str_pad($land->id, 4, '0', STR_PAD_LEFT) }}</span>
-                                                                         <h6 class="text-sm font-black text-slate-900 mt-0.5">{{ $land->size }} Acres</h6>
+                                                                         <h6 class="text-sm font-black text-slate-900 mt-0.5">{{ $land->size }} Perches</h6>
                                                                      </div>
                                                                      <div class="flex items-center gap-2">
                                                                          <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border {{ $land->status === 'verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : ($land->status === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-amber-50 text-amber-700 border-amber-100') }}">
@@ -830,6 +830,45 @@
                                                                          </div>
                                                                      @endif
                                                                  </div>
+
+                                                                  <!-- Cultivated Crops Section -->
+                                                                  @php
+                                                                      $crops = $landCrops->get($land->id) ?: collect();
+                                                                  @endphp
+                                                                  @if ($crops->isNotEmpty())
+                                                                      <div class="mt-4 pt-3 border-t border-slate-100">
+                                                                          <span class="text-[9px] font-black uppercase text-slate-400 block mb-2">Cultivated Crops</span>
+                                                                          <div class="space-y-2">
+                                                                              @foreach ($crops as $crop)
+                                                                                  <div class="flex items-start gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-emerald-50/20 hover:border-emerald-100/50 transition">
+                                                                                      <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center text-slate-400">
+                                                                                          @if ($crop->image_path)
+                                                                                              @php
+                                                                                                  $cropImgUrl = $crop->image_path;
+                                                                                                  if (!Str::startsWith($cropImgUrl, ['http://', 'https://'])) {
+                                                                                                      if (Str::startsWith($cropImgUrl, 'storage/')) {
+                                                                                                          $cropImgUrl = asset($cropImgUrl);
+                                                                                                      } else {
+                                                                                                          $cropImgUrl = asset('storage/' . $cropImgUrl);
+                                                                                                      }
+                                                                                                  }
+                                                                                              @endphp
+                                                                                              <img src="{{ $cropImgUrl }}" alt="{{ $crop->cropname }}" class="w-full h-full object-cover">
+                                                                                          @else
+                                                                                              <i class="fa-solid fa-seedling text-emerald-600"></i>
+                                                                                          @endif
+                                                                                      </div>
+                                                                                      <div class="min-w-0 flex-1">
+                                                                                          <strong class="text-xs font-black text-slate-800 block leading-tight">{{ $crop->cropname }}</strong>
+                                                                                          @if ($crop->text)
+                                                                                              <p class="text-[10px] font-semibold text-slate-500 mt-0.5 leading-normal" title="{{ $crop->text }}">{{ $crop->text }}</p>
+                                                                                          @endif
+                                                                                      </div>
+                                                                                  </div>
+                                                                              @endforeach
+                                                                          </div>
+                                                                      </div>
+                                                                  @endif
 
                                                                  <!-- Rejection Reason if any -->
                                                                  @if ($land->status === 'rejected' && $land->rejected_reason)

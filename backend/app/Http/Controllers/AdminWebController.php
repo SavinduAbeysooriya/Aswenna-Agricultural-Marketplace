@@ -520,12 +520,23 @@ class AdminWebController extends Controller
 
         $farmerData = null;
         $farmerLands = collect();
+        $landCrops = collect();
         $retailSellerData = null;
         $deliveryPartnerData = null;
 
         if (in_array('farmer', $roles, true)) {
             $farmerData = DB::table('farmer_verification_data')->where('user_id', $user->id)->first();
             $farmerLands = DB::table('lands')->where('farmer_id', $user->id)->orderByDesc('created_at')->get();
+
+            $landIds = $farmerLands->pluck('id');
+            if ($landIds->isNotEmpty()) {
+                $landCrops = DB::table('land_crops')
+                    ->join('crops', 'land_crops.crop_id', '=', 'crops.id')
+                    ->whereIn('land_crops.land_id', $landIds)
+                    ->select('land_crops.*', 'crops.cropname', 'crops.image_path')
+                    ->get()
+                    ->groupBy('land_id');
+            }
         }
         if (in_array('retail_seller', $roles, true)) {
             $retailSellerData = DB::table('retail_seller_verification_data')->where('user_id', $user->id)->first();
@@ -619,6 +630,7 @@ class AdminWebController extends Controller
             'documents' => $documents,
             'farmerData' => $farmerData,
             'farmerLands' => $farmerLands,
+            'landCrops' => $landCrops,
             'retailSellerData' => $retailSellerData,
             'deliveryPartnerData' => $deliveryPartnerData,
             'wallet' => $wallet,

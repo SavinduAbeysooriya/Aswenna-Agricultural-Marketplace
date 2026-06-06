@@ -405,6 +405,12 @@
                                     <button type="button" onclick="switchTab('tab-lands')" id="btn-tab-lands" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Farming Lands">
                                         <i class="fa-solid fa-map-location-dot"></i><span class="tab-text">Farming Lands</span>
                                     </button>
+                                    <button type="button" onclick="switchTab('tab-logs')" id="btn-tab-logs" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Daily Cultivation Logs">
+                                        <i class="fa-solid fa-seedling"></i><span class="tab-text">Daily Cultivation Logs</span>
+                                    </button>
+                                    <button type="button" onclick="switchTab('tab-chatbot')" id="btn-tab-chatbot" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="AI Chat History">
+                                        <i class="fa-solid fa-robot"></i><span class="tab-text">AI Chat History</span>
+                                    </button>
                                 @endif
                                 <button type="button" onclick="switchTab('tab-wallet')" id="btn-tab-wallet" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Wallet & Finance">
                                     <i class="fa-solid fa-wallet"></i><span class="tab-text">Wallet & Finance</span>
@@ -938,6 +944,15 @@
                                      </div>
                                  @endif
 
+                                 @if ($farmerData)
+                                     <div id="tab-logs" class="tab-content hidden animate-fade-in space-y-6">
+                                         <livewire:admin.daily-cultivation-logs-table :farmer-id="$user->id" />
+                                     </div>
+                                     <div id="tab-chatbot" class="tab-content hidden animate-fade-in space-y-6">
+                                         <livewire:admin.chatbot-history-table :farmer-id="$user->id" />
+                                     </div>
+                                 @endif
+
                                  <!-- PANEL 2: Wallet & Finance -->
                                  <div id="tab-wallet" class="tab-content hidden animate-fade-in space-y-6">
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1265,6 +1280,9 @@
                 activeBtn.classList.remove('border-transparent', 'text-slate-500');
                 activeBtn.classList.add('border-emerald-600', 'text-emerald-700', 'font-extrabold');
             }
+
+            // Update URL hash without causing a page jump
+            history.replaceState(null, null, '#' + tabId);
         }
 
         // Rejection toggle logic
@@ -1457,6 +1475,20 @@
                         tabContainer.scrollLeft += e.deltaY;
                     }
                 });
+            }
+
+            // Restore tab from URL hash on page load
+            const hash = window.location.hash;
+            if (hash) {
+                const targetTabId = hash.substring(1); // remove '#'
+                if (document.getElementById(targetTabId)) {
+                    switchTab(targetTabId);
+                    // Scroll the active tab button into view
+                    const activeBtn = document.getElementById('btn-' + targetTabId);
+                    if (activeBtn) {
+                        activeBtn.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+                    }
+                }
             }
         });
     </script>

@@ -48,8 +48,8 @@ class DailyCultivationLogController extends Controller
             'leaf_appearance' => 'nullable|string',
             'disease_detected' => 'nullable|boolean',
             'pest_detected' => 'nullable|boolean',
-            'disease_name_and_damage' => 'nullable|string',
-            'pest_name_and_damage' => 'nullable|string',
+            'disease_name_and_damage' => 'nullable',
+            'pest_name_and_damage' => 'nullable',
             'pesticide_applied' => 'nullable|boolean',
             'pesticide_name' => 'nullable|string|max:255',
             'pesticide_type' => 'nullable|string|max:255',
@@ -64,6 +64,16 @@ class DailyCultivationLogController extends Controller
             ], 422);
         }
 
+        $diseaseData = $request->disease_name_and_damage;
+        if (is_array($diseaseData) || is_object($diseaseData)) {
+            $diseaseData = json_encode($diseaseData);
+        }
+
+        $pestData = $request->pest_name_and_damage;
+        if (is_array($pestData) || is_object($pestData)) {
+            $pestData = json_encode($pestData);
+        }
+
         DB::beginTransaction();
         try {
             $id = DB::table('daily_cultivation_logs')->insertGetId([
@@ -74,8 +84,8 @@ class DailyCultivationLogController extends Controller
                 'leaf_appearance' => $request->leaf_appearance,
                 'disease_detected' => (bool) $request->input('disease_detected', false),
                 'pest_detected' => (bool) $request->input('pest_detected', false),
-                'disease_name_and_damage' => $request->disease_name_and_damage,
-                'pest_name_and_damage' => $request->pest_name_and_damage,
+                'disease_name_and_damage' => $diseaseData,
+                'pest_name_and_damage' => $pestData,
                 'pesticide_applied' => (bool) $request->input('pesticide_applied', false),
                 'pesticide_name' => $request->pesticide_name,
                 'pesticide_type' => $request->pesticide_type,
@@ -122,8 +132,8 @@ class DailyCultivationLogController extends Controller
             'leaf_appearance' => 'nullable|string',
             'disease_detected' => 'nullable|boolean',
             'pest_detected' => 'nullable|boolean',
-            'disease_name_and_damage' => 'nullable|string',
-            'pest_name_and_damage' => 'nullable|string',
+            'disease_name_and_damage' => 'nullable',
+            'pest_name_and_damage' => 'nullable',
             'pesticide_applied' => 'nullable|boolean',
             'pesticide_name' => 'nullable|string|max:255',
             'pesticide_type' => 'nullable|string|max:255',
@@ -138,6 +148,16 @@ class DailyCultivationLogController extends Controller
             ], 422);
         }
 
+        $diseaseData = $request->disease_name_and_damage;
+        if (is_array($diseaseData) || is_object($diseaseData)) {
+            $diseaseData = json_encode($diseaseData);
+        }
+
+        $pestData = $request->pest_name_and_damage;
+        if (is_array($pestData) || is_object($pestData)) {
+            $pestData = json_encode($pestData);
+        }
+
         try {
             DB::table('daily_cultivation_logs')
                 ->where('id', $id)
@@ -148,8 +168,8 @@ class DailyCultivationLogController extends Controller
                     'leaf_appearance' => $request->leaf_appearance,
                     'disease_detected' => (bool) $request->input('disease_detected', false),
                     'pest_detected' => (bool) $request->input('pest_detected', false),
-                    'disease_name_and_damage' => $request->disease_name_and_damage,
-                    'pest_name_and_damage' => $request->pest_name_and_damage,
+                    'disease_name_and_damage' => $diseaseData,
+                    'pest_name_and_damage' => $pestData,
                     'pesticide_applied' => (bool) $request->input('pesticide_applied', false),
                     'pesticide_name' => $request->pesticide_name,
                     'pesticide_type' => $request->pesticide_type,

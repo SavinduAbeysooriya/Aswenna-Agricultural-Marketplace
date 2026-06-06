@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
@@ -76,11 +77,15 @@ class _CultivationLogsScreenState extends State<CultivationLogsScreen> {
         final landReg = (log['land_registration_number'] ?? '').toString().toLowerCase();
         final pesticide = (log['pesticide_name'] ?? '').toString().toLowerCase();
         final dateStr = (log['log_date'] ?? '').toString().toLowerCase();
+        final disease = (log['disease_name_and_damage'] ?? '').toString().toLowerCase();
+        final pest = (log['pest_name_and_damage'] ?? '').toString().toLowerCase();
         return notes.contains(query) ||
             stage.contains(query) ||
             landReg.contains(query) ||
             pesticide.contains(query) ||
-            dateStr.contains(query);
+            dateStr.contains(query) ||
+            disease.contains(query) ||
+            pest.contains(query);
       }).toList();
     }
 
@@ -362,11 +367,39 @@ class _CultivationLogsScreenState extends State<CultivationLogsScreen> {
                               final pest = log['pest_detected'] == true;
                               final pesticideApplied = log['pesticide_applied'] == true;
 
+                              String diseaseText = 'Disease';
+                              final rawDisease = (log['disease_name_and_damage'] ?? '').toString();
+                              if (rawDisease.isNotEmpty) {
+                                try {
+                                  final decoded = jsonDecode(rawDisease) as Map<String, dynamic>;
+                                  final name = decoded['name'] ?? '';
+                                  if (name.isNotEmpty) {
+                                    diseaseText = 'Disease: $name';
+                                  }
+                                } catch (_) {
+                                  diseaseText = 'Disease: $rawDisease';
+                                }
+                              }
+
+                              String pestText = 'Pest';
+                              final rawPest = (log['pest_name_and_damage'] ?? '').toString();
+                              if (rawPest.isNotEmpty) {
+                                try {
+                                  final decoded = jsonDecode(rawPest) as Map<String, dynamic>;
+                                  final name = decoded['name'] ?? '';
+                                  if (name.isNotEmpty) {
+                                    pestText = 'Pest: $name';
+                                  }
+                                } catch (_) {
+                                  pestText = 'Pest: $rawPest';
+                                }
+                              }
+
                               final subtitle = <String>[
                                 if (landReg.isNotEmpty && landReg != 'null') 'Land: $landReg',
                                 if (stage.isNotEmpty) 'Stage: $stage',
-                                if (disease) 'Disease',
-                                if (pest) 'Pest',
+                                if (disease) diseaseText,
+                                if (pest) pestText,
                               ].join(' • ');
 
                               return Card(
@@ -608,10 +641,32 @@ class _CultivationLogDetailsScreenState extends State<CultivationLogDetailsScree
     final leafAppearance = (_currentLog['leaf_appearance'] ?? '').toString();
     
     final diseaseDetected = _currentLog['disease_detected'] == true;
-    final diseaseDamage = (_currentLog['disease_name_and_damage'] ?? '').toString();
+    String diseaseName = '';
+    String diseaseDamage = '';
+    final rawDisease = (_currentLog['disease_name_and_damage'] ?? '').toString();
+    if (rawDisease.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawDisease) as Map<String, dynamic>;
+        diseaseName = decoded['name'] ?? '';
+        diseaseDamage = decoded['damage'] ?? '';
+      } catch (_) {
+        diseaseName = rawDisease;
+      }
+    }
     
     final pestDetected = _currentLog['pest_detected'] == true;
-    final pestDamage = (_currentLog['pest_name_and_damage'] ?? '').toString();
+    String pestName = '';
+    String pestDamage = '';
+    final rawPest = (_currentLog['pest_name_and_damage'] ?? '').toString();
+    if (rawPest.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawPest) as Map<String, dynamic>;
+        pestName = decoded['name'] ?? '';
+        pestDamage = decoded['damage'] ?? '';
+      } catch (_) {
+        pestName = rawPest;
+      }
+    }
     
     final pesticideApplied = _currentLog['pesticide_applied'] == true;
     final pesticideName = (_currentLog['pesticide_name'] ?? '').toString();
@@ -832,8 +887,10 @@ class _CultivationLogDetailsScreenState extends State<CultivationLogDetailsScree
                   // Disease and Pest status (Visually stunning Cards)
                   _buildHealthStatusCard(
                     diseaseDetected: diseaseDetected,
+                    diseaseName: diseaseName,
                     diseaseDamage: diseaseDamage,
                     pestDetected: pestDetected,
+                    pestName: pestName,
                     pestDamage: pestDamage,
                   ),
 
@@ -1012,8 +1069,10 @@ class _CultivationLogDetailsScreenState extends State<CultivationLogDetailsScree
 
   Widget _buildHealthStatusCard({
     required bool diseaseDetected,
+    required String diseaseName,
     required String diseaseDamage,
     required bool pestDetected,
+    required String pestName,
     required String pestDamage,
   }) {
     if (!diseaseDetected && !pestDetected) {
@@ -1111,13 +1170,13 @@ class _CultivationLogDetailsScreenState extends State<CultivationLogDetailsScree
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Disease Damage Description',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown),
+                        Text(
+                          diseaseName.isNotEmpty ? 'Disease: $diseaseName' : 'Disease Diagnostics',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          diseaseDamage.isNotEmpty ? diseaseDamage : 'Disease detected, no damage details specified.',
+                          diseaseDamage.isNotEmpty ? diseaseDamage : 'No disease damage/symptom details specified.',
                           style: TextStyle(fontSize: 13, color: Colors.brown.shade800),
                         ),
                       ],
@@ -1137,13 +1196,13 @@ class _CultivationLogDetailsScreenState extends State<CultivationLogDetailsScree
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Pest Damage Description',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown),
+                        Text(
+                          pestName.isNotEmpty ? 'Pest: $pestName' : 'Pest Diagnostics',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          pestDamage.isNotEmpty ? pestDamage : 'Pests detected, no damage details specified.',
+                          pestDamage.isNotEmpty ? pestDamage : 'No pest damage/symptom details specified.',
                           style: TextStyle(fontSize: 13, color: Colors.brown.shade800),
                         ),
                       ],
@@ -1181,7 +1240,9 @@ class _CultivationLogEditorScreenState extends State<CultivationLogEditorScreen>
   DateTime _logDate = DateTime.now();
 
   final _leafController = TextEditingController();
+  final _diseaseNameController = TextEditingController();
   final _diseaseDamageController = TextEditingController();
+  final _pestNameController = TextEditingController();
   final _pestDamageController = TextEditingController();
   final _pesticideNameController = TextEditingController();
   final _pesticideTypeController = TextEditingController();
@@ -1213,8 +1274,37 @@ class _CultivationLogEditorScreenState extends State<CultivationLogEditorScreen>
     _leafController.text = (e['leaf_appearance'] ?? '').toString();
     _diseaseDetected = e['disease_detected'] == true;
     _pestDetected = e['pest_detected'] == true;
-    _diseaseDamageController.text = (e['disease_name_and_damage'] ?? '').toString();
-    _pestDamageController.text = (e['pest_name_and_damage'] ?? '').toString();
+
+    final rawDisease = (e['disease_name_and_damage'] ?? '').toString();
+    if (rawDisease.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawDisease) as Map<String, dynamic>;
+        _diseaseNameController.text = decoded['name'] ?? '';
+        _diseaseDamageController.text = decoded['damage'] ?? '';
+      } catch (_) {
+        _diseaseNameController.text = rawDisease;
+        _diseaseDamageController.text = '';
+      }
+    } else {
+      _diseaseNameController.text = '';
+      _diseaseDamageController.text = '';
+    }
+
+    final rawPest = (e['pest_name_and_damage'] ?? '').toString();
+    if (rawPest.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawPest) as Map<String, dynamic>;
+        _pestNameController.text = decoded['name'] ?? '';
+        _pestDamageController.text = decoded['damage'] ?? '';
+      } catch (_) {
+        _pestNameController.text = rawPest;
+        _pestDamageController.text = '';
+      }
+    } else {
+      _pestNameController.text = '';
+      _pestDamageController.text = '';
+    }
+
     _pesticideApplied = e['pesticide_applied'] == true;
     _pesticideNameController.text = (e['pesticide_name'] ?? '').toString();
     _pesticideTypeController.text = (e['pesticide_type'] ?? '').toString();
@@ -1224,7 +1314,9 @@ class _CultivationLogEditorScreenState extends State<CultivationLogEditorScreen>
   @override
   void dispose() {
     _leafController.dispose();
+    _diseaseNameController.dispose();
     _diseaseDamageController.dispose();
+    _pestNameController.dispose();
     _pestDamageController.dispose();
     _pesticideNameController.dispose();
     _pesticideTypeController.dispose();
@@ -1280,10 +1372,18 @@ class _CultivationLogEditorScreenState extends State<CultivationLogEditorScreen>
       'leaf_appearance': _leafController.text.trim().isEmpty ? null : _leafController.text.trim(),
       'disease_detected': _diseaseDetected,
       'pest_detected': _pestDetected,
-      'disease_name_and_damage':
-          _diseaseDamageController.text.trim().isEmpty ? null : _diseaseDamageController.text.trim(),
-      'pest_name_and_damage':
-          _pestDamageController.text.trim().isEmpty ? null : _pestDamageController.text.trim(),
+      'disease_name_and_damage': _diseaseDetected
+          ? jsonEncode({
+              'name': _diseaseNameController.text.trim(),
+              'damage': _diseaseDamageController.text.trim(),
+            })
+          : null,
+      'pest_name_and_damage': _pestDetected
+          ? jsonEncode({
+              'name': _pestNameController.text.trim(),
+              'damage': _pestDamageController.text.trim(),
+            })
+          : null,
       'pesticide_applied': _pesticideApplied,
       'pesticide_name':
           _pesticideNameController.text.trim().isEmpty ? null : _pesticideNameController.text.trim(),
@@ -1401,15 +1501,24 @@ class _CultivationLogEditorScreenState extends State<CultivationLogEditorScreen>
                               activeColor: AppTheme.deepLeafGreen,
                               contentPadding: EdgeInsets.zero,
                             ),
-                            if (_diseaseDetected)
+                            if (_diseaseDetected) ...[
+                              TextFormField(
+                                controller: _diseaseNameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Disease name (optional)',
+                                  prefixIcon: Icon(Icons.warning_amber_rounded),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                               TextFormField(
                                 controller: _diseaseDamageController,
                                 maxLines: 2,
                                 decoration: const InputDecoration(
-                                  labelText: 'Disease name & damage (optional)',
-                                  prefixIcon: Icon(Icons.warning_amber_rounded),
+                                  labelText: 'Disease damage / symptoms (optional)',
+                                  prefixIcon: Icon(Icons.description_outlined),
                                 ),
                               ),
+                            ],
                             const SizedBox(height: 8),
                             SwitchListTile.adaptive(
                               value: _pestDetected,
@@ -1418,15 +1527,24 @@ class _CultivationLogEditorScreenState extends State<CultivationLogEditorScreen>
                               activeColor: AppTheme.deepLeafGreen,
                               contentPadding: EdgeInsets.zero,
                             ),
-                            if (_pestDetected)
+                            if (_pestDetected) ...[
+                              TextFormField(
+                                controller: _pestNameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Pest name (optional)',
+                                  prefixIcon: Icon(Icons.bug_report_outlined),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                               TextFormField(
                                 controller: _pestDamageController,
                                 maxLines: 2,
                                 decoration: const InputDecoration(
-                                  labelText: 'Pest name & damage (optional)',
-                                  prefixIcon: Icon(Icons.bug_report_outlined),
+                                  labelText: 'Pest damage / symptoms (optional)',
+                                  prefixIcon: Icon(Icons.description_outlined),
                                 ),
                               ),
+                            ],
                             const SizedBox(height: 8),
                             SwitchListTile.adaptive(
                               value: _pesticideApplied,

@@ -40,6 +40,57 @@
             from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        /* Premium custom scrollbar styling for tab container */
+        .tab-scroll-container {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE 10+ */
+            transition: all 0.3s ease;
+        }
+        .tab-scroll-container::-webkit-scrollbar {
+            height: 4px;
+            display: none; /* Chrome/Safari/Webkit */
+        }
+        .tab-scroll-container:hover {
+            scrollbar-width: thin;
+        }
+        .tab-scroll-container:hover::-webkit-scrollbar {
+            display: block;
+        }
+        .tab-scroll-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .tab-scroll-container::-webkit-scrollbar-thumb {
+            background: #10b981; /* emerald */
+            border-radius: 4px;
+        }
+
+        /* Align icons and text horizontally */
+        .tab-btn {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Default collapsed state for tab text */
+        .tab-btn .tab-text {
+            display: inline-block;
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin-left 0.35s ease;
+            vertical-align: middle;
+        }
+
+        /* Expanded state on hover or active (font-extrabold) */
+        .tab-btn:hover .tab-text,
+        .tab-btn.font-extrabold .tab-text {
+            max-width: 180px;
+            opacity: 1;
+            margin-left: 6px;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased selection:bg-emerald-500/30">
@@ -346,21 +397,21 @@
                         <div class="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden min-h-[500px]">
                             
                             <!-- Premium Vanilla JS Tab Controls -->
-                            <div class="px-6 border-b border-slate-100 flex gap-1 bg-slate-50/50 overflow-x-auto">
-                                <button type="button" onclick="switchTab('tab-docs')" id="btn-tab-docs" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-emerald-600 text-emerald-700 font-extrabold">
-                                    <i class="fa-solid fa-clipboard-check mr-1.5"></i> Credentials & Audit
+                            <div class="px-6 border-b border-slate-100 flex gap-1 bg-slate-50/50 overflow-x-auto tab-scroll-container">
+                                <button type="button" onclick="switchTab('tab-docs')" id="btn-tab-docs" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-emerald-600 text-emerald-700 font-extrabold" title="Credentials & Audit">
+                                    <i class="fa-solid fa-clipboard-check"></i><span class="tab-text">Credentials & Audit</span>
                                 </button>
-                                <button type="button" onclick="switchTab('tab-wallet')" id="btn-tab-wallet" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900">
-                                    <i class="fa-solid fa-wallet mr-1.5"></i> Wallet & Finance
+                                <button type="button" onclick="switchTab('tab-wallet')" id="btn-tab-wallet" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Wallet & Finance">
+                                    <i class="fa-solid fa-wallet"></i><span class="tab-text">Wallet & Finance</span>
                                 </button>
-                                <button type="button" onclick="switchTab('tab-marketplace')" id="btn-tab-marketplace" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900">
-                                    <i class="fa-solid fa-store mr-1.5"></i> Marketplace listings
+                                <button type="button" onclick="switchTab('tab-marketplace')" id="btn-tab-marketplace" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Marketplace listings">
+                                    <i class="fa-solid fa-store"></i><span class="tab-text">Marketplace listings</span>
                                 </button>
-                                <button type="button" onclick="switchTab('tab-reviews')" id="btn-tab-reviews" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900">
-                                    <i class="fa-solid fa-star mr-1.5"></i> Ratings & Feedback
+                                <button type="button" onclick="switchTab('tab-reviews')" id="btn-tab-reviews" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Ratings & Feedback">
+                                    <i class="fa-solid fa-star"></i><span class="tab-text">Ratings & Feedback</span>
                                 </button>
-                                <button type="button" onclick="switchTab('tab-history')" id="btn-tab-history" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900">
-                                    <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Activity History
+                                <button type="button" onclick="switchTab('tab-history')" id="btn-tab-history" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Activity History">
+                                    <i class="fa-solid fa-clock-rotate-left"></i><span class="tab-text">Activity History</span>
                                 </button>
                             </div>
 
@@ -502,6 +553,28 @@
                                                         </div>
                                                     @endif
                                                 </div>
+
+                                                <!-- Other Certificates -->
+                                                @php
+                                                    $otherCertificates = json_decode($farmerData->other_certificates_titles_and_paths ?? '[]', true) ?: [];
+                                                @endphp
+                                                @if (!empty($otherCertificates))
+                                                    @foreach ($otherCertificates as $cert)
+                                                        <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 flex flex-col justify-between">
+                                                            <div>
+                                                                <span class="text-[10px] font-black uppercase text-slate-400 block">Other Certificate</span>
+                                                                <strong class="text-xs text-slate-800 block mt-1">{{ $cert['title'] ?? 'Untitled Certificate' }}</strong>
+                                                            </div>
+                                                            @if (!empty($cert['path']))
+                                                                <div class="mt-4">
+                                                                    <a href="{{ Str::startsWith($cert['path'], ['http://', 'https://']) ? $cert['path'] : asset('storage/' . $cert['path']) }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-100/50 text-[11px] font-black transition">
+                                                                        <i class="fa-solid fa-file-lines"></i> View Document
+                                                                    </a>
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                @endif
                                             </div>
 
                                             <div class="p-4 bg-emerald-50/40 border border-emerald-100 rounded-2xl flex items-center justify-between text-xs font-semibold">
@@ -1150,6 +1223,24 @@
                     showToast("{{ $error }}", 'error');
                 @endforeach
             @endif
+
+            // Auto-scroll hovered tab to be fully visible
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('mouseenter', () => {
+                    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                });
+            });
+
+            // Smooth mouse-wheel scrolling for the tab container
+            const tabContainer = document.querySelector('.tab-scroll-container');
+            if (tabContainer) {
+                tabContainer.addEventListener('wheel', (e) => {
+                    if (e.deltaY !== 0) {
+                        e.preventDefault();
+                        tabContainer.scrollLeft += e.deltaY;
+                    }
+                });
+            }
         });
     </script>
 </body>

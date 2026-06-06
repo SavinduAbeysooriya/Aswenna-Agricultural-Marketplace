@@ -970,6 +970,32 @@ new class extends Component
                                             <span class="text-[10px] text-slate-400 italic block mt-4">No file uploaded</span>
                                         @endif
                                     </div>
+
+                                    <!-- Other Certificates -->
+                                    @if (!empty($f->other_certificates_titles_and_paths))
+                                        @php
+                                            $otherCertificates = json_decode($f->other_certificates_titles_and_paths, true) ?: [];
+                                        @endphp
+                                        @foreach ($otherCertificates as $cert)
+                                            <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                                                <div>
+                                                    <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Other Certificate</span>
+                                                    <strong class="text-xs text-slate-800 block mt-1">{{ $cert['title'] ?? 'Untitled Certificate' }}</strong>
+                                                </div>
+                                                @if (!empty($cert['path']))
+                                                    @php
+                                                        $certUrl = Str::startsWith($cert['path'], ['http://', 'https://']) ? $cert['path'] : (Str::startsWith($cert['path'], 'storage/') ? asset($cert['path']) : asset('storage/' . $cert['path']));
+                                                    @endphp
+                                                    <div class="mt-4">
+                                                        <a href="{{ $certUrl }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition">
+                                                            <i class="fa-solid fa-file-lines"></i>
+                                                            View Document
+                                                        </a>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    @endif
                                 </div>
                             </div>
                         @endif

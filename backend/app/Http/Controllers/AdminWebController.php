@@ -977,6 +977,34 @@ class AdminWebController extends Controller
         return back()->with('status', 'Land plot rejected with explanation.');
     }
 
+    /**
+     * Update the status of a harvest listing (active, suspended, rejected).
+     */
+    public function updateHarvestListingStatus(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'status' => 'required|string|in:active,suspended,rejected',
+            'reject_reason' => 'required_if:status,rejected|nullable|string|min:4|max:500',
+        ]);
+
+        $status = $request->input('status');
+        $rejectReason = $status === 'rejected' ? $request->input('reject_reason') : null;
+
+        DB::table('harvest_listings')
+            ->where('id', $id)
+            ->update([
+                'status' => $status,
+                'reject_reason' => $rejectReason,
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('status', "Harvest listing status updated to " . ucfirst($status) . " successfully.");
+    }
+
 
 
     private function ensureAdminSession(Request $request)

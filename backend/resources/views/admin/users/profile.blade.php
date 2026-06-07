@@ -405,6 +405,9 @@
                                     <button type="button" onclick="switchTab('tab-lands')" id="btn-tab-lands" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Farming Lands">
                                         <i class="fa-solid fa-map-location-dot"></i><span class="tab-text">Farming Lands</span>
                                     </button>
+                                    <button type="button" onclick="switchTab('tab-harvest-listings')" id="btn-tab-harvest-listings" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Harvest Listings">
+                                        <i class="fa-solid fa-wheat-awn"></i><span class="tab-text">Harvest Listings</span>
+                                    </button>
                                     <button type="button" onclick="switchTab('tab-logs')" id="btn-tab-logs" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Daily Cultivation Logs">
                                         <i class="fa-solid fa-seedling"></i><span class="tab-text">Daily Cultivation Logs</span>
                                     </button>
@@ -951,6 +954,250 @@
                                      <div id="tab-chatbot" class="tab-content hidden animate-fade-in space-y-6">
                                          <livewire:admin.chatbot-history-table :farmer-id="$user->id" />
                                      </div>
+
+                                     <div id="tab-harvest-listings" class="tab-content hidden animate-fade-in space-y-6">
+                                         <div class="flex items-center justify-between">
+                                             <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                                                 <i class="fa-solid fa-wheat-awn text-emerald-600"></i> Farmer Harvest Listings
+                                             </h4>
+                                             <span class="text-[10px] bg-slate-105 text-slate-600 px-2.5 py-1 rounded-lg font-bold">
+                                                 Total: {{ count($listings) }} listings
+                                             </span>
+                                         </div>
+
+                                         @if (count($listings) > 0)
+                                              <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                                 @foreach ($listings as $item)
+                                                     <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-100/50 transition-all duration-300 flex flex-col justify-between relative group">
+                                                         <!-- Header Section -->
+                                                         <div>
+                                                             <!-- Image & Title Banner -->
+                                                             <div class="flex gap-5 items-start">
+                                                                 @php
+                                                                     $primaryImg = $item->image_1 ?? $item->image_2 ?? $item->image_3 ?? $item->image_4;
+                                                                     if ($primaryImg && !Str::startsWith($primaryImg, ['http://', 'https://'])) {
+                                                                         $primaryImg = asset('storage/' . $primaryImg);
+                                                                     }
+                                                                 @endphp
+                                                                 <div class="w-24 h-24 rounded-2xl border border-slate-100 overflow-hidden shrink-0 bg-slate-50 relative group/img cursor-pointer shadow-inner flex items-center justify-center" 
+                                                                      @if($primaryImg) onclick="openLightbox('{{ $primaryImg }}')" @endif>
+                                                                     @if ($primaryImg)
+                                                                         <img src="{{ $primaryImg }}" class="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300">
+                                                                         <div class="absolute inset-0 bg-slate-950/20 opacity-0 group-hover/img:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                                                                             <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                                                         </div>
+                                                                     @else
+                                                                         <div class="text-slate-300 flex flex-col items-center">
+                                                                             <i class="fa-solid fa-wheat-awn text-3xl text-emerald-600/30"></i>
+                                                                             <span class="text-[8px] font-black uppercase tracking-wider mt-1 text-slate-400">No Image</span>
+                                                                         </div>
+                                                                     @endif
+                                                                 </div>
+
+                                                                 <div class="flex-1 min-w-0">
+                                                                     <div class="flex flex-wrap items-center gap-2 justify-between">
+                                                                         <h5 class="text-base font-black text-slate-900 truncate font-poppins leading-snug">{{ $item->crop_name ?? 'Crop Variety' }}</h5>
+                                                                         
+                                                                         <div class="flex items-center gap-1.5 shrink-0">
+                                                                             <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-[9px] font-black tracking-wide">Grade {{ $item->grade }}</span>
+                                                                             
+                                                                             @php
+                                                                                 $statusColors = [
+                                                                                     'active' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                                                                                     'suspended' => 'bg-amber-50 text-amber-700 border-amber-100',
+                                                                                     'rejected' => 'bg-rose-50 text-rose-700 border-rose-100',
+                                                                                     'pending_approval' => 'bg-blue-50 text-blue-700 border-blue-100',
+                                                                                     'draft' => 'bg-slate-100 text-slate-600 border-slate-200'
+                                                                                 ];
+                                                                                 $badgeClass = $statusColors[$item->status] ?? 'bg-slate-50 text-slate-500 border-slate-150';
+                                                                             @endphp
+                                                                             <span class="px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-widest {{ $badgeClass }}">
+                                                                                 {{ str_replace('_', ' ', $item->status) }}
+                                                                             </span>
+                                                                         </div>
+                                                                     </div>
+                                                                     <p class="text-[10px] text-slate-400 font-bold mt-1">Listing ID: <span class="text-slate-600">#{{ $item->id }}</span></p>
+
+                                                                     <!-- Status Alert Banner if Rejected -->
+                                                                     @if ($item->status === 'rejected' && $item->reject_reason)
+                                                                         <div class="mt-2.5 p-2 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-[10px] text-rose-700 font-semibold leading-relaxed flex items-start gap-1.5">
+                                                                             <i class="fa-solid fa-circle-exclamation mt-0.5 shrink-0"></i>
+                                                                             <div><strong class="font-extrabold">Rejection Reason:</strong> "{{ $item->reject_reason }}"</div>
+                                                                         </div>
+                                                                     @endif
+                                                                 </div>
+                                                             </div>
+
+                                                             <!-- Specifications Grid -->
+                                                             <div class="mt-5 grid grid-cols-2 gap-4">
+                                                                 <!-- Left Spec block (Stock & Constraints) -->
+                                                                 <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100/60 space-y-2.5 text-xs">
+                                                                     <span class="text-[10px] font-black uppercase text-slate-500 tracking-wider block border-b border-slate-200/60 pb-1.5"><i class="fa-solid fa-warehouse text-[9px] mr-1 text-slate-500"></i> Stock & Limits</span>
+                                                                     <div class="space-y-3 mt-3">
+                                                                         <div>
+                                                                             <span class="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Available Quantity</span>
+                                                                             <strong class="text-slate-950 font-black text-sm block mt-0.5">{{ number_format($item->available_quantity, 2) }} {{ $item->unit }}</strong>
+                                                                         </div>
+                                                                         <div class="border-t border-slate-200/50 pt-2">
+                                                                             <span class="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Min Order Qty</span>
+                                                                             <strong class="text-slate-950 font-black text-sm block mt-0.5">{{ number_format($item->minimum_order_quantity, 2) }} {{ $item->unit }}</strong>
+                                                                         </div>
+                                                                         <div class="border-t border-slate-200/50 pt-2">
+                                                                             <span class="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Max Order Qty</span>
+                                                                             <strong class="text-slate-950 font-black text-sm block mt-0.5">{{ number_format($item->maximum_order_quantity, 2) }} {{ $item->unit }}</strong>
+                                                                         </div>
+                                                                     </div>
+                                                                 </div>
+
+                                                                 <!-- Right Spec block (Pricing & Bids) -->
+                                                                 <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100/60 space-y-2.5 text-xs">
+                                                                     <span class="text-[10px] font-black uppercase text-slate-500 tracking-wider block border-b border-slate-200/60 pb-1.5"><i class="fa-solid fa-tags text-[9px] mr-1 text-slate-500"></i> Pricing & Rates</span>
+                                                                     <div class="space-y-3 mt-3">
+                                                                         <div>
+                                                                             <span class="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Price per Unit</span>
+                                                                             <strong class="text-emerald-700 font-black text-sm block mt-0.5">LKR {{ number_format($item->price_per_unit, 2) }} / {{ $item->unit }}</strong>
+                                                                         </div>
+                                                                         <div class="border-t border-slate-200/50 pt-2">
+                                                                             <span class="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Min Bid Price</span>
+                                                                             @if ($item->min_bid_price_per_unit)
+                                                                                 <strong class="text-slate-950 font-black text-sm block mt-0.5">LKR {{ number_format($item->min_bid_price_per_unit, 2) }}</strong>
+                                                                             @else
+                                                                                 <span class="text-slate-400 italic font-semibold text-xs block mt-0.5">No Bids Allowed</span>
+                                                                             @endif
+                                                                         </div>
+                                                                         <div class="border-t border-slate-200/50 pt-2">
+                                                                             <span class="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Condition</span>
+                                                                             <span class="text-slate-950 font-black text-sm capitalize flex items-center gap-1.5 mt-0.5"><i class="fa-solid fa-leaf text-emerald-600 text-[10px]"></i> {{ str_replace('_', ' ', $item->harvest_condition) }}</span>
+                                                                         </div>
+                                                                     </div>
+                                                                 </div>
+                                                             </div>
+
+                                                             <!-- Availability Timeline & Dates -->
+                                                             <div class="mt-4 p-3.5 bg-emerald-50/10 border border-emerald-500/10 rounded-2xl space-y-2 text-[11px] font-semibold text-slate-700">
+                                                                 <div class="flex items-center justify-between">
+                                                                     <span class="flex items-center gap-1.5 text-slate-400 font-medium"><i class="fa-regular fa-calendar-check text-slate-400"></i> Harvested On</span>
+                                                                     <strong class="text-slate-700">{{ \Carbon\Carbon::parse($item->harvest_date)->format('M d, Y') }}</strong>
+                                                                 </div>
+                                                                 <div class="flex items-center justify-between">
+                                                                     <span class="flex items-center gap-1.5 text-slate-400 font-medium"><i class="fa-regular fa-calendar text-slate-400"></i> Availability Window</span>
+                                                                     <strong class="text-slate-700">{{ \Carbon\Carbon::parse($item->available_from_date)->format('M d, Y') }} - {{ \Carbon\Carbon::parse($item->available_to_date)->format('M d, Y') }}</strong>
+                                                                 </div>
+                                                                 @if($item->bidding_start_date_and_time)
+                                                                     <div class="flex items-center justify-between border-t border-slate-100 pt-2 mt-1">
+                                                                         <span class="flex items-center gap-1.5 text-slate-400 font-medium"><i class="fa-solid fa-gavel text-slate-400"></i> Bidding Window</span>
+                                                                         <span class="text-[10px] text-slate-600 font-bold">{{ \Carbon\Carbon::parse($item->bidding_start_date_and_time)->format('M d, h:i A') }} to {{ \Carbon\Carbon::parse($item->bidding_end_date_and_time)->format('M d, h:i A') }}</span>
+                                                                     </div>
+                                                                 @endif
+                                                             </div>
+
+                                                             <!-- Logistics & Storage -->
+                                                             <div class="mt-4 grid grid-cols-2 gap-4 text-xs font-semibold text-slate-700">
+                                                                 <div class="p-3 bg-slate-50 border border-slate-100/50 rounded-xl flex flex-col justify-center">
+                                                                     <span class="text-[8px] font-black uppercase text-slate-400 tracking-wide block mb-1">Storage Method</span>
+                                                                     <span class="text-slate-800 capitalize"><i class="fa-solid fa-snowflake text-[9px] text-blue-500 mr-1"></i> {{ str_replace('_', ' ', $item->storage_method ?? 'Not Specified') }}</span>
+                                                                 </div>
+                                                                 <div class="p-3 bg-slate-50 border border-slate-100/50 rounded-xl flex flex-col justify-center">
+                                                                     <span class="text-[8px] font-black uppercase text-slate-400 tracking-wide block mb-1">Delivery Status</span>
+                                                                     @if ($item->delivery_available)
+                                                                         <span class="text-emerald-600 font-bold flex flex-wrap items-center gap-0.5"><i class="fa-solid fa-truck-fast text-[9px]"></i> Available <span class="text-[9px] text-slate-400 font-medium">(LKR {{ number_format($item->delivery_fee_per_km, 2) }}/km, max {{ $item->max_delivery_distance }}km)</span></span>
+                                                                     @else
+                                                                         <span class="text-slate-400 font-medium"><i class="fa-solid fa-person-walking-luggage text-[9px]"></i> Pickup Only</span>
+                                                                     @endif
+                                                                 </div>
+                                                             </div>
+
+                                                             <!-- pickup coordinates map iframe preview block -->
+                                                             @if ($item->pickup_latitude && $item->pickup_longitude)
+                                                                 <div class="mt-4">
+                                                                     <div class="px-3.5 py-2 rounded-t-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-[10px] font-extrabold text-slate-600">
+                                                                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-map-location-dot text-slate-400"></i> Pickup Location: {{ $item->pickup_latitude }}, {{ $item->pickup_longitude }}</span>
+                                                                         <a href="https://www.google.com/maps/search/?api=1&query={{ $item->pickup_latitude }},{{ $item->pickup_longitude }}" target="_blank" class="text-emerald-600 hover:text-emerald-700 transition flex items-center gap-1">
+                                                                             Google Maps <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                                                         </a>
+                                                                     </div>
+                                                                     <div class="group relative rounded-b-2xl overflow-hidden border border-t-0 border-slate-100 shadow-inner h-28 w-full transition-all duration-300 hover:shadow-md hover:border-emerald-200">
+                                                                         <iframe 
+                                                                             class="w-full h-full border-0" 
+                                                                             src="https://maps.google.com/maps?q={{ $item->pickup_latitude }},{{ $item->pickup_longitude }}&z=14&output=embed" 
+                                                                             allowfullscreen="" 
+                                                                             loading="lazy" 
+                                                                             referrerpolicy="no-referrer-when-downgrade">
+                                                                         </iframe>
+                                                                     </div>
+                                                                 </div>
+                                                             @endif
+
+                                                             <!-- Notes Section -->
+                                                             @if ($item->notes)
+                                                                 <div class="mt-4 p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-600 leading-relaxed font-medium">
+                                                                     <strong class="font-bold text-slate-800 block mb-0.5"><i class="fa-solid fa-file-lines mr-1 text-slate-400"></i> Farmer Notes</strong>
+                                                                     "{{ $item->notes }}"
+                                                                 </div>
+                                                             @endif
+
+                                                             <!-- Gallery Grid -->
+                                                             @php
+                                                                 $images = array_filter([$item->image_1, $item->image_2, $item->image_3, $item->image_4]);
+                                                             @endphp
+                                                             @if (count($images) > 1)
+                                                                 <div class="mt-4 pt-4 border-t border-slate-100">
+                                                                     <span class="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-wider"><i class="fa-solid fa-images mr-1"></i> Gallery ({{ count($images) }} Images)</span>
+                                                                     <div class="flex flex-wrap gap-2.5">
+                                                                         @foreach ($images as $imgIndex => $img)
+                                                                             @php
+                                                                                 $imgUrl = Str::startsWith($img, ['http://', 'https://']) ? $img : asset('storage/' . $img);
+                                                                             @endphp
+                                                                             <div class="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 cursor-pointer group/thumb shadow-sm hover:border-emerald-300 transition duration-300" onclick="openLightbox('{{ $imgUrl }}')">
+                                                                                 <img src="{{ $imgUrl }}" class="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300">
+                                                                                 <div class="absolute inset-0 bg-slate-950/20 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white text-[9px] font-black transition-opacity">
+                                                                                     <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                                                                 </div>
+                                                                             </div>
+                                                                         @endforeach
+                                                                     </div>
+                                                                 </div>
+                                                             @endif
+                                                         </div>
+
+                                                         <!-- Action Buttons Footer -->
+                                                         <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap gap-3 justify-end">
+                                                             @if ($item->status !== 'active')
+                                                                 <button type="button" onclick="updateListingStatus({{ $item->id }}, 'active')" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 text-emerald-700 text-xs font-extrabold transition shadow-sm">
+                                                                     <i class="fa-solid fa-circle-check text-sm"></i> Activate
+                                                                 </button>
+                                                             @endif
+
+                                                             @if ($item->status !== 'suspended')
+                                                                 <button type="button" onclick="updateListingStatus({{ $item->id }}, 'suspended')" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-100 hover:bg-amber-100 text-amber-700 text-xs font-extrabold transition shadow-sm">
+                                                                     <i class="fa-solid fa-ban text-sm"></i> Suspend
+                                                                 </button>
+                                                             @endif
+
+                                                             @if ($item->status !== 'rejected')
+                                                                 <button type="button" onclick="updateListingStatus({{ $item->id }}, 'rejected')" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-50 border border-rose-100 hover:bg-rose-100 text-rose-700 text-xs font-extrabold transition shadow-sm">
+                                                                     <i class="fa-solid fa-circle-xmark text-sm"></i> Reject
+                                                                 </button>
+                                                             @endif
+
+                                                             <!-- Hidden Status Form -->
+                                                             <form action="{{ route('admin.harvest-listings.update-status', $item->id) }}" method="POST" id="listing-status-form-{{ $item->id }}" class="hidden">
+                                                                 @csrf
+                                                                 <input type="hidden" name="status" id="listing-status-input-{{ $item->id }}">
+                                                                 <input type="hidden" name="reject_reason" id="listing-reason-input-{{ $item->id }}">
+                                                             </form>
+                                                         </div>
+                                                     </div>
+                                                 @endforeach
+                                             </div>
+                                         @else
+                                             <div class="border border-dashed border-slate-200 rounded-3xl p-12 text-center text-slate-400 bg-slate-50/50">
+                                                 <i class="fa-solid fa-wheat-awn text-3xl text-slate-300 animate-pulse"></i>
+                                                 <p class="mt-3 text-xs font-bold">No Harvest Listings Found</p>
+                                                 <p class="mt-1 text-[11px] text-slate-400">The farmer hasn't uploaded any crops or products for bidding/sale yet.</p>
+                                             </div>
+                                         @endif
+                                     </div>
                                  @endif
 
                                  <!-- PANEL 2: Wallet & Finance -->
@@ -1388,6 +1635,59 @@
                     document.getElementById('reject-land-form-' + landId).submit();
                 }
             });
+        }
+
+        // Individual Harvest Listing Helper
+        function updateListingStatus(listingId, targetStatus) {
+            if (targetStatus === 'rejected') {
+                Swal.fire({
+                    title: 'Reject Harvest Listing',
+                    input: 'textarea',
+                    inputLabel: 'Specify the reason for rejection',
+                    inputPlaceholder: 'e.g. Expired product, incorrect pricing, invalid grade...',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#475569',
+                    confirmButtonText: 'Reject Listing',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl border border-slate-100'
+                    },
+                    inputValidator: (value) => {
+                        if (!value || value.trim().length < 4) {
+                            return 'Please enter a valid reason (min 4 characters).'
+                        }
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const reason = result.value;
+                        document.getElementById('listing-status-input-' + listingId).value = targetStatus;
+                        document.getElementById('listing-reason-input-' + listingId).value = reason;
+                        document.getElementById('listing-status-form-' + listingId).submit();
+                    }
+                });
+            } else {
+                const actionText = targetStatus === 'active' ? 'Activate' : 'Suspend';
+                const confirmColor = targetStatus === 'active' ? '#16a34a' : '#d97706';
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: `Do you want to change this harvest listing status to ${actionText}?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: confirmColor,
+                    cancelButtonColor: '#475569',
+                    confirmButtonText: `Yes, ${actionText}`,
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl border border-slate-100'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        document.getElementById('listing-status-input-' + listingId).value = targetStatus;
+                        document.getElementById('listing-status-form-' + listingId).submit();
+                    }
+                });
+            }
         }
     </script>
 

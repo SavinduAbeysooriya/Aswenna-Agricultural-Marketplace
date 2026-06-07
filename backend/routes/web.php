@@ -50,6 +50,7 @@ Route::post('/admin/users/profile/document/{id}/approve', [AdminWebController::c
 Route::post('/admin/users/profile/document/{id}/reject', [AdminWebController::class, 'rejectUserDocument'])->name('admin.users.profile.document.reject');
 Route::post('/admin/users/profile/land/{id}/approve', [AdminWebController::class, 'approveUserLand'])->name('admin.users.profile.land.approve');
 Route::post('/admin/users/profile/land/{id}/reject', [AdminWebController::class, 'rejectUserLand'])->name('admin.users.profile.land.reject');
+Route::post('/admin/users/profile/harvest-listing/{id}/status', [AdminWebController::class, 'updateHarvestListingStatus'])->name('admin.harvest-listings.update-status');
 
 
 

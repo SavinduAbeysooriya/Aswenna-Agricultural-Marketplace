@@ -150,8 +150,8 @@ class HarvestListingController extends Controller
                 'max_delivery_distance' => $request->max_delivery_distance,
                 'available_from_date' => $request->available_from_date,
                 'available_to_date' => $request->available_to_date,
-                'bidding_start_date_and_time' => $request->bidding_start_date_and_time,
-                'bidding_end_date_and_time' => $request->bidding_end_date_and_time,
+                'bidding_start_date_and_time' => $request->bidding_start_date_and_time ?? Carbon::parse($request->available_from_date)->startOfDay(),
+                'bidding_end_date_and_time' => $request->bidding_end_date_and_time ?? Carbon::parse($request->available_to_date)->endOfDay(),
                 'status' => 'active',
             ], $imagePaths));
 
@@ -357,8 +357,8 @@ class HarvestListingController extends Controller
                 'max_delivery_distance' => $request->max_delivery_distance,
                 'available_from_date' => $request->available_from_date,
                 'available_to_date' => $request->available_to_date,
-                'bidding_start_date_and_time' => $request->bidding_start_date_and_time,
-                'bidding_end_date_and_time' => $request->bidding_end_date_and_time,
+                'bidding_start_date_and_time' => $request->bidding_start_date_and_time ?? Carbon::parse($request->available_from_date)->startOfDay(),
+                'bidding_end_date_and_time' => $request->bidding_end_date_and_time ?? Carbon::parse($request->available_to_date)->endOfDay(),
             ], $imagePaths));
 
             DB::commit();

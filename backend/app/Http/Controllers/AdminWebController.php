@@ -560,6 +560,8 @@ class AdminWebController extends Controller
         $bids = collect();
         $confirmedBids = collect();
         $payments = collect();
+        $confirmedBidReviews = collect();
+        $dealChats = collect();
 
         if (in_array('farmer', $roles, true)) {
             $reviews = DB::table('buyer_farmer_reviews')
@@ -600,6 +602,36 @@ class AdminWebController extends Controller
                         ->whereIn('confirmed_bid_id', $confirmedBidIds)
                         ->get()
                         ->keyBy('confirmed_bid_id');
+
+                    $confirmedBidReviews = DB::table('buyer_farmer_reviews')
+                        ->whereIn('confirmed_bid_id', $confirmedBidIds)
+                        ->join('users as reviewers', 'buyer_farmer_reviews.reviewed_by', '=', 'reviewers.id')
+                        ->select('buyer_farmer_reviews.*', 'reviewers.full_name as reviewer_name')
+                        ->get()
+                        ->groupBy('confirmed_bid_id');
+                }
+
+                $buyerIds = collect();
+                foreach ($bids as $listingBids) {
+                    $buyerIds = $buyerIds->merge($listingBids->pluck('buyer_id'));
+                }
+                if ($confirmedBids->isNotEmpty()) {
+                    $buyerIds = $buyerIds->merge($confirmedBids->pluck('buyer_id'));
+                }
+                $buyerIds = $buyerIds->filter()->unique();
+
+                if ($buyerIds->isNotEmpty()) {
+                    $dealChats = DB::table('chats')
+                        ->where(function($query) use ($user, $buyerIds) {
+                            $query->where('sender_id', $user->id)
+                                  ->whereIn('receiver_id', $buyerIds);
+                        })
+                        ->orWhere(function($query) use ($user, $buyerIds) {
+                            $query->whereIn('sender_id', $buyerIds)
+                                  ->where('receiver_id', $user->id);
+                        })
+                        ->orderBy('sent_at', 'asc')
+                        ->get();
                 }
             }
         } elseif (in_array('retail_seller', $roles, true)) {
@@ -670,6 +702,8 @@ class AdminWebController extends Controller
             'bids' => $bids,
             'confirmedBids' => $confirmedBids,
             'payments' => $payments,
+            'confirmedBidReviews' => $confirmedBidReviews,
+            'dealChats' => $dealChats,
             'history' => $history,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);

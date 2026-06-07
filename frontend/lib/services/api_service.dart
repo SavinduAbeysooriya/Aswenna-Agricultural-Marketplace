@@ -3081,6 +3081,44 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> sendHarvestChatMessageWithMedia({
+    required int receiverId,
+    String? message,
+    String? filePath,
+    String? mediaType,
+  }) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/chats/send');
+    try {
+      final request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer ' + (token ?? '');
+      request.headers['Accept'] = 'application/json';
+      
+      request.fields['receiver_id'] = receiverId.toString();
+      if (message != null && message.isNotEmpty) {
+        request.fields['message_text'] = message;
+      }
+      if (mediaType != null) {
+        request.fields['type'] = mediaType;
+      }
+      
+      if (filePath != null && filePath.isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('media_file', filePath));
+      }
+      
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['success'] == true) {
+        return data;
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to send.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ' + e.toString()};
+    }
+  }
+
   // ===================================================================
   // Confirmed Bid Methods
   // ===================================================================

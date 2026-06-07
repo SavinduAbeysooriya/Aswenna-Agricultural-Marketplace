@@ -14,7 +14,7 @@ class PaymentController extends Controller
 {
     // Statically hardcoded sandbox credentials
     private string $merchantId     = '1236086';
-    private string $merchantSecret = 'MjcwOTkzNTQ3Njk2NTU0MTIwNjQ4OTgwMzA0NjI4NDI0NzE4Njk='; 
+    private string $merchantSecret = 'MzYxNDQ1ODY3MjM2NTc4MDk3MDkyNDIyMDI0MTE5MzA0NTMxNjQxOQ=='; 
     private bool   $sandbox        = true;
 
     /**
@@ -65,7 +65,8 @@ class PaymentController extends Controller
         $finalAmount   = $baseAmount + $serviceCharge + $tax;
 
         $orderId       = 'ASWENNA-' . $confirmedBidId . '-' . time();
-        $amount        = number_format((float)$finalAmount, 2, '.', '');
+        // Cap the payment amount to 100.00 LKR in sandbox mode to bypass the PayHere Lite per-payment limit
+        $amount        = $this->sandbox ? '100.00' : number_format((float)$finalAmount, 2, '.', '');
         $currency      = 'LKR';
         $itemName      = $confirmedBid->cropname . ' (' . $confirmedBid->bid_quantity_unit . ' ' . $confirmedBid->unit . ')';
         $returnUrl     = url('/api/payment/return');
@@ -495,7 +496,8 @@ class PaymentController extends Controller
         $finalAmount   = $baseAmount + $serviceCharge + $tax;
 
         $payOrderId    = 'RETAIL-' . $order->id . '-' . time();
-        $amount        = number_format((float)$finalAmount, 2, '.', '');
+        // Cap the payment amount to 100.00 LKR in sandbox/testing mode to bypass the PayHere Lite per-payment limit
+        $amount        = $this->sandbox ? '100.00' : number_format((float)$finalAmount, 2, '.', '');
         $currency      = 'LKR';
         $itemName      = 'Aswenna Retail Order #' . $order->order_number;
         $returnUrl     = url('/api/payment/return');

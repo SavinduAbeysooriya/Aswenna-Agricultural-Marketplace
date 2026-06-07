@@ -164,7 +164,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       final Map<String, dynamic> testObject = {
                         "sandbox": true,
                         "merchant_id": "1236086", // Your Merchant ID
-                        "merchant_secret": "MjcwOTkzNTQ3Njk2NTU0MTIwNjQ4OTgwMzA0NjI4NDI0NzE4Njk=", // Your Mobile App Secret
+                        "merchant_secret": "MzYxNDQ1ODY3MjM2NTc4MDk3MDkyNDIyMDI0MTE5MzA0NTMxNjQxOQ==", // Your Mobile App Secret
                         "notify_url": "https://aswenna.lk/api/payment/notify",
                         "order_id": "TEST-${DateTime.now().millisecondsSinceEpoch}",
                         "items": "Direct Farm Purchase SDK Test",
@@ -384,7 +384,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       // Hardcoded mobile App credentials
       const String merchantId = '1236086';
-      const String merchantSecret = 'MjcwOTkzNTQ3Njk2NTU0MTIwNjQ4OTgwMzA0NjI4NDI0NzE4Njk=';
+      const String merchantSecret = 'MzYxNDQ1ODY3MjM2NTc4MDk3MDkyNDIyMDI0MTE5MzA0NTMxNjQxOQ==';
       const String currency = 'LKR';
 
       final String orderId = backendParams['order_id'] ?? 'ASWENNA-${widget.confirmedBidId}-${DateTime.now().millisecondsSinceEpoch}';
@@ -395,13 +395,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       final Map<String, dynamic> paymentObject = {
         "sandbox": true,                 // Use sandbox for testing
-        "merchant_id": merchantId,
-        "merchant_secret": merchantSecret,
+        "merchant_id": backendParams['merchant_id'] ?? merchantId,
+        "hash": backendParams['hash'],   // Secure backend-generated hash
         "notify_url": backendParams['notify_url'] ?? '',
-        "order_id": orderId,
+        "order_id": backendParams['order_id'] ?? orderId,
         "items": backendParams['items'] ?? 'Hello from Flutter!',
-        "amount": amountStr,
-        "currency": currency,
+        "amount": backendParams['amount'] ?? amountStr,
+        "currency": backendParams['currency'] ?? currency,
         "first_name": backendParams['first_name'] ?? 'Buyer',
         "last_name": backendParams['last_name'] ?? 'Aswenna',
         "email": backendParams['email'] ?? 'buyer@aswenna.lk',
@@ -440,6 +440,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         },
         (error) {
           debugPrint("One Time Payment Failed. Error: $error");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('One Time Payment Failed. Error: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
           _handlePaymentCallback(false);
         },
         () {

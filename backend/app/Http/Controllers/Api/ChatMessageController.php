@@ -50,7 +50,9 @@ class ChatMessageController extends Controller
 
         $validator = Validator::make($request->all(), [
             'receiver_id'  => 'required|integer|exists:users,id',
-            'message_text' => 'required|string|max:2000',
+            'type'         => 'sometimes|string|in:text,image,video,voice,file',
+            'message_text' => 'required_if:type,text|nullable|string|max:2000',
+            'media_file'   => 'required_unless:type,text|nullable|file|max:20480', // limit to 20MB
         ]);
 
         if ($validator->fails()) {
@@ -62,11 +64,34 @@ class ChatMessageController extends Controller
         }
 
         try {
+            $type = $request->input('type', 'text');
+            $mediaPath = null;
+
+            if ($request->hasFile('media_file')) {
+                $file = $request->file('media_file');
+                $mediaPath = $file->store('chat_media', 'public');
+                
+                // Auto-detect type if it was sent as text but actually contains a file
+                if ($type === 'text') {
+                    $mime = $file->getMimeType();
+                    if (str_starts_with($mime, 'image/')) {
+                        $type = 'image';
+                    } elseif (str_starts_with($mime, 'video/')) {
+                        $type = 'video';
+                    } elseif (str_starts_with($mime, 'audio/')) {
+                        $type = 'voice';
+                    } else {
+                        $type = 'file';
+                    }
+                }
+            }
+
             $chat = Chat::create([
                 'sender_id'    => $user->id,
                 'receiver_id'  => $request->receiver_id,
-                'type'         => 'text',
-                'message_text' => $request->message_text,
+                'type'         => $type,
+                'message_text' => $request->input('message_text'),
+                'media_path'   => $mediaPath,
                 'is_read'      => false,
             ]);
 

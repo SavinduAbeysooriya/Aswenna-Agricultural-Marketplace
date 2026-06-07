@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends StatefulWidget {
   final int otherUserId;
@@ -102,6 +104,109 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _pickAndSendMedia() async {
+    try {
+      FilePickerResult? result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov', 'mp3', 'wav', 'pdf', 'doc', 'docx'],
+      );
+
+      if (result == null || result.files.single.path == null) return;
+
+      final filePath = result.files.single.path!;
+      final fileName = result.files.single.name;
+      final ext = result.files.single.extension?.toLowerCase() ?? '';
+
+      String mediaType = 'file';
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
+        mediaType = 'image';
+      } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext)) {
+        mediaType = 'video';
+      } else if (['mp3', 'wav', 'm4a', 'aac', 'ogg'].contains(ext)) {
+        mediaType = 'voice';
+      }
+
+      if (!mounted) return;
+
+      final String? caption = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          final captionController = TextEditingController();
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text('Send $mediaType', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('File: $fileName', style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: captionController,
+                  decoration: InputDecoration(
+                    hintText: 'Add a caption (optional)...',
+                    hintStyle: const TextStyle(fontSize: 13),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, null),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, captionController.text.trim()),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.deepLeafGreen,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: const Text('Send', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (caption == null) return;
+
+      setState(() => _isSending = true);
+
+      final response = await ApiService.sendHarvestChatMessageWithMedia(
+        receiverId: widget.otherUserId,
+        message: caption,
+        filePath: filePath,
+        mediaType: mediaType,
+      );
+
+      setState(() => _isSending = false);
+
+      if (response['success'] == true) {
+        _loadMessages(silent: true);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Failed to send file.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking file: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -189,6 +294,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final timeStr = sentAt != null
         ? '${sentAt.hour.toString().padLeft(2, '0')}:${sentAt.minute.toString().padLeft(2, '0')}'
         : '';
+    final type = msg['type'] ?? 'text';
+    final mediaPath = msg['media_path'];
+    final text = msg['message_text'];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -228,22 +336,30 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    msg['message_text'] ?? '',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isMe ? Colors.white : const Color(0xFF0F172A),
-                      height: 1.4,
+                  if (type != 'text' && mediaPath != null) ...[
+                    _buildMediaWidget(type, mediaPath, isMe),
+                    if (text != null && text.isNotEmpty) const SizedBox(height: 8),
+                  ],
+                  if (text != null && text.isNotEmpty)
+                    Text(
+                      text,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isMe ? Colors.white : const Color(0xFF0F172A),
+                        height: 1.4,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 4),
-                  Text(
-                    timeStr,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: isMe ? Colors.white60 : Colors.grey[400],
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Text(
+                      timeStr,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: isMe ? Colors.white60 : Colors.grey[400],
+                      ),
                     ),
                   ),
                 ],
@@ -252,6 +368,78 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           if (isMe) const SizedBox(width: 4),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMediaWidget(String type, String path, bool isMe) {
+    final mediaUrl = '${ApiService.appUrl}/storage/$path';
+    if (type == 'image') {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          mediaUrl,
+          width: 200,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.grey[200],
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.broken_image, color: Colors.grey),
+                SizedBox(width: 8),
+                Text('Failed to load image', style: TextStyle(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    IconData icon;
+    String label;
+    if (type == 'video') {
+      icon = Icons.video_library_rounded;
+      label = 'Play Video';
+    } else if (type == 'voice') {
+      icon = Icons.audiotrack_rounded;
+      label = 'Listen Audio';
+    } else {
+      icon = Icons.insert_drive_file_rounded;
+      label = 'Open File';
+    }
+
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(mediaUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.white.withOpacity(0.15) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(10),
+          border: isMe ? null : Border.all(color: Colors.grey[200]!),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: isMe ? Colors.white : AppTheme.deepLeafGreen, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isMe ? Colors.white : AppTheme.deepLeafGreen,
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -271,6 +459,13 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 26),
+            onPressed: _isSending ? null : _pickAndSendMedia,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: _messageController,

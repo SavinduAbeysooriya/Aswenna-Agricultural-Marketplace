@@ -1211,6 +1211,107 @@
                                                                                   <span>Waiting for the buyer to complete checkout payment on the app.</span>
                                                                               </div>
                                                                           @endif
+
+                                                                          <!-- Reviews Section -->
+                                                                          @php
+                                                                              $bidReviews = $confirmedBidReviews->get($confirmedBid->id) ?: collect();
+                                                                          @endphp
+                                                                          @if ($bidReviews->isNotEmpty())
+                                                                              <div class="border-t border-emerald-100/60 pt-3 mt-2 space-y-2">
+                                                                                  <span class="text-[8px] font-black uppercase text-slate-400 block tracking-wider"><i class="fa-solid fa-star-half-stroke mr-1 text-emerald-600"></i> Deal Feedback & Reviews</span>
+                                                                                  <div class="space-y-2">
+                                                                                      @foreach ($bidReviews as $review)
+                                                                                          <div class="p-2.5 bg-white border border-slate-100 rounded-xl space-y-1">
+                                                                                              <div class="flex items-center justify-between">
+                                                                                                  <span class="text-[10px] font-black text-slate-800">{{ $review->reviewer_name }}</span>
+                                                                                                  <div class="flex items-center text-amber-400 gap-0.5">
+                                                                                                      @for ($i = 1; $i <= 5; $i++)
+                                                                                                          <i class="fa-star text-[9px] {{ $i <= $review->ratings ? 'fa-solid' : 'fa-regular' }}"></i>
+                                                                                                      @endfor
+                                                                                                  </div>
+                                                                                              </div>
+                                                                                              <p class="text-[10px] text-slate-600 font-medium">"{{ $review->feedback }}"</p>
+                                                                                              <span class="text-[8px] text-slate-400 block text-right font-semibold">{{ \Carbon\Carbon::parse($review->created_at)->format('M d, Y') }}</span>
+                                                                                          </div>
+                                                                                      @endforeach
+                                                                                  </div>
+                                                                              </div>
+                                                                          @endif
+
+                                                                          <!-- Chat History Section -->
+                                                                          @php
+                                                                              $confirmedBidChats = $dealChats->filter(function($chat) use ($user, $confirmedBid) {
+                                                                                  return ($chat->sender_id == $user->id && $chat->receiver_id == $confirmedBid->buyer_id)
+                                                                                      || ($chat->sender_id == $confirmedBid->buyer_id && $chat->receiver_id == $user->id);
+                                                                              });
+                                                                          @endphp
+                                                                          @if ($confirmedBidChats->isNotEmpty())
+                                                                              <div class="border-t border-emerald-100/60 pt-3 mt-2">
+                                                                                  <button type="button" onclick="toggleChatLogs('chat-deal-{{ $confirmedBid->id }}')" class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-slate-100 hover:border-emerald-200 transition text-[10px] font-bold text-slate-700">
+                                                                                      <span class="flex items-center gap-1.5"><i class="fa-regular fa-comments text-emerald-600"></i> Show Deal Chat History ({{ count($confirmedBidChats) }})</span>
+                                                                                      <i class="fa-solid fa-chevron-down text-[8px] text-slate-400"></i>
+                                                                                  </button>
+                                                                                  
+                                                                                  <div id="chat-deal-{{ $confirmedBid->id }}" class="hidden mt-2 p-3 bg-white border border-slate-100 rounded-2xl space-y-2">
+                                                                                      <div class="max-h-56 overflow-y-auto space-y-2 pr-1 tab-scroll-container">
+                                                                                          @foreach ($confirmedBidChats as $chat)
+                                                                                              @php
+                                                                                                  $isFarmer = $chat->sender_id == $user->id;
+                                                                                              @endphp
+                                                                                              <div class="flex {{ $isFarmer ? 'justify-end' : 'justify-start' }}">
+                                                                                                  <div class="max-w-[85%] rounded-2xl px-3 py-2 text-[10px] leading-relaxed {{ $isFarmer ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200/50' }}">
+                                                                                                      @if ($chat->type === 'text')
+                                                                                                          <p class="font-medium whitespace-pre-line">{{ $chat->message_text }}</p>
+                                                                                                      @else
+                                                                                                          @if ($chat->type === 'image')
+                                                                                                              <div class="space-y-1">
+                                                                                                                  @if ($chat->media_path)
+                                                                                                                      <img src="{{ asset('storage/' . $chat->media_path) }}" class="max-w-[150px] rounded-lg cursor-pointer hover:opacity-90 transition block" onclick="openLightbox('{{ asset('storage/' . $chat->media_path) }}')">
+                                                                                                                      <a href="{{ asset('storage/' . $chat->media_path) }}" target="_blank" class="block text-[8px] underline {{ $isFarmer ? 'text-emerald-200 hover:text-white' : 'text-slate-500 hover:text-slate-800' }} font-bold">View Image</a>
+                                                                                                                  @else
+                                                                                                                      <span class="italic font-bold"><i class="fa-regular fa-image mr-1 text-xs"></i> Image Attachment</span>
+                                                                                                                  @endif
+                                                                                                                  @if (!empty($chat->message_text))
+                                                                                                                      <p class="font-medium whitespace-pre-line mt-1">{{ $chat->message_text }}</p>
+                                                                                                                  @endif
+                                                                                                              </div>
+                                                                                                          @else
+                                                                                                              <div class="flex items-center gap-1.5">
+                                                                                                                  @if ($chat->type === 'video')
+                                                                                                                      <i class="fa-regular fa-circle-play text-xs"></i>
+                                                                                                                      @if ($chat->media_path)
+                                                                                                                          <a href="{{ asset('storage/' . $chat->media_path) }}" target="_blank" class="underline hover:text-emerald-200 font-bold">Play Video</a>
+                                                                                                                      @else
+                                                                                                                          <span class="italic font-bold">Video Attachment</span>
+                                                                                                                      @endif
+                                                                                                                  @elseif ($chat->type === 'voice')
+                                                                                                                      <i class="fa-solid fa-microphone text-xs"></i>
+                                                                                                                      @if ($chat->media_path)
+                                                                                                                          <a href="{{ asset('storage/' . $chat->media_path) }}" target="_blank" class="underline hover:text-emerald-200 font-bold">Listen Voice</a>
+                                                                                                                      @else
+                                                                                                                          <span class="italic font-bold">Voice Note</span>
+                                                                                                                      @endif
+                                                                                                                  @else
+                                                                                                                      <i class="fa-regular fa-file-lines text-xs"></i>
+                                                                                                                      @if ($chat->media_path)
+                                                                                                                          <a href="{{ asset('storage/' . $chat->media_path) }}" target="_blank" class="underline hover:text-emerald-200 font-bold">Download File</a>
+                                                                                                                      @else
+                                                                                                                          <span class="italic font-bold">File Attachment</span>
+                                                                                                                      @endif
+                                                                                                                  @endif
+                                                                                                              </div>
+                                                                                                          @endif
+                                                                                                      @endif
+                                                                                                      <span class="block text-[7px] text-right mt-1 {{ $isFarmer ? 'text-emerald-200' : 'text-slate-400' }} font-semibold">
+                                                                                                          {{ \Carbon\Carbon::parse($chat->sent_at)->format('M d, h:i A') }}
+                                                                                                      </span>
+                                                                                                  </div>
+                                                                                              </div>
+                                                                                          @endforeach
+                                                                                      </div>
+                                                                                  </div>
+                                                                              </div>
+                                                                          @endif
                                                                       </div>
                                                                   </div>
                                                               @elseif ($listingBids->isNotEmpty())
@@ -1249,6 +1350,81 @@
                                                                                   
                                                                                   @if ($bid->notes)
                                                                                       <p class="text-[9px] text-slate-500 italic leading-snug">"{{ $bid->notes }}"</p>
+                                                                                  @endif
+
+                                                                                  <!-- Bid Chat History Section -->
+                                                                                  @php
+                                                                                      $bidChats = $dealChats->filter(function($chat) use ($user, $bid) {
+                                                                                          return ($chat->sender_id == $user->id && $chat->receiver_id == $bid->buyer_id)
+                                                                                              || ($chat->sender_id == $bid->buyer_id && $chat->receiver_id == $user->id);
+                                                                                      });
+                                                                                  @endphp
+                                                                                  @if ($bidChats->isNotEmpty())
+                                                                                      <div class="border-t border-slate-200/50 pt-2 mt-1">
+                                                                                          <button type="button" onclick="toggleChatLogs('chat-bid-{{ $bid->id }}')" class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white border border-slate-100 hover:border-emerald-100 transition text-[9px] font-bold text-slate-600">
+                                                                                              <span class="flex items-center gap-1"><i class="fa-regular fa-comments text-emerald-600 text-[10px]"></i> Chat History ({{ count($bidChats) }})</span>
+                                                                                              <i class="fa-solid fa-chevron-down text-[7px] text-slate-400"></i>
+                                                                                          </button>
+                                                                                          
+                                                                                          <div id="chat-bid-{{ $bid->id }}" class="hidden mt-1.5 p-2 bg-white border border-slate-100 rounded-xl space-y-1.5">
+                                                                                              <div class="max-h-40 overflow-y-auto space-y-1.5 pr-0.5 tab-scroll-container">
+                                                                                                  @foreach ($bidChats as $chat)
+                                                                                                      @php
+                                                                                                          $isFarmer = $chat->sender_id == $user->id;
+                                                                                                      @endphp
+                                                                                                      <div class="flex {{ $isFarmer ? 'justify-end' : 'justify-start' }}">
+                                                                                                          <div class="max-w-[90%] rounded-xl px-2.5 py-1.5 text-[9px] leading-relaxed {{ $isFarmer ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-slate-100 text-slate-700 rounded-tl-none border border-slate-200/50' }}">
+                                                                                                              @if ($chat->type === 'text')
+                                                                                                                  <p class="font-medium whitespace-pre-line">{{ $chat->message_text }}</p>
+                                                                                                              @else
+                                                                                                                  @if ($chat->type === 'image')
+                                                                                                                      <div class="space-y-1">
+                                                                                                                          @if ($chat->media_path)
+                                                                                                                              <img src="{{ asset('storage/' . $chat->media_path) }}" class="max-w-[120px] rounded-lg cursor-pointer hover:opacity-90 transition block" onclick="openLightbox('{{ asset('storage/' . $chat->media_path) }}')">
+                                                                                                                              <a href="{{ asset('storage/' . $chat->media_path) }}" target="_blank" class="block text-[7px] underline {{ $isFarmer ? 'text-emerald-200 hover:text-white' : 'text-slate-500 hover:text-slate-800' }} font-bold">View Image</a>
+                                                                                                                          @else
+                                                                                                                              <span class="italic font-bold"><i class="fa-regular fa-image mr-1 text-[10px]"></i> Image</span>
+                                                                                                                          @endif
+                                                                                                                          @if (!empty($chat->message_text))
+                                                                                                                              <p class="font-medium whitespace-pre-line mt-1">{{ $chat->message_text }}</p>
+                                                                                                                          @endif
+                                                                                                                      </div>
+                                                                                                                  @else
+                                                                                                                      <div class="flex items-center gap-1">
+                                                                                                                          @if ($chat->type === 'video')
+                                                                                                                              <i class="fa-regular fa-circle-play text-[10px]"></i>
+                                                                                                                              @if ($chat->media_path)
+                                                                                                                                  <a href="{{ asset('storage/' . $chat->media_path) }}" target="_blank" class="underline hover:text-emerald-200 font-bold">Video</a>
+                                                                                                                              @else
+                                                                                                                                  <span class="italic font-bold">Video</span>
+                                                                                                                              @endif
+                                                                                                                          @elseif ($chat->type === 'voice')
+                                                                                                                              <i class="fa-solid fa-microphone text-[10px]"></i>
+                                                                                                                              @if ($chat->media_path)
+                                                                                                                                  <a href="{{ asset('storage/' . $chat->media_path) }}" target="_blank" class="underline hover:text-emerald-200 font-bold">Audio</a>
+                                                                                                                              @else
+                                                                                                                                  <span class="italic font-bold">Voice</span>
+                                                                                                                              @endif
+                                                                                                                          @else
+                                                                                                                              <i class="fa-regular fa-file-lines text-[10px]"></i>
+                                                                                                                              @if ($chat->media_path)
+                                                                                                                                  <a href="{{ asset('storage/' . $chat->media_path) }}" target="_blank" class="underline hover:text-emerald-200 font-bold">File</a>
+                                                                                                                              @else
+                                                                                                                                  <span class="italic font-bold">File</span>
+                                                                                                                              @endif
+                                                                                                                          @endif
+                                                                                                                      </div>
+                                                                                                                  @endif
+                                                                                                              @endif
+                                                                                                              <span class="block text-[6px] text-right mt-0.5 {{ $isFarmer ? 'text-emerald-200' : 'text-slate-400' }} font-semibold">
+                                                                                                                  {{ \Carbon\Carbon::parse($chat->sent_at)->format('M d, h:i A') }}
+                                                                                                              </span>
+                                                                                                          </div>
+                                                                                                      </div>
+                                                                                                  @endforeach
+                                                                                              </div>
+                                                                                          </div>
+                                                                                      </div>
                                                                                   @endif
                                                                                   
                                                                                   <span class="text-[8px] text-slate-400 font-semibold text-right block">Submitted {{ \Carbon\Carbon::parse($bid->created_at)->format('M d, Y h:i A') }}</span>
@@ -1514,7 +1690,7 @@
                                                         </div>
                                                         
                                                         <p class="text-xs text-slate-600 font-medium leading-relaxed bg-[#FAFBFD] p-3 rounded-xl border border-slate-100/50">
-                                                            {{ $rev->comment ?? $rev->feedback_comment ?? 'No written comment left by reviewer.' }}
+                                                            {{ $rev->feedback ?? $rev->comment ?? $rev->feedback_comment ?? 'No written comment left by reviewer.' }}
                                                         </p>
                                                     </div>
                                                 @endforeach
@@ -1817,6 +1993,14 @@
                         document.getElementById('listing-status-form-' + listingId).submit();
                     }
                 });
+            }
+        }
+
+        // Toggler helper for collapsible chat threads
+        function toggleChatLogs(containerId) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.classList.toggle('hidden');
             }
         }
     </script>

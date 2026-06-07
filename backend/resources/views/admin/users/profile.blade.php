@@ -361,7 +361,7 @@
                             <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
                                 <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Wallet Funds</span>
                                 <strong class="mt-2 block text-lg font-black text-slate-900">
-                                    LKR {{ number_format($wallet->balance ?? 0.00, 2) }}
+                                    LKR {{ number_format($wallet->available_balance ?? 0.00, 2) }}
                                 </strong>
                             </div>
                             <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
@@ -1508,20 +1508,42 @@
 
                                  <!-- PANEL 2: Wallet & Finance -->
                                  <div id="tab-wallet" class="tab-content hidden animate-fade-in space-y-6">
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div class="border border-slate-100 bg-[#FAFBFD] p-5 rounded-2xl shadow-sm">
-                                            <span class="text-[10px] font-black uppercase text-slate-400 block">Available Balance</span>
-                                            <strong class="mt-3 block text-2xl font-black text-slate-900 font-poppins">LKR {{ number_format($wallet->balance ?? 0.00, 2) }}</strong>
-                                        </div>
-                                        <div class="border border-slate-100 bg-[#FAFBFD] p-5 rounded-2xl shadow-sm">
-                                            <span class="text-[10px] font-black uppercase text-slate-400 block font-poppins">Pending Clearances</span>
-                                            <strong class="mt-3 block text-2xl font-black text-slate-600 font-poppins">LKR {{ number_format($wallet->pending_balance ?? 0.00, 2) }}</strong>
-                                        </div>
-                                        <div class="border border-slate-100 bg-[#FAFBFD] p-5 rounded-2xl shadow-sm">
-                                            <span class="text-[10px] font-black uppercase text-slate-400 block font-poppins">Wallet Security Status</span>
-                                            <span class="inline-flex mt-3 items-center rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider {{ ($wallet->is_active ?? true) ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100' }}">
-                                                {{ ($wallet->is_active ?? true) ? 'ACTIVE / SECURED' : 'LOCKED / SUSPENDED' }}
+
+                                    @php
+                                        $pendingWithdrawCount = $withdrawRequests->where('status', 'pending')->count();
+                                    @endphp
+
+                                    {{-- Pending Withdraw Alert Banner --}}
+                                    @if ($pendingWithdrawCount > 0)
+                                        <a href="{{ route('admin.withdrawals') }}" class="flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:border-amber-300 transition group">
+                                            <span class="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-amber-200/60 text-amber-700">
+                                                <i class="fa-solid fa-clock-rotate-left text-sm"></i>
                                             </span>
+                                            <div class="flex-1">
+                                                <span class="text-xs font-extrabold block">{{ $pendingWithdrawCount }} Pending Withdrawal {{ Str::plural('Request', $pendingWithdrawCount) }}</span>
+                                                <span class="text-[10px] font-medium opacity-80">Click to manage all withdrawal requests in the Withdrawals panel.</span>
+                                            </div>
+                                            <i class="fa-solid fa-arrow-right text-sm group-hover:translate-x-1 transition-transform"></i>
+                                        </a>
+                                    @endif
+
+                                    {{-- Wallet Summary Cards --}}
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div class="border border-slate-100 bg-[#FAFBFD] p-5 rounded-2xl shadow-sm">
+                                            <span class="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Available Balance</span>
+                                            <strong class="mt-3 block text-xl font-black text-emerald-700 font-poppins">LKR {{ number_format($wallet->available_balance ?? 0.00, 2) }}</strong>
+                                        </div>
+                                        <div class="border border-slate-100 bg-[#FAFBFD] p-5 rounded-2xl shadow-sm">
+                                            <span class="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Pending Clearance</span>
+                                            <strong class="mt-3 block text-xl font-black text-amber-600 font-poppins">LKR {{ number_format($wallet->pending_balance ?? 0.00, 2) }}</strong>
+                                        </div>
+                                        <div class="border border-slate-100 bg-[#FAFBFD] p-5 rounded-2xl shadow-sm">
+                                            <span class="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Total Earned</span>
+                                            <strong class="mt-3 block text-xl font-black text-slate-800 font-poppins">LKR {{ number_format($wallet->total_earned ?? 0.00, 2) }}</strong>
+                                        </div>
+                                        <div class="border border-slate-100 bg-[#FAFBFD] p-5 rounded-2xl shadow-sm">
+                                            <span class="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Total Withdrawn</span>
+                                            <strong class="mt-3 block text-xl font-black text-rose-600 font-poppins">LKR {{ number_format($wallet->total_withdrawn ?? 0.00, 2) }}</strong>
                                         </div>
                                     </div>
 
@@ -1535,6 +1557,7 @@
                                                         <th class="px-4 py-3">Txn Details</th>
                                                         <th class="px-4 py-3">Type</th>
                                                         <th class="px-4 py-3">Amount</th>
+                                                        <th class="px-4 py-3">Balance After</th>
                                                         <th class="px-4 py-3">Reference / Note</th>
                                                         <th class="px-4 py-3">Timestamp</th>
                                                     </tr>
@@ -1565,6 +1588,9 @@
                                                             <td class="px-4 py-3 font-extrabold {{ $txnColor }}">
                                                                 {{ $txnSign }} LKR {{ number_format($txn->amount, 2) }}
                                                             </td>
+                                                            <td class="px-4 py-3 text-slate-500">
+                                                                LKR {{ number_format($txn->balance_after ?? 0.00, 2) }}
+                                                            </td>
                                                             <td class="px-4 py-3 max-w-xs truncate" title="{{ $txn->description }}">
                                                                 {{ $txn->description }}
                                                             </td>
@@ -1574,7 +1600,7 @@
                                                         </tr>
                                                     @empty
                                                         <tr>
-                                                            <td colspan="5" class="px-4 py-8 text-center text-slate-400 font-bold">
+                                                            <td colspan="6" class="px-4 py-8 text-center text-slate-400 font-bold">
                                                                 <i class="fa-solid fa-piggy-bank text-xl block mb-2 text-slate-300"></i> No Wallet Transactions Registered
                                                             </td>
                                                         </tr>
@@ -1583,7 +1609,93 @@
                                             </table>
                                         </div>
                                     </div>
-                                </div>
+                                    <!-- Withdraw Requests Table -->
+                                    <div class="space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                                                <i class="fa-solid fa-money-bill-transfer text-emerald-600"></i> Withdrawal Requests
+                                            </h4>
+                                            <a href="{{ route('admin.withdrawals') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 text-emerald-700 text-[10px] font-extrabold transition">
+                                                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> Manage Withdrawals
+                                            </a>
+                                        </div>
+                                        @if ($withdrawRequests->isNotEmpty())
+                                            <div class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                                                <table class="min-w-full divide-y divide-slate-100 text-xs text-left">
+                                                    <thead class="bg-slate-50 font-extrabold uppercase text-slate-400 text-[10px]">
+                                                        <tr>
+                                                            <th class="px-4 py-3">Request ID</th>
+                                                            <th class="px-4 py-3">Amount</th>
+                                                            <th class="px-4 py-3">Bank Details</th>
+                                                            <th class="px-4 py-3">Status</th>
+                                                            <th class="px-4 py-3">Ref / Note</th>
+                                                            <th class="px-4 py-3">Requested</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-slate-100 font-semibold text-slate-700">
+                                                        @foreach ($withdrawRequests as $wr)
+                                                            @php
+                                                                $wrStatusColors = [
+                                                                    'pending'    => 'bg-amber-50 text-amber-700 border-amber-100',
+                                                                    'approved'   => 'bg-blue-50 text-blue-700 border-blue-100',
+                                                                    'processing' => 'bg-indigo-50 text-indigo-700 border-indigo-100',
+                                                                    'paid'       => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                                                                    'rejected'   => 'bg-rose-50 text-rose-700 border-rose-100',
+                                                                    'cancelled'  => 'bg-slate-100 text-slate-500 border-slate-200',
+                                                                ];
+                                                                $wrBadge = $wrStatusColors[$wr->status] ?? 'bg-slate-50 text-slate-500 border-slate-200';
+                                                            @endphp
+                                                            <tr class="hover:bg-slate-50/50 {{ $wr->status === 'pending' ? 'bg-amber-50/20' : '' }}">
+                                                                <td class="px-4 py-3 font-extrabold text-slate-900">
+                                                                    #WR-{{ str_pad($wr->id, 4, '0', STR_PAD_LEFT) }}
+                                                                </td>
+                                                                <td class="px-4 py-3 font-extrabold text-rose-600">
+                                                                    LKR {{ number_format($wr->request_amount, 2) }}
+                                                                </td>
+                                                                <td class="px-4 py-3">
+                                                                    <div class="text-[10px] font-bold text-slate-800">{{ $wr->bank_name }}</div>
+                                                                    <div class="text-[10px] text-slate-500 font-medium">{{ $wr->bank_branch }} &bull; Acc: {{ $wr->bank_account_number }}</div>
+                                                                    <div class="text-[10px] text-slate-400 font-medium">{{ $wr->bank_account_holder_name }}</div>
+                                                                </td>
+                                                                <td class="px-4 py-3">
+                                                                    <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider {{ $wrBadge }}">
+                                                                        {{ $wr->status }}
+                                                                    </span>
+                                                                    @if ($wr->status === 'pending')
+                                                                        <a href="{{ route('admin.withdrawals') }}" class="mt-1 flex items-center gap-0.5 text-[9px] text-amber-600 font-extrabold hover:underline">
+                                                                            <i class="fa-solid fa-arrow-up-right-from-square text-[7px]"></i> Review
+                                                                        </a>
+                                                                    @endif
+                                                                </td>
+                                                                <td class="px-4 py-3 max-w-xs truncate text-slate-500">
+                                                                    @if ($wr->transaction_reference)
+                                                                        <span class="font-bold text-slate-800">Ref: {{ $wr->transaction_reference }}</span><br>
+                                                                    @endif
+                                                                    @if ($wr->admin_note)
+                                                                        <span class="italic text-slate-400">{{ $wr->admin_note }}</span>
+                                                                    @endif
+                                                                    @if ($wr->rejection_reason)
+                                                                        <span class="text-rose-600 font-semibold">{{ $wr->rejection_reason }}</span>
+                                                                    @endif
+                                                                </td>
+                                                                <td class="px-4 py-3 text-slate-400 font-medium">
+                                                                    {{ date('Y-m-d H:i', strtotime($wr->created_at)) }}
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @else
+                                            <div class="border border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400">
+                                                <i class="fa-solid fa-money-bill-transfer text-2xl block mb-2 text-slate-300"></i>
+                                                <p class="text-xs font-bold">No Withdrawal Requests Found</p>
+                                                <p class="text-[11px] mt-1">This user has not submitted any withdrawal requests yet.</p>
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                 </div>
 
                                 <!-- PANEL 3: Marketplace Listings -->
                                 <div id="tab-marketplace" class="tab-content hidden animate-fade-in space-y-4">

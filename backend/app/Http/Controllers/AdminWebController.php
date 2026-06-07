@@ -553,6 +553,12 @@ class AdminWebController extends Controller
             ->limit(50)
             ->get();
 
+        // 2b. Fetch Withdraw Requests for this user
+        $withdrawRequests = DB::table('withdraw_requests')
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get();
+
         // 3. Fetch Reviews & Ratings & Listed Items
         $reviews = collect();
         $averageRating = 0;
@@ -696,6 +702,7 @@ class AdminWebController extends Controller
             'deliveryPartnerData' => $deliveryPartnerData,
             'wallet' => $wallet,
             'transactions' => $transactions,
+            'withdrawRequests' => $withdrawRequests,
             'reviews' => $reviews,
             'averageRating' => $averageRating,
             'listings' => $listings,

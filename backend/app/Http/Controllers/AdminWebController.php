@@ -557,6 +557,9 @@ class AdminWebController extends Controller
         $reviews = collect();
         $averageRating = 0;
         $listings = collect();
+        $bids = collect();
+        $confirmedBids = collect();
+        $payments = collect();
 
         if (in_array('farmer', $roles, true)) {
             $reviews = DB::table('buyer_farmer_reviews')
@@ -573,6 +576,32 @@ class AdminWebController extends Controller
                 ->select('harvest_listings.*', 'crops.cropname as crop_name')
                 ->orderByDesc('harvest_listings.created_at')
                 ->get();
+
+            $listingIds = $listings->pluck('id');
+            if ($listingIds->isNotEmpty()) {
+                $bids = DB::table('harvest_bids')
+                    ->join('users', 'harvest_bids.buyer_id', '=', 'users.id')
+                    ->whereIn('harvest_bids.harvest_listing_id', $listingIds)
+                    ->select('harvest_bids.*', 'users.full_name as buyer_name', 'users.phone_number as buyer_phone')
+                    ->orderByDesc('harvest_bids.created_at')
+                    ->get()
+                    ->groupBy('harvest_listing_id');
+
+                $confirmedBids = DB::table('confirmed_bids')
+                    ->join('users', 'confirmed_bids.buyer_id', '=', 'users.id')
+                    ->whereIn('confirmed_bids.harvest_listing_id', $listingIds)
+                    ->select('confirmed_bids.*', 'users.full_name as buyer_name', 'users.phone_number as buyer_phone')
+                    ->get()
+                    ->keyBy('harvest_listing_id');
+
+                $confirmedBidIds = $confirmedBids->pluck('id');
+                if ($confirmedBidIds->isNotEmpty()) {
+                    $payments = DB::table('confirmed_bids_payments')
+                        ->whereIn('confirmed_bid_id', $confirmedBidIds)
+                        ->get()
+                        ->keyBy('confirmed_bid_id');
+                }
+            }
         } elseif (in_array('retail_seller', $roles, true)) {
             $reviews = DB::table('retailer_customer_delivery_partner_reviews')
                 ->where('reviewed_to', $user->id)
@@ -638,6 +667,9 @@ class AdminWebController extends Controller
             'reviews' => $reviews,
             'averageRating' => $averageRating,
             'listings' => $listings,
+            'bids' => $bids,
+            'confirmedBids' => $confirmedBids,
+            'payments' => $payments,
             'history' => $history,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
@@ -991,7 +1023,17 @@ class AdminWebController extends Controller
             'reject_reason' => 'required_if:status,rejected|nullable|string|min:4|max:500',
         ]);
 
+        $listing = DB::table('harvest_listings')->where('id', $id)->first();
+        if (!$listing) {
+            abort(404);
+        }
+
         $status = $request->input('status');
+
+        if ($status === 'active' && $listing->status === 'sold_out') {
+            return back()->withErrors(['error' => 'Cannot activate a sold-out harvest listing.']);
+        }
+
         $rejectReason = $status === 'rejected' ? $request->input('reject_reason') : null;
 
         DB::table('harvest_listings')

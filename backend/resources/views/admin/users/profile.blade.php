@@ -1136,6 +1136,136 @@
                                                                  </div>
                                                              @endif
 
+                                                              <!-- Bids, Confirmed Deals & Payments Section -->
+                                                              @php
+                                                                  $confirmedBid = $confirmedBids->get($item->id);
+                                                                  $listingBids = $bids->get($item->id) ?: collect();
+                                                              @endphp
+                                                              @if ($confirmedBid)
+                                                                  <div class="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                                                                      <span class="text-[9px] font-black uppercase text-slate-400 block tracking-wider"><i class="fa-solid fa-handshake mr-1 text-emerald-600"></i> Confirmed Purchase Deal</span>
+                                                                      
+                                                                      <div class="p-4 bg-emerald-50/20 border border-emerald-100 rounded-2xl space-y-3">
+                                                                          <!-- Deal Info -->
+                                                                          <div class="flex justify-between items-start">
+                                                                              <div>
+                                                                                  <strong class="text-xs font-black text-slate-900 block font-poppins">Buyer: {{ $confirmedBid->buyer_name }}</strong>
+                                                                                  <span class="text-[10px] text-slate-500 font-bold block mt-0.5"><i class="fa-solid fa-phone text-[8px] mr-1 text-slate-400"></i> {{ $confirmedBid->buyer_phone }}</span>
+                                                                              </div>
+                                                                              <div class="text-right">
+                                                                                  <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider {{ $confirmedBid->payment_status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100' }}">
+                                                                                      Deal status: {{ $confirmedBid->payment_status === 'paid' ? 'Paid' : 'Unpaid' }}
+                                                                                  </span>
+                                                                                  <strong class="text-xs text-slate-950 font-black block mt-1">Total: LKR {{ number_format($confirmedBid->total_amount, 2) }}</strong>
+                                                                              </div>
+                                                                          </div>
+                                                                          
+                                                                          @if ($confirmedBid->notes)
+                                                                              <div class="p-2.5 bg-white/60 rounded-xl text-[10px] text-slate-600 italic border border-slate-100">
+                                                                                  <strong>Deal Notes:</strong> "{{ $confirmedBid->notes }}"
+                                                                              </div>
+                                                                          @endif
+                                                                          
+                                                                          <!-- Payment details if exists -->
+                                                                          @php
+                                                                              $payment = $payments->get($confirmedBid->id);
+                                                                          @endphp
+                                                                          @if ($payment)
+                                                                              <div class="border-t border-emerald-100/60 pt-3 mt-2 space-y-2.5 text-[11px] font-semibold text-slate-700">
+                                                                                  <span class="text-[8px] font-black uppercase text-slate-400 block tracking-wider"><i class="fa-solid fa-credit-card mr-1 text-emerald-600"></i> Payment Transaction Ledger</span>
+                                                                                  
+                                                                                  <div class="grid grid-cols-2 gap-2 text-xs">
+                                                                                      <div class="p-2.5 bg-white border border-slate-100 rounded-xl">
+                                                                                          <span class="text-[8px] font-black uppercase text-slate-400 block mb-0.5">Payout Calculation</span>
+                                                                                          <div class="space-y-1 mt-1 font-bold">
+                                                                                              <div class="flex justify-between text-[10px]">
+                                                                                                  <span class="text-slate-500">Gross Paid</span>
+                                                                                                  <span class="text-slate-900">LKR {{ number_format($payment->total_amount, 2) }}</span>
+                                                                                              </div>
+                                                                                              <div class="flex justify-between text-[10px] text-rose-600">
+                                                                                                  <span>Commission (5%)</span>
+                                                                                                  <span>- LKR {{ number_format($payment->system_commission, 2) }}</span>
+                                                                                              </div>
+                                                                                              <div class="flex justify-between text-[10px] text-emerald-700 font-extrabold border-t border-slate-100 pt-1 mt-1 font-black">
+                                                                                                  <span>Farmer Payout</span>
+                                                                                                  <span>LKR {{ number_format($payment->farmer_amount, 2) }}</span>
+                                                                                              </div>
+                                                                                          </div>
+                                                                                      </div>
+                                                                                      
+                                                                                      <div class="p-2.5 bg-white border border-slate-100 rounded-xl flex flex-col justify-between">
+                                                                                          <div>
+                                                                                              <span class="text-[8px] font-black uppercase text-slate-400 block mb-0.5">Transaction Ref</span>
+                                                                                              <strong class="text-slate-950 font-black text-[10px] block truncate select-all mt-0.5" title="{{ $payment->payment_id }}">{{ $payment->payment_id ?? 'N/A' }}</strong>
+                                                                                          </div>
+                                                                                          <div class="border-t border-slate-100 pt-1.5 mt-1.5">
+                                                                                              <span class="text-[8px] font-black uppercase text-slate-400 block">Settled On</span>
+                                                                                              <span class="text-slate-600 text-[10px] block mt-0.5 font-bold">{{ \Carbon\Carbon::parse($payment->date_and_time)->format('M d, Y h:i A') }}</span>
+                                                                                          </div>
+                                                                                      </div>
+                                                                                  </div>
+                                                                              </div>
+                                                                          @else
+                                                                              <div class="p-3 bg-amber-500/5 border border-amber-200/50 rounded-xl text-[10px] text-amber-800 font-semibold flex items-center gap-1.5 leading-relaxed">
+                                                                                  <i class="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-amber-600"></i>
+                                                                                  <span>Waiting for the buyer to complete checkout payment on the app.</span>
+                                                                              </div>
+                                                                          @endif
+                                                                      </div>
+                                                                  </div>
+                                                              @elseif ($listingBids->isNotEmpty())
+                                                                  <div class="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                                                                      <span class="text-[9px] font-black uppercase text-slate-400 block tracking-wider"><i class="fa-solid fa-gavel mr-1 text-slate-500"></i> Active Bids & Offers ({{ count($listingBids) }})</span>
+                                                                      
+                                                                      <div class="max-h-56 overflow-y-auto space-y-2.5 pr-1 tab-scroll-container">
+                                                                          @foreach ($listingBids as $bid)
+                                                                              <div class="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col justify-between gap-2">
+                                                                                  <div class="flex justify-between items-start">
+                                                                                      <div>
+                                                                                          <strong class="text-[11px] font-black text-slate-800 block font-poppins">{{ $bid->buyer_name }}</strong>
+                                                                                          <span class="text-[9px] text-slate-400 font-semibold block mt-0.5"><i class="fa-solid fa-phone text-[7px] mr-1"></i> {{ $bid->buyer_phone }}</span>
+                                                                                      </div>
+                                                                                      <div class="text-right">
+                                                                                          @php
+                                                                                              $bidStatusColors = [
+                                                                                                  'pending' => 'bg-amber-50 text-amber-700 border-amber-100',
+                                                                                                  'accepted' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                                                                                                  'rejected' => 'bg-rose-50 text-rose-700 border-rose-100',
+                                                                                                  'expired' => 'bg-slate-100 text-slate-500 border-slate-200'
+                                                                                              ];
+                                                                                              $bidBadgeClass = $bidStatusColors[$bid->status] ?? 'bg-slate-50 text-slate-500 border-slate-150';
+                                                                                          @endphp
+                                                                                          <span class="px-2 py-0.5 rounded-full border text-[7px] font-black uppercase tracking-widest {{ $bidBadgeClass }}">
+                                                                                              {{ $bid->status }}
+                                                                                          </span>
+                                                                                          <strong class="text-[11px] text-emerald-700 font-black block mt-1">LKR {{ number_format($bid->bid_amount_per_unit, 2) }} / {{ $item->unit }}</strong>
+                                                                                      </div>
+                                                                                  </div>
+                                                                                  
+                                                                                  <div class="flex justify-between items-center text-[9px] font-bold text-slate-600 bg-white border border-slate-100/50 px-2 py-1 rounded-lg">
+                                                                                      <span>Bid Qty: {{ number_format($bid->bid_quantity_unit, 2) }} {{ $item->unit }}</span>
+                                                                                      <span class="text-slate-900">Value: LKR {{ number_format($bid->bid_amount_per_unit * $bid->bid_quantity_unit, 2) }}</span>
+                                                                                  </div>
+                                                                                  
+                                                                                  @if ($bid->notes)
+                                                                                      <p class="text-[9px] text-slate-500 italic leading-snug">"{{ $bid->notes }}"</p>
+                                                                                  @endif
+                                                                                  
+                                                                                  <span class="text-[8px] text-slate-400 font-semibold text-right block">Submitted {{ \Carbon\Carbon::parse($bid->created_at)->format('M d, Y h:i A') }}</span>
+                                                                              </div>
+                                                                          @endforeach
+                                                                      </div>
+                                                                  </div>
+                                                              @else
+                                                                  <div class="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                                                                      <span class="text-[9px] font-black uppercase text-slate-400 block tracking-wider"><i class="fa-solid fa-gavel mr-1 text-slate-300"></i> Bids & Purchase Deals</span>
+                                                                      <div class="p-3.5 bg-slate-50/50 border border-dashed border-slate-200 rounded-2xl text-center text-slate-400 py-4">
+                                                                          <i class="fa-solid fa-box-open text-base text-slate-300"></i>
+                                                                          <p class="text-[10px] font-bold mt-1">No active bids or purchase deals for this listing yet</p>
+                                                                      </div>
+                                                                  </div>
+                                                              @endif
+
                                                              <!-- Gallery Grid -->
                                                              @php
                                                                  $images = array_filter([$item->image_1, $item->image_2, $item->image_3, $item->image_4]);
@@ -1162,7 +1292,7 @@
 
                                                          <!-- Action Buttons Footer -->
                                                          <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap gap-3 justify-end">
-                                                             @if ($item->status !== 'active')
+                                                             @if ($item->status !== 'active' && $item->status !== 'sold_out')
                                                                  <button type="button" onclick="updateListingStatus({{ $item->id }}, 'active')" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 text-emerald-700 text-xs font-extrabold transition shadow-sm">
                                                                      <i class="fa-solid fa-circle-check text-sm"></i> Activate
                                                                  </button>

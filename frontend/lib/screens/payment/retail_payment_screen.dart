@@ -314,7 +314,7 @@ class _RetailPaymentScreenState extends State<RetailPaymentScreen> {
 
       // Hardcoded sandbox credentials
       const String merchantId = '1236086';
-      const String merchantSecret = 'MjcwOTkzNTQ3Njk2NTU0MTIwNjQ4OTgwMzA0NjI4NDI0NzE4Njk=';
+      const String merchantSecret = 'MzYxNDQ1ODY3MjM2NTc4MDk3MDkyNDIyMDI0MTE5MzA0NTMxNjQxOQ==';
       const String currency = 'LKR';
 
       final String orderId = backendParams['order_id'] ?? 'RETAIL-${widget.orderId}-${DateTime.now().millisecondsSinceEpoch}';
@@ -323,13 +323,13 @@ class _RetailPaymentScreenState extends State<RetailPaymentScreen> {
 
       final Map<String, dynamic> paymentObject = {
         "sandbox": true,
-        "merchant_id": merchantId,
-        "merchant_secret": merchantSecret,
+        "merchant_id": backendParams['merchant_id'] ?? merchantId,
+        "hash": backendParams['hash'],   // Secure backend-generated hash
         "notify_url": backendParams['notify_url'] ?? '',
-        "order_id": orderId,
+        "order_id": backendParams['order_id'] ?? orderId,
         "items": backendParams['items'] ?? 'Retail Order',
-        "amount": amountStr,
-        "currency": currency,
+        "amount": backendParams['amount'] ?? amountStr,
+        "currency": backendParams['currency'] ?? currency,
         "first_name": backendParams['first_name'] ?? 'Customer',
         "last_name": backendParams['last_name'] ?? 'Aswenna',
         "email": backendParams['email'] ?? 'customer@aswenna.lk',
@@ -360,6 +360,13 @@ class _RetailPaymentScreenState extends State<RetailPaymentScreen> {
           }
         },
         (error) {
+          debugPrint("One Time Payment Failed. Error: $error");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('One Time Payment Failed. Error: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
           _handlePaymentCallback(false);
         },
         () {

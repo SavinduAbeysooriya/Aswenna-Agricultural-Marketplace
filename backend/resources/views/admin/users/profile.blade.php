@@ -1550,7 +1550,7 @@
                                     <!-- Transactions Ledger Table -->
                                     <div class="space-y-3">
                                         <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-file-invoice-dollar text-emerald-600"></i> Financial Transaction Ledger</h4>
-                                        <div class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                                        <div class="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">
                                             <table class="min-w-full divide-y divide-slate-100 text-xs text-left">
                                                 <thead class="bg-slate-50 font-extrabold uppercase text-slate-400">
                                                     <tr>
@@ -1591,8 +1591,13 @@
                                                             <td class="px-4 py-3 text-slate-500">
                                                                 LKR {{ number_format($txn->balance_after ?? 0.00, 2) }}
                                                             </td>
-                                                            <td class="px-4 py-3 max-w-xs truncate" title="{{ $txn->description }}">
-                                                                {{ $txn->description }}
+                                                            <td class="px-4 py-3 max-w-xs">
+                                                                @if(strlen($txn->description) > 35)
+                                                                    <span>{{ substr($txn->description, 0, 35) }}</span>
+                                                                    <button type="button" onclick="showTextPopup('Transaction Detail', '{{ addslashes($txn->description) }}')" class="text-emerald-600 hover:text-emerald-700 font-extrabold focus:outline-none cursor-pointer ml-0.5" title="Click to see more">...</button>
+                                                                @else
+                                                                    {{ $txn->description }}
+                                                                @endif
                                                             </td>
                                                             <td class="px-4 py-3 text-slate-400 font-medium">
                                                                 {{ date('Y-m-d H:i', strtotime($txn->created_at)) }}
@@ -1620,7 +1625,7 @@
                                             </a>
                                         </div>
                                         @if ($withdrawRequests->isNotEmpty())
-                                            <div class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                                            <div class="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">
                                                 <table class="min-w-full divide-y divide-slate-100 text-xs text-left">
                                                     <thead class="bg-slate-50 font-extrabold uppercase text-slate-400 text-[10px]">
                                                         <tr>
@@ -1820,7 +1825,7 @@
                                     <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-clock-history text-emerald-600"></i> Platform Activity Logs & Orders</h4>
                                     
                                     @if (count($history) > 0)
-                                        <div class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white">
+                                        <div class="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm bg-white">
                                             <table class="min-w-full divide-y divide-slate-100 text-xs text-left">
                                                 <thead class="bg-slate-50 font-extrabold uppercase text-slate-400">
                                                     <tr>
@@ -2114,6 +2119,20 @@
             if (container) {
                 container.classList.toggle('hidden');
             }
+        }
+
+        // Show text details popup
+        function showTextPopup(title, text) {
+            Swal.fire({
+                title: title,
+                html: `<div class="text-left text-xs text-slate-700 leading-relaxed font-semibold p-3.5 bg-slate-50 border border-slate-100 rounded-2xl max-h-60 overflow-y-auto">${text}</div>`,
+                showConfirmButton: true,
+                confirmButtonColor: '#16a34a',
+                confirmButtonText: 'Close',
+                customClass: {
+                    popup: 'rounded-3xl shadow-2xl border border-slate-100'
+                }
+            });
         }
     </script>
 

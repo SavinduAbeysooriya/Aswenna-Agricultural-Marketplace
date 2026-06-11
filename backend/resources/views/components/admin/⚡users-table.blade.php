@@ -1249,7 +1249,7 @@ new class extends Component
                             <!-- Transactions List -->
                             <div class="md:col-span-2 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
                                 <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block"><i class="fa-solid fa-list-ol mr-1.5 text-slate-400"></i>Recent Transaction Ledger</span>
-                                <div class="overflow-hidden border border-slate-100 rounded-xl">
+                                <div class="overflow-x-auto border border-slate-100 rounded-xl">
                                     <table class="min-w-full divide-y divide-slate-100 text-xs">
                                         <thead class="bg-slate-50">
                                             <tr>
@@ -1333,7 +1333,7 @@ new class extends Component
                                     <i class="fa-solid fa-boxes-stacked mr-1.5 text-slate-400"></i>
                                     {{ $role === 'farmer' ? 'Active Harvest Yields' : 'Retail Catalog Products' }}
                                 </span>
-                                <div class="overflow-hidden border border-slate-100 rounded-xl">
+                                <div class="overflow-x-auto border border-slate-100 rounded-xl">
                                     <table class="min-w-full divide-y divide-slate-100 text-xs">
                                         <thead class="bg-slate-50">
                                             <tr>
@@ -1418,7 +1418,7 @@ new class extends Component
                     @if ($activeTab === 'history')
                         <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
                             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block"><i class="fa-solid fa-history mr-1.5 text-slate-400"></i>Consolidated Operational Activity History</span>
-                            <div class="overflow-hidden border border-slate-100 rounded-xl">
+                            <div class="overflow-x-auto border border-slate-100 rounded-xl">
                                 <table class="min-w-full divide-y divide-slate-100 text-xs">
                                     <thead class="bg-slate-50">
                                         <tr>

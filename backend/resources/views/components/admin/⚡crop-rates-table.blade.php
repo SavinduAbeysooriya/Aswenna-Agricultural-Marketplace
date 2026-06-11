@@ -14,11 +14,18 @@ new class extends Component
 
     public string $activeTab = 'today'; // 'today' or 'history'
     
-    // History filters
+    // Today's filters & sorting
+    public string $searchCropToday = '';
+    public string $filterSubmissionStatus = 'all'; // 'all', 'has_submissions', 'no_submissions'
+    public string $sortCropsToday = 'name_asc'; // 'name_asc', 'name_desc', 'submissions_desc', 'price_a_desc', 'price_b_desc', 'price_c_desc'
+
+    // History filters & sorting
     public string $filterCrop = 'all';
     public string $filterBuyer = 'all';
     public string $filterStartDate = '';
     public string $filterEndDate = '';
+    public string $searchHistory = '';
+    public string $sortHistory = 'date_desc'; // 'date_desc', 'date_asc', 'rate_a_desc', 'rate_a_asc', 'rate_b_desc', 'rate_c_desc'
     
     public int $perPage = 10;
     public string $pageInput = '1';
@@ -28,6 +35,11 @@ new class extends Component
 
     protected array $queryString = [
         'activeTab' => ['except' => 'today'],
+        'searchCropToday' => ['except' => ''],
+        'filterSubmissionStatus' => ['except' => 'all'],
+        'sortCropsToday' => ['except' => 'name_asc'],
+        'searchHistory' => ['except' => ''],
+        'sortHistory' => ['except' => 'date_desc'],
         'filterCrop' => ['except' => 'all'],
         'filterBuyer' => ['except' => 'all'],
         'filterStartDate' => ['except' => ''],
@@ -37,6 +49,36 @@ new class extends Component
     ];
 
     public function updatedActiveTab(): void
+    {
+        $this->resetPage();
+        $this->pageInput = '1';
+    }
+
+    public function updatedSearchCropToday(): void
+    {
+        $this->resetPage();
+        $this->pageInput = '1';
+    }
+
+    public function updatedFilterSubmissionStatus(): void
+    {
+        $this->resetPage();
+        $this->pageInput = '1';
+    }
+
+    public function updatedSortCropsToday(): void
+    {
+        $this->resetPage();
+        $this->pageInput = '1';
+    }
+
+    public function updatedSearchHistory(): void
+    {
+        $this->resetPage();
+        $this->pageInput = '1';
+    }
+
+    public function updatedSortHistory(): void
     {
         $this->resetPage();
         $this->pageInput = '1';
@@ -100,13 +142,44 @@ new class extends Component
 
     private function getFilteredHistoryQuery()
     {
-        return CropRate::query()
+        $query = CropRate::query()
             ->with(['buyer', 'crop'])
             ->when($this->filterCrop !== 'all', fn ($query) => $query->where('crop_id', $this->filterCrop))
             ->when($this->filterBuyer !== 'all', fn ($query) => $query->where('buyer_id', $this->filterBuyer))
             ->when($this->filterStartDate !== '', fn ($query) => $query->whereDate('date_and_time', '>=', $this->filterStartDate))
-            ->when($this->filterEndDate !== '', fn ($query) => $query->whereDate('date_and_time', '<=', $this->filterEndDate))
-            ->orderByDesc('date_and_time');
+            ->when($this->filterEndDate !== '', fn ($query) => $query->whereDate('date_and_time', '<=', $this->filterEndDate));
+
+        if (!empty($this->searchHistory)) {
+            $search = '%' . $this->searchHistory . '%';
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('crop', fn ($qc) => $qc->where('cropname', 'like', $search))
+                  ->orWhereHas('buyer', fn ($qb) => $qb->where('full_name', 'like', $search)->orWhere('email', 'like', $search));
+            });
+        }
+
+        switch ($this->sortHistory) {
+            case 'date_asc':
+                $query->orderBy('date_and_time', 'asc');
+                break;
+            case 'rate_a_desc':
+                $query->orderByDesc('rate_per_kg_grade_a');
+                break;
+            case 'rate_a_asc':
+                $query->orderBy('rate_per_kg_grade_a', 'asc');
+                break;
+            case 'rate_b_desc':
+                $query->orderByDesc('rate_per_kg_grade_b');
+                break;
+            case 'rate_c_desc':
+                $query->orderByDesc('rate_per_kg_grade_c');
+                break;
+            case 'date_desc':
+            default:
+                $query->orderByDesc('date_and_time');
+                break;
+        }
+
+        return $query;
     }
 
     private function paginationItems(int $currentPage, int $lastPage): array
@@ -141,7 +214,7 @@ new class extends Component
         $today = Carbon::today()->toDateString();
 
         // 1. Fetch Today's Averages per Crop
-        $todayRatesSummary = DB::table('crops')
+        $todayRatesQuery = DB::table('crops')
             ->where('crops.status', 'approved')
             ->leftJoin('crop_rates', function ($join) use ($today) {
                 $join->on('crops.id', '=', 'crop_rates.crop_id')
@@ -156,9 +229,41 @@ new class extends Component
                 DB::raw('ROUND(AVG(crop_rates.rate_per_kg_grade_c), 2) as avg_rate_grade_c'),
                 DB::raw('COUNT(crop_rates.id) as total_submissions')
             )
-            ->groupBy('crops.id', 'crops.cropname', 'crops.image_path')
-            ->orderBy('crops.cropname')
-            ->get();
+            ->groupBy('crops.id', 'crops.cropname', 'crops.image_path');
+
+        if (!empty($this->searchCropToday)) {
+            $todayRatesQuery->where('crops.cropname', 'like', '%' . $this->searchCropToday . '%');
+        }
+
+        if ($this->filterSubmissionStatus === 'has_submissions') {
+            $todayRatesQuery->havingRaw('COUNT(crop_rates.id) > 0');
+        } elseif ($this->filterSubmissionStatus === 'no_submissions') {
+            $todayRatesQuery->havingRaw('COUNT(crop_rates.id) = 0');
+        }
+
+        switch ($this->sortCropsToday) {
+            case 'name_desc':
+                $todayRatesQuery->orderBy('crops.cropname', 'desc');
+                break;
+            case 'submissions_desc':
+                $todayRatesQuery->orderByRaw('COUNT(crop_rates.id) desc')->orderBy('crops.cropname', 'asc');
+                break;
+            case 'price_a_desc':
+                $todayRatesQuery->orderByRaw('AVG(crop_rates.rate_per_kg_grade_a) desc')->orderBy('crops.cropname', 'asc');
+                break;
+            case 'price_b_desc':
+                $todayRatesQuery->orderByRaw('AVG(crop_rates.rate_per_kg_grade_b) desc')->orderBy('crops.cropname', 'asc');
+                break;
+            case 'price_c_desc':
+                $todayRatesQuery->orderByRaw('AVG(crop_rates.rate_per_kg_grade_c) desc')->orderBy('crops.cropname', 'asc');
+                break;
+            case 'name_asc':
+            default:
+                $todayRatesQuery->orderBy('crops.cropname', 'asc');
+                break;
+        }
+
+        $todayRatesSummary = $todayRatesQuery->get();
 
         // 2. Fetch Today's Detailed Submissions
         $todaySubmissions = DB::table('crop_rates')
@@ -219,10 +324,39 @@ new class extends Component
 
     <!-- TAB 1: Today's Market Averages -->
     @if ($activeTab === 'today')
+        <!-- Search & Filter Toolbar -->
+        <div class="bg-white border border-slate-100 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4 md:space-y-0 md:flex md:items-center md:justify-between gap-4">
+            <div class="flex-1 max-w-md relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input wire:model.live.debounce.350ms="searchCropToday" class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-xs font-semibold outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition" placeholder="Search crop variety...">
+            </div>
+            
+            <div class="flex flex-wrap sm:flex-nowrap items-center gap-3">
+                <div class="flex flex-col gap-1 w-full sm:w-48">
+                    <select wire:model.live="filterSubmissionStatus" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition">
+                        <option value="all">All Submissions Status</option>
+                        <option value="has_submissions">With Submissions Today</option>
+                        <option value="no_submissions">No Submissions Today</option>
+                    </select>
+                </div>
+                
+                <div class="flex flex-col gap-1 w-full sm:w-48">
+                    <select wire:model.live="sortCropsToday" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition">
+                        <option value="name_asc">Crop Name (A - Z)</option>
+                        <option value="name_desc">Crop Name (Z - A)</option>
+                        <option value="submissions_desc">Most Submissions</option>
+                        <option value="price_a_desc">Highest Grade A Rate</option>
+                        <option value="price_b_desc">Highest Grade B Rate</option>
+                        <option value="price_c_desc">Highest Grade C Rate</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             @forelse ($todayRatesSummary as $crop)
                 @php
-                    $cropImg = $crop->image_path ? (Str::startsWith($crop->image_path, ['http://', 'https://']) ? $crop->image_path : asset('storage/' . $crop->image_path)) : null;
+                    $cropImg = $crop->image_path ? (Str::startsWith($crop->image_path, ['http://', 'https://']) ? $crop->image_path : asset($crop->image_path)) : null;
                     $isOpen = $openCrops[$crop->crop_id] ?? false;
                 @endphp
                 <div class="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4 hover:shadow-md transition duration-300">
@@ -352,25 +486,83 @@ new class extends Component
                     <p class="text-xs text-slate-500 font-medium">Verify submissions records, track price fluctuation logs, and filter records by buyer profile, crop variety, or date parameters.</p>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+                    <div class="flex flex-col gap-1 xl:col-span-2">
+                        <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Search Buyer or Crop</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" wire:model.live.debounce.350ms="searchHistory" class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3.5 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition" placeholder="Buyer name, email, or crop...">
+                        </div>
+                    </div>
+
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Crop Variety</label>
-                        <select wire:model.live="filterCrop" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition">
-                            <option value="all">All Crops</option>
-                            @foreach ($cropsList as $crop)
-                                <option value="{{ $crop->id }}">{{ $crop->cropname }}</option>
-                            @endforeach
-                        </select>
+                        <div class="relative w-full" x-data="{ open: false, search: '' }" @click.outside="open = false">
+                            <button type="button" @click="open = !open" class="w-full flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition text-left">
+                                <span class="truncate">
+                                    @if ($filterCrop === 'all')
+                                        All Crops
+                                    @else
+                                        {{ $cropsList->firstWhere('id', $filterCrop)?->cropname ?? 'Select Crop' }}
+                                    @endif
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-200 shrink-0" :class="open ? 'rotate-180' : ''"></i>
+                            </button>
+                            
+                            <div x-show="open" x-transition class="absolute left-0 z-50 mt-1 w-full min-w-[200px] rounded-xl border border-slate-100 bg-white p-2 shadow-xl" style="display: none;">
+                                <input type="text" x-model="search" placeholder="Search crops..." class="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 focus:bg-white transition mb-2">
+                                <div class="max-h-48 overflow-y-auto space-y-0.5">
+                                    <button type="button" @click="$wire.set('filterCrop', 'all'); open = false; search = ''" class="w-full text-left rounded-lg px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50 transition" :class="'{{ $filterCrop }}' === 'all' ? 'bg-emerald-50 text-emerald-700 font-extrabold' : 'text-slate-600'">
+                                        All Crops
+                                    </button>
+                                    @foreach ($cropsList as $crop)
+                                        <button type="button" 
+                                                x-show="search === '' || @js(strtolower($crop->cropname)).includes(search.toLowerCase())"
+                                                @click="$wire.set('filterCrop', '{{ $crop->id }}'); open = false; search = ''" 
+                                                class="w-full text-left rounded-lg px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50 transition truncate" 
+                                                title="{{ $crop->cropname }}"
+                                                :class="'{{ $filterCrop }}' === '{{ $crop->id }}' ? 'bg-emerald-50 text-emerald-700 font-extrabold' : 'text-slate-600'">
+                                            {{ $crop->cropname }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Wholesale Buyer</label>
-                        <select wire:model.live="filterBuyer" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition">
-                            <option value="all">All Buyers</option>
-                            @foreach ($buyersList as $buyer)
-                                <option value="{{ $buyer->id }}">{{ $buyer->full_name }}</option>
-                            @endforeach
-                        </select>
+                        <div class="relative w-full" x-data="{ open: false, search: '' }" @click.outside="open = false">
+                            <button type="button" @click="open = !open" class="w-full flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition text-left">
+                                <span class="truncate">
+                                    @if ($filterBuyer === 'all')
+                                        All Buyers
+                                    @else
+                                        {{ $buyersList->firstWhere('id', $filterBuyer)?->full_name ?? 'Select Buyer' }}
+                                    @endif
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-200 shrink-0" :class="open ? 'rotate-180' : ''"></i>
+                            </button>
+                            
+                            <div x-show="open" x-transition class="absolute left-0 z-50 mt-1 w-full min-w-[200px] rounded-xl border border-slate-100 bg-white p-2 shadow-xl" style="display: none;">
+                                <input type="text" x-model="search" placeholder="Search buyers..." class="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 focus:bg-white transition mb-2">
+                                <div class="max-h-48 overflow-y-auto space-y-0.5">
+                                    <button type="button" @click="$wire.set('filterBuyer', 'all'); open = false; search = ''" class="w-full text-left rounded-lg px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50 transition" :class="'{{ $filterBuyer }}' === 'all' ? 'bg-emerald-50 text-emerald-700 font-extrabold' : 'text-slate-600'">
+                                        All Buyers
+                                    </button>
+                                    @foreach ($buyersList as $buyer)
+                                        <button type="button" 
+                                                x-show="search === '' || @js(strtolower($buyer->full_name)).includes(search.toLowerCase())"
+                                                @click="$wire.set('filterBuyer', '{{ $buyer->id }}'); open = false; search = ''" 
+                                                class="w-full text-left rounded-lg px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50 transition truncate" 
+                                                title="{{ $buyer->full_name }}"
+                                                :class="'{{ $filterBuyer }}' === '{{ $buyer->id }}' ? 'bg-emerald-50 text-emerald-700 font-extrabold' : 'text-slate-600'">
+                                            {{ $buyer->full_name }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="flex flex-col gap-1">
@@ -381,6 +573,18 @@ new class extends Component
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">To Date</label>
                         <input type="date" wire:model.live="filterEndDate" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition">
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Sort By</label>
+                        <select wire:model.live="sortHistory" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 transition">
+                            <option value="date_desc">Date (Newest First)</option>
+                            <option value="date_asc">Date (Oldest First)</option>
+                            <option value="rate_a_desc">Grade A (Highest First)</option>
+                            <option value="rate_a_asc">Grade A (Lowest First)</option>
+                            <option value="rate_b_desc">Grade B (Highest First)</option>
+                            <option value="rate_c_desc">Grade C (Highest First)</option>
+                        </select>
                     </div>
 
                     <div class="flex flex-col gap-1">

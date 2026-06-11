@@ -43,6 +43,7 @@ Route::get('/admin/withdrawals', [AdminWebController::class, 'withdrawals'])->na
 Route::get('/admin/users/roles', [AdminWebController::class, 'userRoles'])->name('admin.users.roles');
 Route::get('/admin/users/{role}', [AdminWebController::class, 'usersList'])->name('admin.users.index');
 Route::get('/admin/users/profile/{id}', [AdminWebController::class, 'userProfile'])->name('admin.users.profile');
+Route::post('/admin/crop-rates/{id}/delete-from-profile', [AdminWebController::class, 'deleteCropRateFromProfile'])->name('admin.crop-rates.delete-from-profile');
 Route::post('/admin/users/profile/{id}/approve', [AdminWebController::class, 'approveUserProfile'])->name('admin.users.profile.approve');
 Route::post('/admin/users/profile/{id}/reject', [AdminWebController::class, 'rejectUserProfile'])->name('admin.users.profile.reject');
 Route::post('/admin/users/profile/{id}/toggle-active', [AdminWebController::class, 'toggleUserActiveProfile'])->name('admin.users.profile.toggle-active');

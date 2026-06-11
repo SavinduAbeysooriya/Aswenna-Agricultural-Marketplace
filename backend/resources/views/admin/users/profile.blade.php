@@ -415,6 +415,11 @@
                                         <i class="fa-solid fa-robot"></i><span class="tab-text">AI Chat History</span>
                                     </button>
                                 @endif
+                                @if (in_array('buyer', $roles, true))
+                                    <button type="button" onclick="switchTab('tab-crop-rates')" id="btn-tab-crop-rates" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Crop Rate Updates">
+                                        <i class="fa-solid fa-arrow-trend-up"></i><span class="tab-text">Crop Rate Updates</span>
+                                    </button>
+                                @endif
                                 <button type="button" onclick="switchTab('tab-wallet')" id="btn-tab-wallet" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Wallet & Finance">
                                     <i class="fa-solid fa-wallet"></i><span class="tab-text">Wallet & Finance</span>
                                 </button>
@@ -1869,6 +1874,141 @@
                                         </div>
                                     @endif
                                 </div>
+
+                                @if (in_array('buyer', $roles, true))
+                                    <!-- PANEL: Crop Rate Updates -->
+                                    <div id="tab-crop-rates" class="tab-content hidden animate-fade-in space-y-4">
+                                        <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-emerald-600"></i> Crop Rate Submissions History</h4>
+                                        
+                                        <!-- Search & Sort Filter form -->
+                                        <form action="#tab-crop-rates" method="GET" class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_180px_auto] gap-3 items-end bg-slate-50 p-4 rounded-2xl border border-slate-100/80 mb-4">
+                                            <div class="flex flex-col gap-1 w-full">
+                                                <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Search Crop Variety</label>
+                                                <div class="relative">
+                                                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                                                    <input type="text" name="rate_search" value="{{ request('rate_search') }}" class="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 transition" placeholder="Search crop variety name...">
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="flex flex-col gap-1 w-full">
+                                                <label class="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Sort By</label>
+                                                <select name="rate_sort" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 transition">
+                                                    <option value="date_desc" {{ request('rate_sort') === 'date_desc' ? 'selected' : '' }}>Date (Newest)</option>
+                                                    <option value="date_asc" {{ request('rate_sort') === 'date_asc' ? 'selected' : '' }}>Date (Oldest)</option>
+                                                    <option value="rate_a_desc" {{ request('rate_sort') === 'rate_a_desc' ? 'selected' : '' }}>Grade A (Highest)</option>
+                                                    <option value="rate_a_asc" {{ request('rate_sort') === 'rate_a_asc' ? 'selected' : '' }}>Grade A (Lowest)</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="flex gap-2 w-full sm:w-auto">
+                                                <button type="submit" class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition shadow-sm h-[34px]">
+                                                    Filter
+                                                </button>
+                                                @if(request()->filled('rate_search') || request()->filled('rate_sort'))
+                                                    <a href="{{ route('admin.users.profile', $user->id) }}#tab-crop-rates" class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-bold transition h-[34px]">
+                                                        Clear
+                                                    </a>
+                                                @endif
+                                            </div>
+                                        </form>
+
+                                        @if (count($cropRates) > 0)
+                                            <div class="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm bg-white">
+                                                <table class="min-w-full divide-y divide-slate-100 text-xs text-left">
+                                                    <thead class="bg-slate-50 font-extrabold uppercase text-slate-400">
+                                                        <tr>
+                                                            <th class="px-4 py-3">Timestamp</th>
+                                                            <th class="px-4 py-3">Crop Variety</th>
+                                                            <th class="px-4 py-3 text-right">Grade A Rate</th>
+                                                            <th class="px-4 py-3 text-center">More Details</th>
+                                                            <th class="px-4 py-3 text-right">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-slate-100 font-semibold text-slate-700">
+                                                        @foreach ($cropRates as $rate)
+                                                            <tr class="hover:bg-slate-50/50">
+                                                                <td class="px-4 py-3 text-slate-400 font-medium whitespace-nowrap">
+                                                                    {{ date('Y-m-d H:i', strtotime($rate->date_and_time)) }}
+                                                                </td>
+                                                                <td class="px-4 py-3 font-bold text-slate-800">
+                                                                    {{ $rate->crop_name }}
+                                                                </td>
+                                                                <td class="px-4 py-3 text-right text-emerald-600 font-black">
+                                                                    {{ $rate->rate_per_kg_grade_a ? 'LKR ' . number_format($rate->rate_per_kg_grade_a, 2) : '-' }}
+                                                                </td>
+                                                                <td class="px-4 py-3 text-center">
+                                                                    @php
+                                                                        $detailsHtml = "<b>Crop Variety:</b> " . $rate->crop_name . "<br>" .
+                                                                            "<b>Date & Time:</b> " . date('Y-m-d H:i', strtotime($rate->date_and_time)) . "<hr class='my-2 border-slate-200'>" .
+                                                                            "<div class='grid grid-cols-2 gap-2 text-xs text-left'>" .
+                                                                            "<div class='font-bold text-slate-500'>Grade A Rate:</div><div class='font-extrabold text-emerald-700'>" . ($rate->rate_per_kg_grade_a ? 'LKR ' . number_format($rate->rate_per_kg_grade_a, 2) : '-') . "</div>" .
+                                                                            "<div class='font-bold text-slate-500'>Grade B Rate:</div><div class='font-bold text-amber-700'>" . ($rate->rate_per_kg_grade_b ? 'LKR ' . number_format($rate->rate_per_kg_grade_b, 2) : '-') . "</div>" .
+                                                                            "<div class='font-bold text-slate-500'>Grade C Rate:</div><div class='font-semibold text-slate-800'>" . ($rate->rate_per_kg_grade_c ? 'LKR ' . number_format($rate->rate_per_kg_grade_c, 2) : '-') . "</div>" .
+                                                                            "<div class='font-bold text-slate-500'>Qty Required:</div><div class='font-semibold text-slate-700'>" . ($rate->min_qty_required ? number_format($rate->min_qty_required, 0) : '0') . " - " . ($rate->max_qty_required ? number_format($rate->max_qty_required, 0) : '∞') . " kg</div>" .
+                                                                            "<div class='font-bold text-slate-500'>Grades Accepted:</div><div><span class='px-1.5 py-0.5 text-[9px] font-black uppercase bg-slate-100 border border-slate-200 text-slate-600 rounded'>" . ($rate->accepted_grade ?? 'All') . "</span></div>" .
+                                                                            "</div>";
+                                                                        $detailsHtml = addslashes(str_replace(["\r", "\n"], '', $detailsHtml));
+                                                                    @endphp
+                                                                    <button type="button" onclick="showTextPopup('Submission Details', '{{ $detailsHtml }}')" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-slate-200/50 hover:border-emerald-250 transition" title="Click to see more">
+                                                                        <i class="fa-solid fa-ellipsis text-xs"></i>
+                                                                    </button>
+                                                                </td>
+                                                                <td class="px-4 py-3 text-right">
+                                                                    <form action="{{ route('admin.crop-rates.delete-from-profile', $rate->id) }}" method="POST" id="delete-rate-form-{{ $rate->id }}" class="inline">
+                                                                        @csrf
+                                                                        <button type="button" onclick="confirmAction('delete-rate-form-{{ $rate->id }}', 'Delete this crop rate submission? Daily averages will be updated.', 'Yes, delete rate', 'warning')" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition" title="Delete Submission">
+                                                                            <i class="fa-solid fa-trash text-xs"></i>
+                                                                        </button>
+                                                                    </form>
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <!-- Pagination Block -->
+                                            <div class="p-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-50/50 rounded-b-2xl">
+                                                <p class="text-xs text-slate-500 font-semibold">
+                                                    Showing <span class="font-extrabold text-slate-800">{{ $cropRates->firstItem() ?? 0 }}</span> to <span class="font-extrabold text-slate-800">{{ $cropRates->lastItem() ?? 0 }}</span> of <span class="font-extrabold text-slate-800">{{ $cropRates->total() }}</span> entries
+                                                </p>
+                                                
+                                                @if ($cropRates->hasPages())
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <!-- Previous Page Link -->
+                                                        @if ($cropRates->onFirstPage())
+                                                            <span class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-300 pointer-events-none bg-white">Prev</span>
+                                                        @else
+                                                            <a href="{{ $cropRates->appends(request()->except('rates_page'))->previousPageUrl() }}#tab-crop-rates" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-650 hover:border-emerald-250 hover:text-emerald-700 transition">Prev</a>
+                                                        @endif
+
+                                                        <!-- Page Numbers Link -->
+                                                        @foreach ($cropRates->getUrlRange(1, $cropRates->lastPage()) as $page => $url)
+                                                            @if ($page == $cropRates->currentPage())
+                                                                <span class="min-w-8 text-center px-2.5 py-1.5 rounded-lg border text-xs font-extrabold bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/20">{{ $page }}</span>
+                                                            @else
+                                                                <a href="{{ $cropRates->appends(request()->except('rates_page'))->url($page) }}#tab-crop-rates" class="min-w-8 text-center px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-extrabold text-slate-650 hover:border-emerald-250 hover:text-emerald-700 transition">{{ $page }}</a>
+                                                            @endif
+                                                        @endforeach
+
+                                                        <!-- Next Page Link -->
+                                                        @if ($cropRates->hasMorePages())
+                                                            <a href="{{ $cropRates->appends(request()->except('rates_page'))->nextPageUrl() }}#tab-crop-rates" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-650 hover:border-emerald-250 hover:text-emerald-700 transition">Next</a>
+                                                        @else
+                                                            <span class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-300 pointer-events-none bg-white">Next</span>
+                                                        @endif
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <div class="border border-dashed border-slate-200 rounded-2xl p-12 text-center text-slate-400">
+                                                <i class="fa-solid fa-arrow-trend-up text-2xl block mb-2 text-slate-300 animate-pulse"></i>
+                                                <p class="text-xs font-bold">No Crop Rate Submissions Match Filters</p>
+                                                <p class="text-[11px] text-slate-400 mt-1">Adjust search parameters or clear filters to view all entries.</p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
 
                             </div>
                         </div>

@@ -414,6 +414,20 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Show crop rates monitoring and management.
+     */
+    public function cropRates(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        return view('admin.crop-rates', [
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
      * Show crop growth stages management.
      */
     public function cropGrowthStages(Request $request)
@@ -691,6 +705,42 @@ class AdminWebController extends Controller
                 ->get();
         }
 
+        // Fetch Crop Rates updates history for buyers
+        $cropRates = collect();
+        if (in_array('buyer', $roles, true)) {
+            $cropRatesQuery = DB::table('crop_rates')
+                ->join('crops', 'crop_rates.crop_id', '=', 'crops.id')
+                ->where('crop_rates.buyer_id', $user->id)
+                ->select('crop_rates.*', 'crops.cropname as crop_name');
+
+            if ($request->filled('rate_search')) {
+                $search = '%' . $request->input('rate_search') . '%';
+                $cropRatesQuery->where('crops.cropname', 'like', $search);
+            }
+
+            if ($request->filled('rate_sort')) {
+                switch ($request->input('rate_sort')) {
+                    case 'date_asc':
+                        $cropRatesQuery->orderBy('crop_rates.date_and_time', 'asc');
+                        break;
+                    case 'rate_a_desc':
+                        $cropRatesQuery->orderByDesc('crop_rates.rate_per_kg_grade_a');
+                        break;
+                    case 'rate_a_asc':
+                        $cropRatesQuery->orderBy('crop_rates.rate_per_kg_grade_a', 'asc');
+                        break;
+                    case 'date_desc':
+                    default:
+                        $cropRatesQuery->orderByDesc('crop_rates.date_and_time');
+                        break;
+                }
+            } else {
+                $cropRatesQuery->orderByDesc('crop_rates.date_and_time');
+            }
+
+            $cropRates = $cropRatesQuery->paginate(5, ['*'], 'rates_page');
+        }
+
         return view('admin.users.profile', [
             'user' => $user,
             'roles' => $roles,
@@ -712,8 +762,26 @@ class AdminWebController extends Controller
             'confirmedBidReviews' => $confirmedBidReviews,
             'dealChats' => $dealChats,
             'history' => $history,
+            'cropRates' => $cropRates,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
+    }
+
+    /**
+     * Delete a crop rate submission from the user profile view.
+     */
+    public function deleteCropRateFromProfile(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $rate = \App\Models\CropRate::findOrFail($id);
+        $buyerId = $rate->buyer_id;
+        $rate->delete();
+
+        return redirect(route('admin.users.profile', $buyerId) . '#tab-crop-rates')
+            ->with('status', 'Crop rate submission removed successfully.');
     }
 
     /**

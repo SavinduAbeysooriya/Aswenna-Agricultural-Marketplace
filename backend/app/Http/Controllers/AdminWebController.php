@@ -414,6 +414,20 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Show crop rates monitoring and management.
+     */
+    public function cropRates(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        return view('admin.crop-rates', [
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
      * Show crop growth stages management.
      */
     public function cropGrowthStages(Request $request)

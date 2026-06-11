@@ -37,6 +37,7 @@ Route::post('/admin/reset-password', [AdminWebController::class, 'resetPasswordS
 // Secure Platform Oversight Dashboard Panel
 Route::get('/admin/dashboard', [AdminWebController::class, 'dashboard'])->name('admin.dashboard');
 Route::get('/admin/crops', [AdminWebController::class, 'crops'])->name('admin.crops');
+Route::get('/admin/crop-rates', [AdminWebController::class, 'cropRates'])->name('admin.crop-rates');
 Route::get('/admin/crop-growth-stages', [AdminWebController::class, 'cropGrowthStages'])->name('admin.crop-growth-stages');
 Route::get('/admin/withdrawals', [AdminWebController::class, 'withdrawals'])->name('admin.withdrawals');
 Route::get('/admin/users/roles', [AdminWebController::class, 'userRoles'])->name('admin.users.roles');

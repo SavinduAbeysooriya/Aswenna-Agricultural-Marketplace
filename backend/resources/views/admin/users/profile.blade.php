@@ -598,79 +598,224 @@
                                         </div>
                                     @endif
 
-                                    <!-- Retail Seller Specific Verification Credentials -->
-                                    @if ($retailSellerData)
-                                        <div class="border-t border-slate-100 pt-6 space-y-4">
-                                            <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-store text-emerald-600"></i> Retailer Business Credentials</h4>
-                                            
-                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                <!-- BR Registry -->
-                                                <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 flex flex-col justify-between md:col-span-2">
-                                                    <div class="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <span class="text-[10px] font-black uppercase text-slate-400">BR Register Number</span>
-                                                            <strong class="text-xs text-slate-800 block mt-1">{{ $retailSellerData->br_number ?? 'Not Provided' }}</strong>
-                                                        </div>
-                                                        <div>
-                                                            <span class="text-[10px] font-black uppercase text-slate-400">Business Registry Type</span>
-                                                            <strong class="text-xs text-slate-800 block mt-1 uppercase">{{ str_replace('_', ' ', $retailSellerData->business_type ?? 'Standard') }}</strong>
-                                                        </div>
-                                                        <div>
-                                                            <span class="text-[10px] font-black uppercase text-slate-400">Issue Date</span>
-                                                            <span class="text-xs text-slate-800 block mt-1 font-semibold">{{ $retailSellerData->br_issue_date ?? 'N/A' }}</span>
-                                                        </div>
-                                                        <div>
-                                                            <span class="text-[10px] font-black uppercase text-slate-400">Ownership Status</span>
-                                                            <span class="text-xs text-slate-800 block mt-1 font-semibold uppercase">{{ $retailSellerData->ownership_type ?? 'N/A' }}</span>
-                                                        </div>
-                                                    </div>
-                                                    @if ($retailSellerData->br_image_path)
-                                                        <div class="mt-5">
-                                                            <button type="button" onclick="openLightbox('{{ Str::startsWith($retailSellerData->br_image_path, ['http://', 'https://']) ? $retailSellerData->br_image_path : asset('storage/' . $retailSellerData->br_image_path) }}')" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-150 hover:bg-slate-200 border border-slate-200/50 text-[11px] font-extrabold transition">
-                                                                <i class="fa-solid fa-file-image text-slate-500"></i> View BR Registry Certificate
-                                                            </button>
-                                                        </div>
-                                                    @endif
-                                                </div>
+                                     <!-- Retail Seller Specific Verification Credentials -->
+                                     @if (in_array('retail_seller', $roles, true))
+                                         <div class="border-t border-slate-100 pt-6 space-y-6">
+                                             <div class="flex items-center justify-between">
+                                                 <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-store text-emerald-600"></i> Retailer Business Credentials</h4>
+                                             </div>
+                                             
+                                             @if ($retailSellerData)
+                                                 <!-- Verification Process Status Banner (Production Ready Vibe) -->
+                                                 <div class="space-y-4">
+                                                     @if ($retailSellerData->status === 'verified')
+                                                         <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+                                                             <div class="flex items-center gap-3">
+                                                                 <div class="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 shrink-0">
+                                                                     <i class="fa-solid fa-circle-check text-xl"></i>
+                                                                 </div>
+                                                                 <div>
+                                                                     <span class="text-[10px] font-black uppercase text-emerald-800 tracking-wider">Verification Status</span>
+                                                                     <strong class="text-xs text-emerald-950 block mt-0.5 font-extrabold uppercase font-poppins">Verified Retailer Account</strong>
+                                                                 </div>
+                                                             </div>
+                                                             <div class="flex items-center gap-2 shrink-0">
+                                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider shadow-sm mr-1">
+                                                                     <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> Production Ready
+                                                                 </span>
+                                                                 <button type="button" onclick="toggleRetailRejection()" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 hover:text-rose-800 text-[10px] font-black uppercase tracking-wider transition shadow-sm">
+                                                                     <i class="fa-solid fa-ban"></i> Revoke / Reject
+                                                                 </button>
+                                                             </div>
+                                                         </div>
+                                                     @elseif ($retailSellerData->status === 'rejected')
+                                                         <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex flex-col gap-3 shadow-sm animate-fade-in">
+                                                             <div class="flex items-center justify-between">
+                                                                 <div class="flex items-center gap-3">
+                                                                     <div class="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-600 shrink-0">
+                                                                         <i class="fa-solid fa-circle-exclamation text-lg"></i>
+                                                                     </div>
+                                                                     <div>
+                                                                         <span class="text-[10px] font-black uppercase text-rose-800 tracking-wider">Verification Status</span>
+                                                                         <strong class="text-xs text-rose-950 block mt-0.5 font-extrabold uppercase font-poppins">Verification Rejected</strong>
+                                                                     </div>
+                                                                 </div>
+                                                                 <div class="flex items-center gap-2 shrink-0">
+                                                                     <!-- Approve Form to Re-approve -->
+                                                                     <form action="{{ route('admin.users.profile.approve', $user->id) }}" method="POST" id="retail-reapprove-form" class="inline">
+                                                                         @csrf
+                                                                         <button type="button" onclick="confirmAction('retail-reapprove-form', 'Re-approve and verify these retail credentials?', 'Yes, Approve', 'success')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider shadow-sm transition">
+                                                                             <i class="fa-solid fa-check text-xs"></i> Approve Credentials
+                                                                         </button>
+                                                                     </form>
+                                                                 </div>
+                                                             </div>
+                                                             @if ($retailSellerData->rejected_reason)
+                                                                 <div class="mt-1 p-3 bg-white border border-rose-100 rounded-xl text-xs text-rose-800 font-semibold leading-relaxed">
+                                                                     <strong class="block text-[9px] font-black text-rose-600 uppercase tracking-wide mb-1">Reason for Rejection</strong>
+                                                                     {{ $retailSellerData->rejected_reason }}
+                                                                 </div>
+                                                             @endif
+                                                         </div>
+                                                     @else
+                                                         <div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+                                                             <div class="flex items-center gap-3">
+                                                                 <div class="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
+                                                                     <i class="fa-solid fa-clock text-lg animate-spin" style="animation-duration: 3s;"></i>
+                                                                 </div>
+                                                                 <div>
+                                                                     <span class="text-[10px] font-black uppercase text-amber-800 tracking-wider">Verification Status</span>
+                                                                     <strong class="text-xs text-amber-950 block mt-0.5 font-extrabold uppercase font-poppins">Verification Review Pending</strong>
+                                                                 </div>
+                                                             </div>
+                                                             <div class="flex items-center gap-2 shrink-0">
+                                                                 <!-- Approve Form -->
+                                                                 <form action="{{ route('admin.users.profile.approve', $user->id) }}" method="POST" id="retail-approve-form" class="inline">
+                                                                     @csrf
+                                                                     <button type="button" onclick="confirmAction('retail-approve-form', 'Approve retail seller verification credentials?', 'Yes, Approve', 'success')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider shadow-sm transition">
+                                                                         <i class="fa-solid fa-check text-xs"></i> Approve
+                                                                     </button>
+                                                                 </form>
+                                                                 <!-- Reject Action Button -->
+                                                                 <button type="button" onclick="toggleRetailRejection()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wider shadow-sm transition">
+                                                                     <i class="fa-solid fa-ban text-xs"></i> Reject
+                                                                 </button>
+                                                             </div>
+                                                         </div>
+                                                     @endif
 
-                                                <!-- Premise Address & Info -->
-                                                <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 flex flex-col justify-between">
-                                                    <div>
-                                                        <span class="text-[10px] font-black uppercase text-slate-400 block">Retail Premise Location</span>
-                                                        <strong class="text-xs text-slate-800 block mt-1">{{ $retailSellerData->shop_address ?? 'No Shop Location Provided' }}</strong>
-                                                        @if ($retailSellerData->postal_code)
-                                                            <span class="text-[10px] text-slate-400 block mt-1 font-bold">Postal Area: {{ $retailSellerData->postal_code }}</span>
-                                                        @endif
-                                                    </div>
-                                                    @if ($retailSellerData->notes)
-                                                        <div class="mt-4 p-2.5 bg-white border border-slate-100 rounded-xl text-[10px] text-slate-500 font-semibold">
-                                                            <strong>Note:</strong> {{ $retailSellerData->notes }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </div>
+                                                     <!-- Collapsible Rejection Box for Retailer -->
+                                                     <div id="retail-rejection-box" class="hidden p-4 rounded-2xl bg-rose-50 border border-rose-200 animate-fade-in space-y-3">
+                                                         <form action="{{ route('admin.users.profile.reject', $user->id) }}" method="POST" id="retail-reject-form">
+                                                             @csrf
+                                                             <label for="retail_rejection_reason" class="text-[10px] font-bold text-slate-500 block mb-1">State Reason for Rejecting Retailer Credentials</label>
+                                                             <textarea name="rejection_reason" id="retail_rejection_reason" rows="3" required class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:border-rose-400 transition" placeholder="Provide reason for rejecting retailer credentials..."></textarea>
+                                                             <div class="flex gap-2">
+                                                                 <button type="submit" class="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wider transition">
+                                                                     Submit Rejection
+                                                                 </button>
+                                                                 <button type="button" onclick="toggleRetailRejection()" class="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 text-[10px] font-bold transition">
+                                                                     Cancel
+                                                                 </button>
+                                                             </div>
+                                                         </form>
+                                                     </div>
+                                                 </div>
 
-                                            <!-- Shop Premises Photos Gallery -->
-                                            @if ($retailSellerData->shop_photos)
-                                                @php
-                                                    $photos = is_string($retailSellerData->shop_photos) ? json_decode($retailSellerData->shop_photos, true) : $retailSellerData->shop_photos;
-                                                @endphp
-                                                @if (is_array($photos) && count($photos) > 0)
-                                                    <div class="space-y-3">
-                                                        <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Premises & Shop Photos</span>
-                                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                                            @foreach ($photos as $photo)
-                                                                <div class="relative rounded-2xl overflow-hidden border border-slate-200/60 aspect-[4/3] bg-white group cursor-pointer" onclick="openLightbox('{{ Str::startsWith($photo, ['http://', 'https://']) ? $photo : asset('storage/' . $photo) }}')">
-                                                                    <img src="{{ Str::startsWith($photo, ['http://', 'https://']) ? $photo : asset('storage/' . $photo) }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                                                                    <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-black"><i class="fa-solid fa-expand mr-1"></i> Preview</div>
-                                                                </div>
-                                                            @endforeach
-                                                        </div>
-                                                    </div>
-                                                @endif
-                                            @endif
-                                        </div>
-                                    @endif
+                                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                     <!-- BR Registry -->
+                                                     <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 flex flex-col justify-between md:col-span-2">
+                                                         <div class="grid grid-cols-2 gap-4">
+                                                             <div>
+                                                                 <span class="text-[10px] font-black uppercase text-slate-400">BR Register Number</span>
+                                                                 <strong class="text-xs text-slate-800 block mt-1">{{ $retailSellerData->br_number ?? 'Not Provided' }}</strong>
+                                                             </div>
+                                                             <div>
+                                                                 <span class="text-[10px] font-black uppercase text-slate-400">Business Registry Type</span>
+                                                                 <strong class="text-xs text-slate-800 block mt-1 uppercase">{{ str_replace('_', ' ', $retailSellerData->business_type ?? 'Standard') }}</strong>
+                                                             </div>
+                                                             <div>
+                                                                 <span class="text-[10px] font-black uppercase text-slate-400">Issue Date</span>
+                                                                 <span class="text-xs text-slate-800 block mt-1 font-semibold">{{ $retailSellerData->br_issue_date ?? 'N/A' }}</span>
+                                                             </div>
+                                                             @if ($retailSellerData->br_expiry_date)
+                                                                 <div>
+                                                                     <span class="text-[10px] font-black uppercase text-slate-400">Expiry Date</span>
+                                                                     <span class="text-xs text-rose-600 block mt-1 font-semibold">{{ $retailSellerData->br_expiry_date }}</span>
+                                                                 </div>
+                                                             @endif
+                                                             <div>
+                                                                 <span class="text-[10px] font-black uppercase text-slate-400">Ownership Status</span>
+                                                                 <span class="text-xs text-slate-800 block mt-1 font-semibold uppercase">{{ $retailSellerData->ownership_type ?? 'N/A' }}</span>
+                                                             </div>
+                                                         </div>
+                                                         @if ($retailSellerData->br_image_path)
+                                                             <div class="mt-5">
+                                                                 <button type="button" onclick="openLightbox('{{ Str::startsWith($retailSellerData->br_image_path, ['http://', 'https://']) ? $retailSellerData->br_image_path : asset('storage/' . $retailSellerData->br_image_path) }}')" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-150 hover:bg-slate-200 border border-slate-200/50 text-[11px] font-extrabold text-slate-700 transition">
+                                                                     <i class="fa-solid fa-file-image text-slate-500"></i> View BR Registry Certificate
+                                                                 </button>
+                                                             </div>
+                                                         @endif
+                                                     </div>
+
+                                                     <!-- Premise Address & Info -->
+                                                     <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 flex flex-col justify-between">
+                                                         <div>
+                                                             <span class="text-[10px] font-black uppercase text-slate-400 block">Retail Premise Location</span>
+                                                             <strong class="text-xs text-slate-800 block mt-1">{{ $retailSellerData->shop_address ?? 'No Shop Location Provided' }}</strong>
+                                                             @if ($retailSellerData->postal_code)
+                                                                 <span class="text-[10px] text-slate-400 block mt-1 font-bold">Postal Area: {{ $retailSellerData->postal_code }}</span>
+                                                             @endif
+
+                                                             @if ($retailSellerData->latitude && $retailSellerData->longitude)
+                                                                 <div class="group relative rounded-xl overflow-hidden border border-slate-200/80 shadow-inner h-36 w-full mt-3 transition-all duration-300 hover:shadow-md hover:border-emerald-300">
+                                                                     <iframe 
+                                                                         class="w-full h-full border-0 rounded-xl" 
+                                                                         src="https://maps.google.com/maps?q={{ $retailSellerData->latitude }},{{ $retailSellerData->longitude }}&z=15&output=embed" 
+                                                                         allowfullscreen="" 
+                                                                         loading="lazy" 
+                                                                         referrerpolicy="no-referrer-when-downgrade">
+                                                                     </iframe>
+                                                                     <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                                         <a href="https://www.google.com/maps/search/?api=1&query={{ $retailSellerData->latitude }},{{ $retailSellerData->longitude }}" target="_blank" class="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[9px] font-bold shadow-lg transition duration-200">
+                                                                             <i class="fa-solid fa-arrow-up-right-from-square text-[7px]"></i>
+                                                                             Open Maps
+                                                                         </a>
+                                                                     </div>
+                                                                 </div>
+                                                             @endif
+                                                         </div>
+                                                     </div>
+                                                 </div>
+
+                                                 <!-- Shop Premises Photos Gallery -->
+                                                 @if ($retailSellerData->shop_photos)
+                                                     @php
+                                                         $photos = is_string($retailSellerData->shop_photos) ? json_decode($retailSellerData->shop_photos, true) : $retailSellerData->shop_photos;
+                                                     @endphp
+                                                     @if (is_array($photos) && count($photos) > 0)
+                                                         <div class="space-y-3">
+                                                             <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Premises & Shop Photos</span>
+                                                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                                                 @foreach ($photos as $photo)
+                                                                     <div class="relative rounded-2xl overflow-hidden border border-slate-200/60 aspect-[4/3] bg-white group cursor-pointer" onclick="openLightbox('{{ Str::startsWith($photo, ['http://', 'https://']) ? $photo : asset('storage/' . $photo) }}')">
+                                                                         <img src="{{ Str::startsWith($photo, ['http://', 'https://']) ? $photo : asset('storage/' . $photo) }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                                                         <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-black"><i class="fa-solid fa-expand mr-1"></i> Preview</div>
+                                                                     </div>
+                                                                 @endforeach
+                                                             </div>
+                                                         </div>
+                                                     @endif
+                                                 @endif
+                                             @else
+                                                 <!-- No Verification Data But Has Role -->
+                                                 <div class="p-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-center space-y-3">
+                                                     <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
+                                                         <i class="fa-solid fa-store-slash text-lg"></i>
+                                                     </div>
+                                                     <div>
+                                                         <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Verification Status</span>
+                                                         <strong class="text-xs text-slate-800 block mt-1 font-extrabold uppercase font-poppins">No Verification Data Submitted</strong>
+                                                         <p class="text-[11px] text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">This user has switched to the retail seller role but has not uploaded the required business registry (BR) information, photos, or documents for audit yet.</p>
+                                                     </div>
+                                                 </div>
+                                             @endif
+
+                                             <!-- Always display Admin Note form at the bottom of the section -->
+                                             <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 shadow-sm mt-6">
+                                                 <form action="{{ route('admin.users.profile.retail-notes', $user->id) }}" method="POST" id="retail-notes-form">
+                                                     @csrf
+                                                     <label for="retail_notes" class="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2"><i class="fa-solid fa-note-sticky mr-1 text-slate-400"></i> Administrative Notes</label>
+                                                     <div class="relative flex items-center">
+                                                         <textarea name="notes" id="retail_notes" rows="2" class="w-full rounded-2xl border border-slate-200/60 pl-4 pr-12 py-3 text-xs font-medium bg-white focus:outline-none focus:border-emerald-500 transition leading-normal resize-none shadow-sm" placeholder="Add custom administrative notes, internal audit notes, or registration guidelines...">{!! $retailSellerData->notes ?? '' !!}</textarea>
+                                                         <button type="submit" class="absolute right-3.5 bottom-3.5 w-8 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition shadow-md" title="Save Notes">
+                                                             <i class="fa-solid fa-floppy-disk text-sm"></i>
+                                                         </button>
+                                                     </div>
+                                                 </form>
+                                             </div>
+                                         </div>
+                                     @endif
 
                                     <!-- Delivery Partner Specific Credentials -->
                                     @if ($deliveryPartnerData)
@@ -2102,6 +2247,14 @@
                 box.classList.remove('hidden');
             } else {
                 box.classList.add('hidden');
+            }
+        }
+
+        // Retailer Rejection toggle logic
+        function toggleRetailRejection() {
+            const box = document.getElementById('retail-rejection-box');
+            if (box) {
+                box.classList.toggle('hidden');
             }
         }
 

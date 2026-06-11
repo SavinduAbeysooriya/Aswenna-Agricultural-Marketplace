@@ -1027,6 +1027,30 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Update/save admin notes for a retail seller.
+     */
+    public function updateRetailSellerNotes(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        DB::table('retail_seller_verification_data')->updateOrInsert(
+            ['user_id' => $id],
+            [
+                'notes' => $request->input('notes'),
+                'updated_at' => now(),
+            ]
+        );
+
+        return back()->with('status', 'Retailer admin notes updated successfully.');
+    }
+
+    /**
      * Approve individual verification document.
      */
     public function approveUserDocument(Request $request, $id)

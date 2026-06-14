@@ -423,9 +423,15 @@
                                 <button type="button" onclick="switchTab('tab-wallet')" id="btn-tab-wallet" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Wallet & Finance">
                                     <i class="fa-solid fa-wallet"></i><span class="tab-text">Wallet & Finance</span>
                                 </button>
-                                <button type="button" onclick="switchTab('tab-marketplace')" id="btn-tab-marketplace" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Marketplace listings">
-                                    <i class="fa-solid fa-store"></i><span class="tab-text">Marketplace listings</span>
-                                </button>
+                                @if (in_array('retail_seller', $roles, true))
+                                    <button type="button" onclick="switchTab('tab-retail-products')" id="btn-tab-retail-products" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Retail Products">
+                                        <i class="fa-solid fa-store"></i><span class="tab-text">Retail Products</span>
+                                    </button>
+                                @else
+                                    <button type="button" onclick="switchTab('tab-marketplace')" id="btn-tab-marketplace" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Marketplace listings">
+                                        <i class="fa-solid fa-store"></i><span class="tab-text">Marketplace listings</span>
+                                    </button>
+                                @endif
                                 <button type="button" onclick="switchTab('tab-reviews')" id="btn-tab-reviews" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Ratings & Feedback">
                                     <i class="fa-solid fa-star"></i><span class="tab-text">Ratings & Feedback</span>
                                 </button>
@@ -2172,6 +2178,151 @@
                                         </div>
                                     @endif
                                 </div>
+
+                                @if (in_array('retail_seller', $roles, true))
+                                    <!-- PANEL: Retailer Products Display -->
+                                    <div id="tab-retail-products" class="tab-content hidden animate-fade-in space-y-6">
+                                        <div class="flex items-center justify-between">
+                                            <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                                                <i class="fa-solid fa-store text-emerald-600"></i> Retailer Store Catalog & Products
+                                            </h4>
+                                            <span class="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black uppercase tracking-wider">
+                                                {{ count($listings) }} {{ Str::plural('Product', count($listings)) }}
+                                            </span>
+                                        </div>
+
+                                        @if (count($listings) > 0)
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                @foreach ($listings as $product)
+                                                    @php
+                                                        $grade = strtoupper(trim($product->grade ?? 'A'));
+                                                        if ($grade === 'A') {
+                                                            $gradeClass = 'bg-amber-500/10 border-amber-300 text-amber-800 font-extrabold';
+                                                            $gradeIcon = '<i class="fa-solid fa-medal text-amber-500 mr-1 text-[10px]"></i>';
+                                                        } elseif ($grade === 'B') {
+                                                            $gradeClass = 'bg-emerald-500/10 border-emerald-300 text-emerald-800 font-extrabold';
+                                                            $gradeIcon = '<i class="fa-solid fa-award text-emerald-500 mr-1 text-[10px]"></i>';
+                                                        } else {
+                                                            $gradeClass = 'bg-slate-500/10 border-slate-300 text-slate-700 font-bold';
+                                                            $gradeIcon = '<i class="fa-solid fa-shield text-slate-500 mr-1 text-[10px]"></i>';
+                                                        }
+                                                    @endphp
+                                                    <div class="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm flex flex-col justify-between hover:shadow-md hover:border-emerald-500/60 transition duration-300 relative group overflow-hidden">
+                                                        <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none transition-transform duration-500 group-hover:scale-125"></div>
+
+                                                        <div class="flex items-start gap-4">
+                                                            @if ($product->thumbnail_path)
+                                                                <div class="w-20 h-20 rounded-2xl border border-slate-200 overflow-hidden shrink-0 bg-slate-50 cursor-pointer transition duration-300 group-hover:border-emerald-400 shadow-sm" onclick="openLightbox('{{ Str::startsWith($product->thumbnail_path, ['http://', 'https://']) ? $product->thumbnail_path : asset('storage/' . $product->thumbnail_path) }}')">
+                                                                    <img src="{{ Str::startsWith($product->thumbnail_path, ['http://', 'https://']) ? $product->thumbnail_path : asset('storage/' . $product->thumbnail_path) }}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                                                                </div>
+                                                            @else
+                                                                <div class="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 text-lg font-black shrink-0 border border-slate-200 shadow-inner">
+                                                                    <i class="fa-solid fa-store text-2xl text-slate-300"></i>
+                                                                </div>
+                                                            @endif
+
+                                                            <div class="min-w-0 flex-1">
+                                                                <div class="flex justify-between items-start gap-3">
+                                                                    <div class="min-w-0">
+                                                                        <h5 class="text-sm font-extrabold text-slate-900 group-hover:text-emerald-700 transition font-poppins leading-snug line-clamp-2" title="{{ $product->product_name }}">
+                                                                            {{ $product->product_name }}
+                                                                        </h5>
+                                                                        <div class="mt-1 flex flex-wrap gap-1.5 items-center">
+                                                                            <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 border border-slate-200/60 text-slate-650 text-[9px] font-bold">
+                                                                                <i class="fa-solid fa-seedling text-emerald-600 mr-1 text-[8px]"></i>Crop: {{ $product->crop_name ?? 'N/A' }}
+                                                                            </span>
+                                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-lg bg-slate-50 border border-slate-200/50 text-slate-450 font-mono text-[8.5px] font-bold">
+                                                                                #RP-{{ str_pad($product->id, 5, '0', STR_PAD_LEFT) }}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <span class="inline-flex items-center px-2.5 py-1 rounded-xl border text-[9px] uppercase tracking-wider shrink-0 whitespace-nowrap align-middle shadow-sm {{ $gradeClass }}">
+                                                                        {!! $gradeIcon !!} Grade {{ $grade }}
+                                                                    </span>
+                                                                </div>
+                                                                
+                                                                <div class="mt-3.5 flex items-baseline gap-2 flex-wrap">
+                                                                    @if ($product->discount_price_per_unit && $product->discount_price_per_unit < $product->price_per_unit)
+                                                                        @php
+                                                                            $discountPct = round((($product->price_per_unit - $product->discount_price_per_unit) / $product->price_per_unit) * 100);
+                                                                        @endphp
+                                                                        <span class="text-base font-black text-emerald-600">LKR {{ number_format($product->discount_price_per_unit, 2) }}</span>
+                                                                        <span class="text-[10px] text-slate-400 line-through">LKR {{ number_format($product->price_per_unit, 2) }}</span>
+                                                                        <span class="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-100 text-rose-600 text-[8px] font-black uppercase tracking-wider shrink-0 whitespace-nowrap shadow-sm animate-pulse">{{ $discountPct }}% OFF</span>
+                                                                    @else
+                                                                        <span class="text-base font-black text-slate-800">LKR {{ number_format($product->price_per_unit, 2) }}</span>
+                                                                    @endif
+                                                                    <span class="text-[10px] text-slate-450 font-bold">/ {{ $product->unit_type }}</span>
+                                                                </div>
+
+                                                                <div class="mt-3 flex justify-between items-center text-[10px] font-bold text-slate-500">
+                                                                    <span class="flex items-center gap-1.5">
+                                                                        <i class="fa-solid fa-boxes-stacked text-slate-400 text-[11px]"></i> Stock: <span class="text-slate-800 font-extrabold">{{ number_format($product->stock_quantity, 2) }} {{ $product->unit_type }}</span>
+                                                                    </span>
+                                                                    
+                                                                    @php
+                                                                        $statusClasses = [
+                                                                            'active' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                                                                            'inactive' => 'bg-slate-100 text-slate-600 border-slate-200',
+                                                                            'out_of_stock' => 'bg-rose-50 text-rose-700 border-rose-100'
+                                                                        ];
+                                                                        $statusClass = $statusClasses[$product->status] ?? 'bg-slate-50 text-slate-600 border-slate-200';
+                                                                    @endphp
+                                                                    <span class="inline-flex items-center gap-1.5 uppercase tracking-wider text-[8px] font-black px-2.5 py-1 rounded-full border {{ $statusClass }} shadow-sm">
+                                                                        <span class="w-1.5 h-1.5 rounded-full {{ $product->status === 'active' ? 'bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/80' : ($product->status === 'out_of_stock' ? 'bg-rose-500' : 'bg-slate-400') }}"></span>
+                                                                        {{ str_replace('_', ' ', $product->status) }}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        @if ($product->description)
+                                                            <div class="mt-4 p-3.5 bg-slate-50/75 border-l-2 border-emerald-500/60 rounded-r-2xl text-slate-600 text-[11px] font-medium leading-relaxed flex items-start gap-2 shadow-inner">
+                                                                <i class="fa-solid fa-quote-left text-[9px] text-emerald-500/40 shrink-0 mt-0.5"></i>
+                                                                <p class="italic">{{ $product->description }}</p>
+                                                            </div>
+                                                        @endif
+
+                                                        @php
+                                                            $productImages = [];
+                                                            if (!empty($product->image_paths)) {
+                                                                $productImages = is_string($product->image_paths) 
+                                                                    ? json_decode($product->image_paths, true) 
+                                                                    : $product->image_paths;
+                                                            }
+                                                        @endphp
+                                                        @if (!empty($productImages) && is_array($productImages))
+                                                            <div class="mt-4 pt-3.5 border-t border-slate-100">
+                                                                <span class="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-wider">
+                                                                    <i class="fa-solid fa-images mr-1"></i> Product Gallery ({{ count($productImages) }} {{ Str::plural('Image', count($productImages)) }})
+                                                                </span>
+                                                                <div class="flex flex-wrap gap-2">
+                                                                    @foreach ($productImages as $prodImg)
+                                                                        @php
+                                                                            $prodImgUrl = Str::startsWith($prodImg, ['http://', 'https://']) ? $prodImg : asset('storage/' . $prodImg);
+                                                                        @endphp
+                                                                        <div class="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 cursor-pointer group/thumb shadow-sm hover:border-emerald-400 hover:shadow transition duration-300" onclick="openLightbox('{{ $prodImgUrl }}')">
+                                                                            <img src="{{ $prodImgUrl }}" class="w-full h-full object-cover transition-transform duration-500 group-hover/thumb:scale-110">
+                                                                            <div class="absolute inset-0 bg-slate-950/35 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white text-[9px] font-black transition-opacity">
+                                                                                <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <div class="border border-dashed border-slate-200 rounded-3xl p-12 text-center text-slate-400 bg-slate-50/50">
+                                                <i class="fa-solid fa-store text-3xl text-slate-350 block mb-3 animate-pulse"></i>
+                                                <p class="text-xs font-bold">No Products Registered</p>
+                                                <p class="text-[11px] text-slate-400 mt-1">This retailer has not uploaded any products to their store catalog yet.</p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
 
                                 <!-- PANEL 4: Ratings & Feedback -->
                                 <div id="tab-reviews" class="tab-content hidden animate-fade-in space-y-6">

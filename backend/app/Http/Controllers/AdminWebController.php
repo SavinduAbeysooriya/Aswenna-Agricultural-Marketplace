@@ -1051,6 +1051,87 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Update/save admin notes for a delivery partner.
+     */
+    public function updateDeliveryPartnerNotes(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        DB::table('delivery_partner_verification_data')->updateOrInsert(
+            ['user_id' => $id],
+            [
+                'notes' => $request->input('notes'),
+                'updated_at' => now(),
+            ]
+        );
+
+        return back()->with('status', 'Delivery partner admin notes updated successfully.');
+    }
+
+    /**
+     * Approve delivery partner vehicle verification.
+     */
+    public function approveDeliveryPartnerVehicle(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $user = User::findOrFail($id);
+
+        DB::transaction(function () use ($user, $id) {
+            DB::table('delivery_partner_verification_data')
+                ->where('user_id', $id)
+                ->update([
+                    'status' => 'verified',
+                    'rejected_reason' => null,
+                    'updated_at' => now(),
+                ]);
+                
+            $user->update(['is_verified' => true]);
+        });
+
+        return back()->with('status', 'Delivery partner vehicle verification approved successfully.');
+    }
+
+    /**
+     * Reject delivery partner vehicle verification.
+     */
+    public function rejectDeliveryPartnerVehicle(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'rejection_reason' => 'required|string|min:4|max:500',
+        ]);
+
+        $user = User::findOrFail($id);
+        $reason = $request->input('rejection_reason');
+
+        DB::transaction(function () use ($user, $id, $reason) {
+            DB::table('delivery_partner_verification_data')
+                ->where('user_id', $id)
+                ->update([
+                    'status' => 'rejected',
+                    'rejected_reason' => $reason,
+                    'updated_at' => now(),
+                ]);
+
+            $user->update(['is_verified' => false]);
+        });
+
+        return back()->with('status', 'Delivery partner vehicle verification rejected successfully.');
+    }
+
+    /**
      * Approve individual verification document.
      */
     public function approveUserDocument(Request $request, $id)

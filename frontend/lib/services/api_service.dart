@@ -1217,6 +1217,7 @@ class ApiService {
     String? vehicleFrontImagePath,
     String? vehicleBackImagePath,
     String? profilePicturePath,
+    List<String>? vehicleOtherImagesPaths,
   }) async {
     final token = await getToken();
     if (token == null) {
@@ -1260,6 +1261,13 @@ class ApiService {
       }
       if (profilePicturePath != null && profilePicturePath.trim().isNotEmpty) {
         request.files.add(await http.MultipartFile.fromPath('profile_picture', profilePicturePath));
+      }
+      if (vehicleOtherImagesPaths != null) {
+        for (final path in vehicleOtherImagesPaths) {
+          if (path.trim().isNotEmpty) {
+            request.files.add(await http.MultipartFile.fromPath('vehicle_other_images[]', path));
+          }
+        }
       }
 
       final streamedResponse = await request.send();

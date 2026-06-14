@@ -1362,6 +1362,12 @@ class AuthController extends Controller
             $verificationData->revenue_license_image_url = $this->publicFileUrl($verificationData->revenue_license_image_path);
             $verificationData->vehicle_front_image_url = $this->publicFileUrl($verificationData->vehicle_front_image);
             $verificationData->vehicle_back_image_url = $this->publicFileUrl($verificationData->vehicle_back_image);
+            
+            $otherPhotos = json_decode($verificationData->vehicle_other_images ?? '[]', true) ?: [];
+            $verificationData->vehicle_other_images_urls = collect($otherPhotos)
+                ->map(fn($path) => $this->publicFileUrl($path))
+                ->values()
+                ->all();
         }
 
         // Also fetch general driving license user_verification_documents (if uploaded)
@@ -1438,6 +1444,8 @@ class AuthController extends Controller
             'revenue_license_image' => 'nullable|file|image|max:20480',
             'vehicle_front_image' => 'nullable|file|image|max:20480',
             'vehicle_back_image' => 'nullable|file|image|max:20480',
+            'vehicle_other_images' => 'nullable|array',
+            'vehicle_other_images.*' => 'nullable|file|image|max:20480',
             'profile_picture' => 'nullable|file|image|max:10240',
 
             // Driving License Document
@@ -1501,6 +1509,13 @@ class AuthController extends Controller
                 $vehicleBackPath = $request->file('vehicle_back_image')->store('delivery-partner-vehicles/' . $user->id, 'public');
             }
 
+            $vehicleOtherPhotoPaths = json_decode($existing->vehicle_other_images ?? '[]', true) ?: [];
+            if ($request->hasFile('vehicle_other_images')) {
+                foreach ($request->file('vehicle_other_images') as $photo) {
+                    $vehicleOtherPhotoPaths[] = $photo->store('delivery-partner-vehicles/' . $user->id, 'public');
+                }
+            }
+
             // Save/Update delivery partner verification data, reset status to pending when edited
             DB::table('delivery_partner_verification_data')->updateOrInsert(
                 ['user_id' => $user->id],
@@ -1518,6 +1533,7 @@ class AuthController extends Controller
                     'revenue_license_expiry' => $request->revenue_license_expiry,
                     'vehicle_front_image' => $vehicleFrontPath,
                     'vehicle_back_image' => $vehicleBackPath,
+                    'vehicle_other_images' => json_encode($vehicleOtherPhotoPaths),
                     'max_weight' => $request->max_weight,
                     'status' => 'pending', // Reset verification status to pending when edited
                     'updated_at' => now(),

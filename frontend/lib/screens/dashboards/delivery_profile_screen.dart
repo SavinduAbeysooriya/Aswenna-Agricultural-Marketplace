@@ -77,6 +77,8 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
   String? _revenueLicenseImagePath;
   String? _vehicleFrontImagePath;
   String? _vehicleBackImagePath;
+  List<String> _vehicleOtherImagesPaths = [];
+  List<String> _existingOtherImagesUrls = [];
 
   // Sri Lanka Provinces and Districts Map for Dropdowns
   static const Map<String, List<String>> _provinceDistricts = {
@@ -206,6 +208,12 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
               }
             }
           }
+          
+          // Existing other images URLs
+          _existingOtherImagesUrls = [];
+          if (_verificationData['vehicle_other_images_urls'] != null && _verificationData['vehicle_other_images_urls'] is List) {
+            _existingOtherImagesUrls = List<String>.from(_verificationData['vehicle_other_images_urls'].map((u) => u.toString()));
+          }
         });
 
       } else {
@@ -332,6 +340,20 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
     }
   }
 
+  Future<void> _pickOtherImages() async {
+    try {
+      final result = await FilePicker.pickFiles(type: FileType.image, allowMultiple: true);
+      if (result != null) {
+        final paths = result.files.map((f) => f.path).whereType<String>().toList();
+        setState(() {
+          _vehicleOtherImagesPaths.addAll(paths);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error picking other photos: $e')));
+    }
+  }
+
   Future<void> _selectDate(BuildContext context, String field) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -423,6 +445,7 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
         vehicleFrontImagePath: _vehicleFrontImagePath,
         vehicleBackImagePath: _vehicleBackImagePath,
         profilePicturePath: _profilePicPath,
+        vehicleOtherImagesPaths: _vehicleOtherImagesPaths,
       );
 
       if (response['success'] == true) {
@@ -435,6 +458,7 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
           _vehicleFrontImagePath = null;
           _vehicleBackImagePath = null;
           _profilePicPath = null;
+          _vehicleOtherImagesPaths = [];
         });
         _loadProfile();
       } else {
@@ -885,6 +909,78 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
                             filePath: _vehicleBackImagePath,
                             existingPath: _verificationData['vehicle_back_image']?.toString(),
                             onPick: () => _pickImage('vehicle_back'),
+                          ),
+                          const Divider(height: 24, color: AppTheme.softGray),
+                          const Text('Other Vehicle Photos', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          
+                          if (_existingOtherImagesUrls.isNotEmpty || _vehicleOtherImagesPaths.isNotEmpty) ...[
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                                childAspectRatio: 1,
+                              ),
+                              itemCount: _existingOtherImagesUrls.length + _vehicleOtherImagesPaths.length,
+                              itemBuilder: (context, index) {
+                                if (index < _existingOtherImagesUrls.length) {
+                                  final url = _existingOtherImagesUrls[index];
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(url, fit: BoxFit.cover),
+                                  );
+                                } else {
+                                  final localIndex = index - _existingOtherImagesUrls.length;
+                                  final path = _vehicleOtherImagesPaths[localIndex];
+                                  return Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: Image.file(File(path), fit: BoxFit.cover),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _vehicleOtherImagesPaths.removeAt(localIndex);
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.red,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.close, color: Colors.white, size: 12),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+
+                          ElevatedButton.icon(
+                            onPressed: _pickOtherImages,
+                            icon: const Icon(Icons.add_photo_alternate_rounded, size: 16, color: AppTheme.deepLeafGreen),
+                            label: const Text('Add Other Photos', style: TextStyle(color: AppTheme.deepLeafGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.lightMint,
+                              foregroundColor: AppTheme.deepLeafGreen,
+                              elevation: 0,
+                              minimumSize: const Size(double.infinity, 40),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
                           ),
                         ]),
                         const SizedBox(height: 32),

@@ -54,6 +54,9 @@ Route::post('/admin/users/profile/land/{id}/approve', [AdminWebController::class
 Route::post('/admin/users/profile/land/{id}/reject', [AdminWebController::class, 'rejectUserLand'])->name('admin.users.profile.land.reject');
 Route::post('/admin/users/profile/harvest-listing/{id}/status', [AdminWebController::class, 'updateHarvestListingStatus'])->name('admin.harvest-listings.update-status');
 Route::post('/admin/users/profile/{id}/retail-notes', [AdminWebController::class, 'updateRetailSellerNotes'])->name('admin.users.profile.retail-notes');
+Route::post('/admin/users/profile/{id}/delivery-partner/approve', [AdminWebController::class, 'approveDeliveryPartnerVehicle'])->name('admin.users.profile.delivery-partner.approve');
+Route::post('/admin/users/profile/{id}/delivery-partner/reject', [AdminWebController::class, 'rejectDeliveryPartnerVehicle'])->name('admin.users.profile.delivery-partner.reject');
+Route::post('/admin/users/profile/{id}/delivery-partner/notes', [AdminWebController::class, 'updateDeliveryPartnerNotes'])->name('admin.users.profile.delivery-partner.notes');
 
 
 

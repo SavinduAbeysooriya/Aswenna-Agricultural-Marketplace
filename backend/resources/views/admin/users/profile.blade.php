@@ -806,12 +806,12 @@
                                                  <form action="{{ route('admin.users.profile.retail-notes', $user->id) }}" method="POST" id="retail-notes-form">
                                                      @csrf
                                                      <label for="retail_notes" class="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2"><i class="fa-solid fa-note-sticky mr-1 text-slate-400"></i> Administrative Notes</label>
-                                                     <div class="relative flex items-center">
-                                                         <textarea name="notes" id="retail_notes" rows="2" class="w-full rounded-2xl border border-slate-200/60 pl-4 pr-12 py-3 text-xs font-medium bg-white focus:outline-none focus:border-emerald-500 transition leading-normal resize-none shadow-sm" placeholder="Add custom administrative notes, internal audit notes, or registration guidelines...">{!! $retailSellerData->notes ?? '' !!}</textarea>
-                                                         <button type="submit" class="absolute right-3.5 bottom-3.5 w-8 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition shadow-md" title="Save Notes">
-                                                             <i class="fa-solid fa-floppy-disk text-sm"></i>
-                                                         </button>
-                                                     </div>
+                                                      <div class="relative mt-1">
+                                                          <textarea name="notes" id="retail_notes" rows="2" class="w-full rounded-2xl border border-slate-200/60 pl-4 pr-14 py-3.5 text-xs font-medium bg-white focus:outline-none focus:border-emerald-500 transition leading-normal resize-none shadow-sm placeholder:text-slate-400 placeholder:font-medium" placeholder="Add custom administrative notes, internal audit notes, or registration guidelines...">{!! $retailSellerData->notes ?? '' !!}</textarea>
+                                                          <button type="submit" class="absolute right-3 bottom-3 w-8 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition shadow-md hover:scale-105" title="Save Notes">
+                                                              <i class="fa-solid fa-floppy-disk text-sm"></i>
+                                                          </button>
+                                                      </div>
                                                  </form>
                                              </div>
                                          </div>
@@ -819,84 +819,356 @@
 
                                     <!-- Delivery Partner Specific Credentials -->
                                     @if ($deliveryPartnerData)
-                                        <div class="border-t border-slate-100 pt-6 space-y-6">
-                                            <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-truck-fast text-emerald-600"></i> Delivery Driver & Vehicle Ledger</h4>
+                                        @php
+                                            $licenseExpiry = $deliveryPartnerData->driving_license_expiry_date ? \Carbon\Carbon::parse($deliveryPartnerData->driving_license_expiry_date) : null;
+                                            $licenseDiff = $licenseExpiry ? (int) now()->diffInDays($licenseExpiry, false) : null;
                                             
-                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            $insuranceExpiry = $deliveryPartnerData->insurance_expiry ? \Carbon\Carbon::parse($deliveryPartnerData->insurance_expiry) : null;
+                                            $insuranceDiff = $insuranceExpiry ? (int) now()->diffInDays($insuranceExpiry, false) : null;
+                                            
+                                            $revenueExpiry = $deliveryPartnerData->revenue_license_expiry ? \Carbon\Carbon::parse($deliveryPartnerData->revenue_license_expiry) : null;
+                                            $revenueDiff = $revenueExpiry ? (int) now()->diffInDays($revenueExpiry, false) : null;
+
+                                            $vType = strtolower($deliveryPartnerData->vehicle_type ?? 'vehicle');
+                                            $vIcon = 'fa-car-side';
+                                            $vColor = 'bg-blue-50 text-blue-600 border-blue-100';
+                                            if (strpos($vType, 'van') !== false) {
+                                                $vIcon = 'fa-truck-front';
+                                                $vColor = 'bg-amber-50 text-amber-600 border-amber-100';
+                                            } elseif (strpos($vType, 'motorcycle') !== false || strpos($vType, 'bike') !== false || strpos($vType, 'scooter') !== false) {
+                                                $vIcon = 'fa-motorcycle';
+                                                $vColor = 'bg-indigo-50 text-indigo-600 border-indigo-100';
+                                            } elseif (strpos($vType, 'three wheel') !== false || strpos($vType, 'tuk') !== false) {
+                                                $vIcon = 'fa-shuttle-space';
+                                                $vColor = 'bg-teal-50 text-teal-600 border-teal-100';
+                                            } elseif (strpos($vType, 'truck') !== false || strpos($vType, 'lorry') !== false) {
+                                                $vIcon = 'fa-truck';
+                                                $vColor = 'bg-rose-50 text-rose-600 border-rose-100';
+                                            }
+                                        @endphp
+
+                                        <div class="border-t border-slate-100 pt-8 space-y-8 animate-fade-in">
+                                            
+                                            <!-- Header Banner -->
+                                            <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 rounded-3xl p-6 shadow-md border border-slate-700/35 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-white">
+                                                <div class="flex items-center gap-4">
+                                                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner shrink-0">
+                                                        <i class="fa-solid fa-truck-ramp-box text-xl animate-pulse"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h4 class="text-sm font-extrabold uppercase tracking-wider font-poppins">Delivery Driver & Vehicle Ledger</h4>
+                                                        <p class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mt-1">Aswenna Transit Logistics Audit Registry</p>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-750 text-[9px] font-black uppercase tracking-wider text-slate-300">
+                                                        Driver Ref: #DP-{{ str_pad($deliveryPartnerData->id, 4, '0', STR_PAD_LEFT) }}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Main Information Panels -->
+                                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                                 
-                                                <!-- Vehicle Specs -->
-                                                <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 space-y-3">
-                                                    <span class="text-[10px] font-black uppercase text-slate-400 block">Registered Vehicle</span>
-                                                    <div class="space-y-2 text-xs font-semibold">
-                                                        <div class="flex justify-between">
-                                                            <span class="text-slate-400">License Plate</span>
-                                                            <strong class="text-slate-800">{{ $deliveryPartnerData->registration_number ?? 'Not Provided' }}</strong>
+                                                <!-- Panel 1: Vehicle Specifications -->
+                                                <div class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
+                                                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                                        <span class="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5"><i class="fa-solid fa-car-rear text-emerald-600"></i> Vehicle Specifications</span>
+                                                        <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">{{ $deliveryPartnerData->vehicle_type ?? 'Vehicle' }}</span>
+                                                    </div>
+                                                    
+                                                    <!-- Physical License Plate UI -->
+                                                    <div class="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200/60 rounded-2xl shadow-inner text-center">
+                                                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><i class="fa-solid fa-credit-card text-[8px]"></i> Registered License Plate</span>
+                                                        <div class="relative inline-flex flex-col items-center justify-center bg-gradient-to-b from-white to-slate-50 border-2 border-slate-800 rounded-xl px-6 py-2.5 shadow-md min-w-[200px] border-b-4 select-none">
+                                                            <div class="absolute top-0.5 left-2 text-[6px] font-black tracking-widest text-slate-400 uppercase">Aswenna Transit</div>
+                                                            <span class="text-lg font-black tracking-widest text-slate-800 font-mono">{{ $deliveryPartnerData->registration_number ?? 'NOT PROVIDED' }}</span>
+                                                            <div class="absolute bottom-1 right-2 w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 animate-pulse"></div>
                                                         </div>
-                                                        <div class="flex justify-between">
-                                                            <span class="text-slate-400">Make & Model</span>
-                                                            <span class="text-slate-800">{{ $deliveryPartnerData->vehicle_make }} {{ $deliveryPartnerData->model }} ({{ $deliveryPartnerData->year }})</span>
+                                                    </div>
+
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        <!-- Make & Model -->
+                                                        <div class="bg-slate-50 border border-slate-200/40 hover:border-emerald-300/50 rounded-2xl p-3.5 shadow-sm transition flex items-center gap-3 col-span-1 sm:col-span-2">
+                                                            <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-car text-sm"></i></div>
+                                                            <div>
+                                                                <span class="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Make, Model & Year</span>
+                                                                <span class="text-xs text-slate-800 font-extrabold">{{ $deliveryPartnerData->vehicle_make ?? 'N/A' }} {{ $deliveryPartnerData->model ?? 'N/A' }} @if($deliveryPartnerData->year) ({{ $deliveryPartnerData->year }}) @endif</span>
+                                                            </div>
                                                         </div>
-                                                        <div class="flex justify-between">
-                                                            <span class="text-slate-400">Class Type</span>
-                                                            <span class="text-slate-800 uppercase">{{ $deliveryPartnerData->vehicle_type }}</span>
+
+                                                        <!-- Vehicle Color -->
+                                                        <div class="bg-slate-50 border border-slate-200/40 hover:border-emerald-300/50 rounded-2xl p-3.5 shadow-sm transition flex items-center justify-between">
+                                                            <div class="flex items-center gap-3">
+                                                                <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-palette text-sm"></i></div>
+                                                                <div>
+                                                                    <span class="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Vehicle Color</span>
+                                                                    <span class="text-xs text-slate-800 font-extrabold capitalize">{{ $deliveryPartnerData->color ?? 'N/A' }}</span>
+                                                                </div>
+                                                            </div>
+                                                            @if($deliveryPartnerData->color && strtolower($deliveryPartnerData->color) !== 'n/a')
+                                                                <div class="w-6 h-6 rounded-full border border-slate-200 shadow-inner shrink-0" style="background-color: {{ strtolower($deliveryPartnerData->color) }}"></div>
+                                                            @endif
                                                         </div>
-                                                        <div class="flex justify-between">
-                                                            <span class="text-slate-400">Max Weight Capacity</span>
-                                                            <span class="text-slate-800">{{ $deliveryPartnerData->max_weight ? $deliveryPartnerData->max_weight . ' kg' : 'N/A' }}</span>
+
+                                                        <!-- Max Capacity -->
+                                                        <div class="bg-slate-50 border border-slate-200/40 hover:border-emerald-300/50 rounded-2xl p-3.5 shadow-sm transition flex items-center justify-between">
+                                                            <div class="flex items-center gap-3">
+                                                                <div class="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-weight-hanging text-sm"></i></div>
+                                                                <div>
+                                                                    <span class="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Max Payload</span>
+                                                                    <span class="text-xs text-slate-800 font-extrabold">{{ $deliveryPartnerData->max_weight ? $deliveryPartnerData->max_weight . ' kg' : 'N/A' }}</span>
+                                                                </div>
+                                                            </div>
+                                                            <span class="text-[8px] font-black uppercase bg-orange-50 border border-orange-100 text-orange-700 rounded-full px-2 py-0.5 shrink-0">LIMIT</span>
+                                                        </div>
+
+                                                        <!-- Class Type -->
+                                                        <div class="bg-slate-50 border border-slate-200/40 hover:border-emerald-300/50 rounded-2xl p-3.5 shadow-sm transition flex items-center justify-between col-span-1 sm:col-span-2">
+                                                            <div class="flex items-center gap-3">
+                                                                <div class="w-9 h-9 rounded-xl {{ $vColor }} border flex items-center justify-center shrink-0"><i class="fa-solid {{ $vIcon }} text-sm"></i></div>
+                                                                <div>
+                                                                    <span class="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Transit Class</span>
+                                                                    <span class="text-xs text-slate-800 font-extrabold uppercase">{{ $deliveryPartnerData->vehicle_type ?? 'N/A' }}</span>
+                                                                </div>
+                                                            </div>
+                                                            <span class="text-[8px] font-black uppercase {{ $vColor }} border rounded-full px-2.5 py-0.5 shrink-0">Class Audit</span>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                <!-- License Expiries -->
-                                                <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 space-y-3">
-                                                    <span class="text-[10px] font-black uppercase text-slate-400 block">Credential Expiry States</span>
-                                                    <div class="space-y-2 text-xs font-semibold">
-                                                        <div class="flex justify-between">
-                                                            <span class="text-slate-400">Driving License</span>
-                                                            <span class="text-slate-800">{{ $deliveryPartnerData->driving_license_expiry_date ?? 'N/A' }}</span>
-                                                        </div>
-                                                        <div class="flex justify-between">
-                                                            <span class="text-slate-400">Vehicle Insurance</span>
-                                                            <span class="text-slate-800">{{ $deliveryPartnerData->insurance_expiry ?? 'N/A' }}</span>
-                                                        </div>
-                                                        <div class="flex justify-between">
-                                                            <span class="text-slate-400">Revenue License</span>
-                                                            <span class="text-slate-800">{{ $deliveryPartnerData->revenue_license_expiry ?? 'N/A' }}</span>
-                                                        </div>
+                                                <!-- Panel 2: Credentials Audit Desk -->
+                                                <div class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
+                                                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                                        <span class="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5"><i class="fa-solid fa-file-circle-check text-emerald-600"></i> Credentials & Audits</span>
+                                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Security Check</span>
                                                     </div>
-                                                </div>
+                                                    
+                                                    <div class="space-y-4">
+                                                        <!-- Driving License -->
+                                                        <div class="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200/40 hover:border-emerald-300/50 rounded-2xl shadow-sm transition gap-4">
+                                                            <div class="flex items-center gap-3">
+                                                                <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0"><i class="fa-solid fa-id-card text-sm"></i></div>
+                                                                <div>
+                                                                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Driving License</p>
+                                                                    <p class="text-xs text-slate-800 font-black mt-0.5 font-poppins">{{ $deliveryPartnerData->driving_license_expiry_date ?? 'Not Provided' }}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div class="flex items-center gap-2">
+                                                                @if ($licenseExpiry)
+                                                                    @if ($licenseDiff < 0)
+                                                                        <span class="px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider bg-rose-50 border border-rose-100 text-rose-700 flex items-center gap-1 shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span> Expired ({{ abs($licenseDiff) }}d ago)</span>
+                                                                    @elseif ($licenseDiff <= 30)
+                                                                        <span class="px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider bg-amber-50 border border-amber-100 text-amber-700 flex items-center gap-1 shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Expiring ({{ $licenseDiff }}d)</span>
+                                                                    @else
+                                                                        <span class="px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider bg-emerald-50 border border-emerald-100 text-emerald-700 shadow-sm">Valid ({{ $licenseDiff }}d left)</span>
+                                                                    @endif
+                                                                @else
+                                                                    <span class="px-2.5 py-1 rounded-xl text-[9px] font-black uppercase bg-slate-100 border border-slate-200/50 text-slate-400">N/A</span>
+                                                                @endif
+                                                            </div>
+                                                        </div>
 
-                                                <!-- Doc Previews -->
-                                                <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-4 space-y-3 flex flex-col justify-between">
-                                                    <span class="text-[10px] font-black uppercase text-slate-400 block">Credential Documents</span>
-                                                    <div class="grid grid-cols-2 gap-2 mt-2">
-                                                        @if ($deliveryPartnerData->insurance_image_path)
-                                                            <button type="button" onclick="openLightbox('{{ Str::startsWith($deliveryPartnerData->insurance_image_path, ['http://', 'https://']) ? $deliveryPartnerData->insurance_image_path : asset('storage/' . $deliveryPartnerData->insurance_image_path) }}')" class="px-2 py-2.5 rounded-xl border border-slate-200 hover:bg-white text-[10px] font-extrabold text-slate-700 transition truncate"><i class="fa-solid fa-shield mr-1 text-slate-400"></i> Insurance</button>
-                                                        @endif
-                                                        @if ($deliveryPartnerData->revenue_license_image_path)
-                                                            <button type="button" onclick="openLightbox('{{ Str::startsWith($deliveryPartnerData->revenue_license_image_path, ['http://', 'https://']) ? $deliveryPartnerData->revenue_license_image_path : asset('storage/' . $deliveryPartnerData->revenue_license_image_path) }}')" class="px-2 py-2.5 rounded-xl border border-slate-200 hover:bg-white text-[10px] font-extrabold text-slate-700 transition truncate"><i class="fa-solid fa-file-invoice mr-1 text-slate-400"></i> Revenue</button>
-                                                        @endif
+                                                        <!-- Vehicle Insurance -->
+                                                        <div class="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200/40 hover:border-emerald-300/50 rounded-2xl shadow-sm transition gap-4">
+                                                            <div class="flex items-center gap-3">
+                                                                <div class="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shrink-0"><i class="fa-solid fa-file-shield text-sm"></i></div>
+                                                                <div>
+                                                                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Vehicle Insurance</p>
+                                                                    <p class="text-xs text-slate-800 font-black mt-0.5 font-poppins">{{ $deliveryPartnerData->insurance_expiry ?? 'Not Provided' }}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div class="flex items-center gap-3 shrink-0">
+                                                                @if ($insuranceExpiry)
+                                                                    @if ($insuranceDiff < 0)
+                                                                        <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-rose-50 border border-rose-100 text-rose-700">Expired</span>
+                                                                    @elseif ($insuranceDiff <= 30)
+                                                                        <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-amber-50 border border-amber-100 text-amber-700 animate-pulse">{{ $insuranceDiff }}d</span>
+                                                                    @else
+                                                                        <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-emerald-50 border border-emerald-100 text-emerald-700">Valid</span>
+                                                                    @endif
+                                                                @endif
+
+                                                                @if ($deliveryPartnerData->insurance_image_path)
+                                                                    <div class="relative w-11 h-11 rounded-xl overflow-hidden border border-slate-200 shadow-sm cursor-pointer group shrink-0" onclick="openLightbox('{{ Str::startsWith($deliveryPartnerData->insurance_image_path, ['http://', 'https://']) ? $deliveryPartnerData->insurance_image_path : asset('storage/' . $deliveryPartnerData->insurance_image_path) }}')" title="Click to view insurance document">
+                                                                        <img src="{{ Str::startsWith($deliveryPartnerData->insurance_image_path, ['http://', 'https://']) ? $deliveryPartnerData->insurance_image_path : asset('storage/' . $deliveryPartnerData->insurance_image_path) }}" class="w-full h-full object-cover group-hover:scale-110 transition duration-300">
+                                                                        <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black"><i class="fa-solid fa-expand"></i></div>
+                                                                    </div>
+                                                                @else
+                                                                    <div class="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200/50 flex items-center justify-center text-slate-350 text-[8px] font-bold">No Doc</div>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Revenue License Info -->
+                                                        <div class="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200/40 hover:border-emerald-300/50 rounded-2xl shadow-sm transition gap-4">
+                                                            <div class="flex items-center gap-3">
+                                                                <div class="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0"><i class="fa-solid fa-file-invoice-dollar text-sm"></i></div>
+                                                                <div>
+                                                                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Revenue License</p>
+                                                                    <p class="text-xs text-slate-800 font-black mt-0.5 font-poppins">{{ $deliveryPartnerData->revenue_license_expiry ?? 'Not Provided' }}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div class="flex items-center gap-3 shrink-0">
+                                                                @if ($revenueExpiry)
+                                                                    @if ($revenueDiff < 0)
+                                                                        <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-rose-50 border border-rose-100 text-rose-700">Expired</span>
+                                                                    @elseif ($revenueDiff <= 30)
+                                                                        <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-amber-50 border border-amber-100 text-amber-700 animate-pulse">{{ $revenueDiff }}d</span>
+                                                                    @else
+                                                                        <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-emerald-50 border border-emerald-100 text-emerald-700">Valid</span>
+                                                                    @endif
+                                                                @endif
+
+                                                                @if ($deliveryPartnerData->revenue_license_image_path)
+                                                                    <div class="relative w-11 h-11 rounded-xl overflow-hidden border border-slate-200 shadow-sm cursor-pointer group shrink-0" onclick="openLightbox('{{ Str::startsWith($deliveryPartnerData->revenue_license_image_path, ['http://', 'https://']) ? $deliveryPartnerData->revenue_license_image_path : asset('storage/' . $deliveryPartnerData->revenue_license_image_path) }}')" title="Click to view revenue license">
+                                                                        <img src="{{ Str::startsWith($deliveryPartnerData->revenue_license_image_path, ['http://', 'https://']) ? $deliveryPartnerData->revenue_license_image_path : asset('storage/' . $deliveryPartnerData->revenue_license_image_path) }}" class="w-full h-full object-cover group-hover:scale-110 transition duration-300">
+                                                                        <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black"><i class="fa-solid fa-expand"></i></div>
+                                                                    </div>
+                                                                @else
+                                                                    <div class="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200/50 flex items-center justify-center text-slate-350 text-[8px] font-bold">No Doc</div>
+                                                                @endif
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <!-- Vehicle Photos -->
-                                            <div class="space-y-3">
-                                                <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Vehicle Photos</span>
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            <!-- Vehicle Photos Showcase -->
+                                            <div class="space-y-4 pt-4">
+                                                <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                                                    <h5 class="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5"><i class="fa-solid fa-images text-emerald-600"></i> Vehicle Photos Gallery</h5>
+                                                    <span class="text-[8px] font-black bg-slate-100 text-slate-500 rounded-full px-2 py-0.5 uppercase tracking-wider">Visual Assets</span>
+                                                </div>
+
+                                                <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
                                                     @if ($deliveryPartnerData->vehicle_front_image)
-                                                        <div class="relative rounded-2xl overflow-hidden border border-slate-200/60 aspect-[4/3] bg-white group cursor-pointer" onclick="openLightbox('{{ Str::startsWith($deliveryPartnerData->vehicle_front_image, ['http://', 'https://']) ? $deliveryPartnerData->vehicle_front_image : asset('storage/' . $deliveryPartnerData->vehicle_front_image) }}')">
-                                                            <img src="{{ Str::startsWith($deliveryPartnerData->vehicle_front_image, ['http://', 'https://']) ? $deliveryPartnerData->vehicle_front_image : asset('storage/' . $deliveryPartnerData->vehicle_front_image) }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                                                            <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black transition-opacity">Front View</div>
+                                                        <div class="relative rounded-2xl overflow-hidden border border-slate-200 bg-white group cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 aspect-[4/3]" onclick="openLightbox('{{ Str::startsWith($deliveryPartnerData->vehicle_front_image, ['http://', 'https://']) ? $deliveryPartnerData->vehicle_front_image : asset('storage/' . $deliveryPartnerData->vehicle_front_image) }}')">
+                                                            <img src="{{ Str::startsWith($deliveryPartnerData->vehicle_front_image, ['http://', 'https://']) ? $deliveryPartnerData->vehicle_front_image : asset('storage/' . $deliveryPartnerData->vehicle_front_image) }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                                            <div class="absolute inset-x-0 bottom-0 bg-slate-950/60 backdrop-blur-[2px] border-t border-white/10 px-3 py-2 text-white flex items-center justify-between transition duration-300">
+                                                                <span class="text-[9px] font-black tracking-widest uppercase text-slate-100">Front View</span>
+                                                                <div class="w-5 h-5 rounded-lg bg-white/10 flex items-center justify-center text-[10px] text-white opacity-80 group-hover:opacity-100 group-hover:bg-emerald-600 transition"><i class="fa-solid fa-maximize"></i></div>
+                                                            </div>
                                                         </div>
                                                     @endif
+
                                                     @if ($deliveryPartnerData->vehicle_back_image)
-                                                        <div class="relative rounded-2xl overflow-hidden border border-slate-200/60 aspect-[4/3] bg-white group cursor-pointer" onclick="openLightbox('{{ Str::startsWith($deliveryPartnerData->vehicle_back_image, ['http://', 'https://']) ? $deliveryPartnerData->vehicle_back_image : asset('storage/' . $deliveryPartnerData->vehicle_back_image) }}')">
-                                                            <img src="{{ Str::startsWith($deliveryPartnerData->vehicle_back_image, ['http://', 'https://']) ? $deliveryPartnerData->vehicle_back_image : asset('storage/' . $deliveryPartnerData->vehicle_back_image) }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                                                            <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black transition-opacity">Back View</div>
+                                                        <div class="relative rounded-2xl overflow-hidden border border-slate-200 bg-white group cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 aspect-[4/3]" onclick="openLightbox('{{ Str::startsWith($deliveryPartnerData->vehicle_back_image, ['http://', 'https://']) ? $deliveryPartnerData->vehicle_back_image : asset('storage/' . $deliveryPartnerData->vehicle_back_image) }}')">
+                                                            <img src="{{ Str::startsWith($deliveryPartnerData->vehicle_back_image, ['http://', 'https://']) ? $deliveryPartnerData->vehicle_back_image : asset('storage/' . $deliveryPartnerData->vehicle_back_image) }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                                            <div class="absolute inset-x-0 bottom-0 bg-slate-950/60 backdrop-blur-[2px] border-t border-white/10 px-3 py-2 text-white flex items-center justify-between transition duration-300">
+                                                                <span class="text-[9px] font-black tracking-widest uppercase text-slate-100">Back View</span>
+                                                                <div class="w-5 h-5 rounded-lg bg-white/10 flex items-center justify-center text-[10px] text-white opacity-80 group-hover:opacity-100 group-hover:bg-emerald-600 transition"><i class="fa-solid fa-maximize"></i></div>
+                                                            </div>
                                                         </div>
+                                                    @endif
+
+                                                    @php
+                                                        $otherPhotos = [];
+                                                        if (!empty($deliveryPartnerData->vehicle_other_images)) {
+                                                            $otherPhotos = is_string($deliveryPartnerData->vehicle_other_images) 
+                                                                ? json_decode($deliveryPartnerData->vehicle_other_images, true) 
+                                                                : $deliveryPartnerData->vehicle_other_images;
+                                                        }
+                                                    @endphp
+                                                    @if (!empty($otherPhotos) && is_array($otherPhotos))
+                                                        @foreach ($otherPhotos as $index => $img)
+                                                            <div class="relative rounded-2xl overflow-hidden border border-slate-200 bg-white group cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 aspect-[4/3]" onclick="openLightbox('{{ Str::startsWith($img, ['http://', 'https://']) ? $img : asset('storage/' . $img) }}')">
+                                                                <img src="{{ Str::startsWith($img, ['http://', 'https://']) ? $img : asset('storage/' . $img) }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                                                <div class="absolute inset-x-0 bottom-0 bg-slate-950/60 backdrop-blur-[2px] border-t border-white/10 px-3 py-2 text-white flex items-center justify-between transition duration-300">
+                                                                    <span class="text-[9px] font-black tracking-widest uppercase text-slate-100">Other View {{ $index + 1 }}</span>
+                                                                    <div class="w-5 h-5 rounded-lg bg-white/10 flex items-center justify-center text-[10px] text-white opacity-80 group-hover:opacity-100 group-hover:bg-emerald-600 transition"><i class="fa-solid fa-maximize"></i></div>
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
                                                     @endif
                                                 </div>
+                                            </div>
+
+                                            <!-- Verdict & Administrative Log Center -->
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 border-t border-slate-100 pt-6">
+                                                
+                                                <!-- Status Control Panel -->
+                                                <div class="border border-slate-200/80 bg-white rounded-3xl p-6 space-y-5 shadow-sm">
+                                                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                                        <span class="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5"><i class="fa-solid fa-circle-nodes text-emerald-600"></i> Verification Verdict</span>
+                                                        @php
+                                                            $vehStatus = $deliveryPartnerData->status ?? 'pending';
+                                                            $statusColors = [
+                                                                'verified' => 'bg-emerald-50 text-emerald-700 border-emerald-250 shadow-sm shadow-emerald-500/5',
+                                                                'rejected' => 'bg-rose-50 text-rose-700 border-rose-250 shadow-sm shadow-rose-500/5',
+                                                                'pending' => 'bg-amber-50 text-amber-700 border-amber-250 shadow-sm shadow-amber-500/5'
+                                                            ][$vehStatus] ?? 'bg-slate-50 text-slate-700 border-slate-100';
+                                                        @endphp
+                                                        <span class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-wider {{ $statusColors }}">
+                                                            <span class="w-1.5 h-1.5 rounded-full {{ $vehStatus === 'verified' ? 'bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/80' : ($vehStatus === 'rejected' ? 'bg-rose-500' : 'bg-amber-500 animate-ping') }}"></span>
+                                                            {{ $vehStatus }}
+                                                        </span>
+                                                    </div>
+
+                                                    @if ($vehStatus === 'rejected' && $deliveryPartnerData->rejected_reason)
+                                                        <div class="p-4 bg-rose-50/50 border border-rose-100 text-rose-700 text-xs font-semibold rounded-2xl shadow-inner relative overflow-hidden">
+                                                            <div class="absolute top-0 left-0 bottom-0 w-1 bg-rose-500"></div>
+                                                            <p class="font-bold text-[9px] text-rose-800 uppercase tracking-widest mb-1.5 flex items-center gap-1"><i class="fa-solid fa-circle-exclamation text-xs"></i> Rejection Explanation Log</p>
+                                                            <p class="leading-relaxed text-[11px] text-rose-950 font-medium pl-1">{{ $deliveryPartnerData->rejected_reason }}</p>
+                                                        </div>
+                                                    @endif
+
+                                                     <div class="flex items-center gap-3 pt-1">
+                                                        @if ($vehStatus !== 'verified')
+                                                            <!-- Approve Button -->
+                                                            <form action="{{ route('admin.users.profile.delivery-partner.approve', $user->id) }}" method="POST" id="approve-vehicle-form" class="inline-block">
+                                                                @csrf
+                                                                <button type="button" onclick="confirmAction('approve-vehicle-form', 'Approve vehicle details? The delivery partner will be active.', 'Yes, Approve Vehicle', 'success')" class="w-11 h-11 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-all duration-300 shadow-md hover:scale-110" title="Approve Vehicle Credentials">
+                                                                    <i class="fa-solid fa-check text-base"></i>
+                                                                </button>
+                                                            </form>
+                                                        @endif
+
+                                                        @if ($vehStatus !== 'rejected')
+                                                            <!-- Reject Button -->
+                                                            <button type="button" onclick="toggleVehicleRejectionBox()" class="w-11 h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition-all duration-300 shadow-md hover:scale-110" title="Flag / Reject Vehicle">
+                                                                <i class="fa-solid fa-xmark text-base"></i>
+                                                            </button>
+                                                        @endif
+                                                    </div>
+
+                                                    <!-- Rejection Form Box (Hidden by default, with beautiful transitions) -->
+                                                    <div id="vehicle-rejection-box" class="hidden mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 animate-fade-in space-y-3 shadow-inner">
+                                                        <form action="{{ route('admin.users.profile.delivery-partner.reject', $user->id) }}" method="POST" id="reject-vehicle-form">
+                                                            @csrf
+                                                            <label for="vehicle_rejection_reason" class="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1.5"><i class="fa-solid fa-circle-info text-rose-500 mr-0.5"></i> State Reason for Vehicle Rejection</label>
+                                                            <textarea name="rejection_reason" id="vehicle_rejection_reason" rows="3" required class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs font-semibold bg-white focus:outline-none focus:border-rose-500 transition shadow-sm leading-relaxed placeholder:text-slate-400 placeholder:font-medium" placeholder="State reason (e.g. Expired revenue license, blurry license plate, mismatched make/model)"></textarea>
+                                                            <div class="flex gap-2">
+                                                                <button type="submit" class="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-extrabold uppercase tracking-wider transition shadow-md">
+                                                                    Confirm Rejection
+                                                                </button>
+                                                                <button type="button" onclick="toggleVehicleRejectionBox()" class="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 text-[10px] font-bold transition">
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Notes Form Card -->
+                                                <div class="border border-slate-200/80 bg-white rounded-3xl p-6 space-y-3 shadow-sm flex flex-col justify-between">
+                                                    <div>
+                                                        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                                            <span class="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5"><i class="fa-solid fa-note-sticky text-emerald-600"></i> Administrative Notes</span>
+                                                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Internal Audit</span>
+                                                        </div>
+                                                        <form action="{{ route('admin.users.profile.delivery-partner.notes', $user->id) }}" method="POST" id="delivery-partner-notes-form" class="mt-4">
+                                                            @csrf
+                                                             <div class="relative mt-1">
+                                                                 <textarea name="notes" id="delivery_notes" rows="3" class="w-full rounded-2xl border border-slate-200/60 pl-4 pr-14 py-3.5 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500 transition-all leading-normal resize-none shadow-sm placeholder:text-slate-400 placeholder:font-medium" placeholder="Add custom vehicle audit notes, verification internal guidelines...">{!! $deliveryPartnerData->notes ?? '' !!}</textarea>
+                                                                 <button type="submit" class="absolute right-3 bottom-3 w-8 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition shadow-md hover:scale-105" title="Save Notes">
+                                                                     <i class="fa-solid fa-floppy-disk text-sm"></i>
+                                                                 </button>
+                                                             </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+
                                             </div>
                                         </div>
                                     @endif
@@ -2247,6 +2519,14 @@
                 box.classList.remove('hidden');
             } else {
                 box.classList.add('hidden');
+            }
+        }
+
+        // Delivery Partner Vehicle Rejection toggle logic
+        function toggleVehicleRejectionBox() {
+            const box = document.getElementById('vehicle-rejection-box');
+            if (box) {
+                box.classList.toggle('hidden');
             }
         }
 

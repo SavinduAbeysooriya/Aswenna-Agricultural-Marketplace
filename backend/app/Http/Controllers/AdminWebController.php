@@ -587,6 +587,7 @@ class AdminWebController extends Controller
         $customerOrders = collect();
         $customerOrderItems = collect();
         $customerOrderReviews = collect();
+        $orderPayments = collect();
 
         if (in_array('farmer', $roles, true)) {
             $reviews = DB::table('buyer_farmer_reviews')
@@ -751,6 +752,12 @@ class AdminWebController extends Controller
                     ->whereIn('order_id', $customerOrders->pluck('id'))
                     ->get()
                     ->keyBy('order_id');
+
+                $orderPayments = DB::table('order_payments')
+                    ->where('customer_id', $user->id)
+                    ->whereIn('order_id', $customerOrders->pluck('id'))
+                    ->get()
+                    ->keyBy('order_id');
             }
         } elseif (in_array('buyer', $roles, true)) {
             $history = DB::table('confirmed_bids')
@@ -825,6 +832,7 @@ class AdminWebController extends Controller
             'customerOrders' => $customerOrders,
             'customerOrderItems' => $customerOrderItems,
             'customerOrderReviews' => $customerOrderReviews,
+            'orderPayments' => $orderPayments,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
     }

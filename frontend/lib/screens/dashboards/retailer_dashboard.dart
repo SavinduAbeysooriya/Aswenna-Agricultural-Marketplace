@@ -211,6 +211,56 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
               ),
               const SizedBox(height: 28),
 
+              // Recent Customer Orders
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Recent Customer Orders',
+                    style: TextStyle(color: AppTheme.darkGreen, fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RetailerOrdersScreen()),
+                      ).then((_) => _fetchDashboardData());
+                    },
+                    child: const Text('See All', style: TextStyle(color: AppTheme.deepLeafGreen)),
+                  )
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              if (_isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CircularProgressIndicator(color: AppTheme.deepLeafGreen),
+                  ),
+                )
+              else if (_orders.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32.0),
+                    child: Column(
+                      children: [
+                        Icon(Icons.receipt_long_rounded, color: Colors.grey[400], size: 48),
+                        const SizedBox(height: 12),
+                        Text('No recent customer orders.', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ..._orders.take(3).map((order) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: _buildRecentOrderCard(order),
+                  );
+                }),
+              const SizedBox(height: 28),
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -282,6 +332,117 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
             });
           }
         },
+      ),
+    );
+  }
+
+  Widget _buildRecentOrderCard(dynamic order) {
+    final status = order['order_status'] ?? 'pending';
+    final items = order['retailer_items'] as List? ?? [];
+    final double salesTotal = items.fold(0.0, (sum, item) => sum + double.parse(item['final_price'].toString()));
+    final date = DateTime.parse(order['created_at']);
+    final formattedDate = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final customerName = order['customer']?['full_name'] ?? 'Buyer';
+
+    Color statusColor;
+    switch (status) {
+      case 'completed':
+      case 'delivered':
+        statusColor = AppTheme.deepLeafGreen;
+        break;
+      case 'cancelled':
+        statusColor = Colors.red;
+        break;
+      case 'processing':
+      case 'confirmed':
+        statusColor = Colors.blue;
+        break;
+      default:
+        statusColor = Colors.orange;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.pureWhite,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.deepLeafGreen.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RetailerOrdersScreen()),
+            ).then((_) => _fetchDashboardData());
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.shopping_bag_outlined, color: statusColor, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            order['order_number'] ?? 'Order No',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          Text(
+                            'LKR ${salesTotal.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Customer: $customerName',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            status.toUpperCase().replaceAll('_', ' '),
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$formattedDate · ${items.length} items',
+                        style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

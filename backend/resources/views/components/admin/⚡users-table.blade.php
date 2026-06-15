@@ -150,6 +150,15 @@ new class extends Component
             $this->selectedUserRating = DB::table('retailer_customer_delivery_partner_reviews')->where('reviewed_to', $userId)->avg('ratings') ?: 0;
             
             $this->selectedUserListings = [];
+        } elseif ($this->role === 'customer') {
+            $this->selectedUserReviews = DB::table('retailer_customer_delivery_partner_reviews')
+                ->where('reviewed_by', $userId)
+                ->join('users', 'retailer_customer_delivery_partner_reviews.reviewed_to', '=', 'users.id')
+                ->select('retailer_customer_delivery_partner_reviews.*', 'users.full_name as reviewer_name', 'users.profile_picture_path as reviewer_avatar')
+                ->orderByDesc('retailer_customer_delivery_partner_reviews.created_at')
+                ->get();
+            $this->selectedUserRating = 0;
+            $this->selectedUserListings = [];
         } else {
             $this->selectedUserReviews = [];
             $this->selectedUserRating = 0;

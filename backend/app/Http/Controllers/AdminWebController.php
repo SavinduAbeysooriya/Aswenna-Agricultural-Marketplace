@@ -586,6 +586,7 @@ class AdminWebController extends Controller
         $retailOrderItems = collect();
         $customerOrders = collect();
         $customerOrderItems = collect();
+        $customerOrderReviews = collect();
 
         if (in_array('farmer', $roles, true)) {
             $reviews = DB::table('buyer_farmer_reviews')
@@ -682,6 +683,14 @@ class AdminWebController extends Controller
                 ->orderByDesc('retailer_customer_delivery_partner_reviews.created_at')
                 ->get();
             $averageRating = DB::table('retailer_customer_delivery_partner_reviews')->where('reviewed_to', $user->id)->avg('ratings') ?: 0;
+        } elseif (in_array('customer', $roles, true)) {
+            $reviews = DB::table('retailer_customer_delivery_partner_reviews')
+                ->where('reviewed_by', $user->id)
+                ->join('users', 'retailer_customer_delivery_partner_reviews.reviewed_to', '=', 'users.id')
+                ->select('retailer_customer_delivery_partner_reviews.*', 'users.full_name as reviewed_to_name', 'users.profile_picture_path as reviewed_to_avatar')
+                ->orderByDesc('retailer_customer_delivery_partner_reviews.created_at')
+                ->get();
+            $averageRating = 0;
         }
 
         // 4. Fetch History (Rides, Purchases, Bids)
@@ -736,6 +745,12 @@ class AdminWebController extends Controller
                     ->select('order_items.*', 'retailer_products.product_name', 'retailer_products.unit_type', 'sellers.full_name as seller_name')
                     ->get()
                     ->groupBy('order_id');
+
+                $customerOrderReviews = DB::table('retailer_customer_delivery_partner_reviews')
+                    ->where('reviewed_by', $user->id)
+                    ->whereIn('order_id', $customerOrders->pluck('id'))
+                    ->get()
+                    ->keyBy('order_id');
             }
         } elseif (in_array('buyer', $roles, true)) {
             $history = DB::table('confirmed_bids')
@@ -809,6 +824,7 @@ class AdminWebController extends Controller
             'retailOrderItems' => $retailOrderItems,
             'customerOrders' => $customerOrders,
             'customerOrderItems' => $customerOrderItems,
+            'customerOrderReviews' => $customerOrderReviews,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
     }

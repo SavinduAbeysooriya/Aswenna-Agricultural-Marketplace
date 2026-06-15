@@ -2349,7 +2349,11 @@
 
                                     <!-- Feedback Feed -->
                                     <div class="space-y-4">
-                                        <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-comments text-emerald-600"></i> Public Customer Feedback Feed</h4>
+                                        @if (in_array('customer', $roles, true))
+                                            <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-comments text-emerald-600"></i> Reviews Written by Customer</h4>
+                                        @else
+                                            <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2"><i class="fa-solid fa-comments text-emerald-600"></i> Public Customer Feedback Feed</h4>
+                                        @endif
                                         
                                         @if (count($reviews) > 0)
                                             <div class="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white">
@@ -2358,15 +2362,28 @@
                                                         <div class="flex justify-between items-start">
                                                             <div class="flex items-center gap-3">
                                                                 <div class="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center text-xs font-bold text-slate-500">
-                                                                    @if (isset($rev->reviewer_avatar) && $rev->reviewer_avatar)
-                                                                        <img src="{{ Str::startsWith($rev->reviewer_avatar, ['http://', 'https://']) ? $rev->reviewer_avatar : asset('storage/' . $rev->reviewer_avatar) }}" class="w-full h-full object-cover">
+                                                                    @if (in_array('customer', $roles, true))
+                                                                        @if (isset($rev->reviewed_to_avatar) && $rev->reviewed_to_avatar)
+                                                                            <img src="{{ Str::startsWith($rev->reviewed_to_avatar, ['http://', 'https://']) ? $rev->reviewed_to_avatar : asset('storage/' . $rev->reviewed_to_avatar) }}" class="w-full h-full object-cover">
+                                                                        @else
+                                                                            <span>{{ strtoupper(substr($rev->reviewed_to_name ?? 'U', 0, 2)) }}</span>
+                                                                        @endif
                                                                     @else
-                                                                        <span>{{ strtoupper(substr($rev->reviewer_name ?? 'U', 0, 2)) }}</span>
+                                                                        @if (isset($rev->reviewer_avatar) && $rev->reviewer_avatar)
+                                                                            <img src="{{ Str::startsWith($rev->reviewer_avatar, ['http://', 'https://']) ? $rev->reviewer_avatar : asset('storage/' . $rev->reviewer_avatar) }}" class="w-full h-full object-cover">
+                                                                        @else
+                                                                            <span>{{ strtoupper(substr($rev->reviewer_name ?? 'U', 0, 2)) }}</span>
+                                                                        @endif
                                                                     @endif
                                                                 </div>
                                                                 <div>
-                                                                    <strong class="text-xs text-slate-800 block">{{ $rev->reviewer_name ?? 'Anonymous User' }}</strong>
-                                                                    <span class="text-[9px] text-slate-400 font-bold block mt-0.5">UID #US{{ str_pad($rev->reviewed_by ?? 0, 5, '0', STR_PAD_LEFT) }}</span>
+                                                                    @if (in_array('customer', $roles, true))
+                                                                        <strong class="text-xs text-slate-800 block">Reviewed: {{ $rev->reviewed_to_name ?? 'User' }}</strong>
+                                                                        <span class="text-[9px] text-slate-400 font-bold block mt-0.5">UID #US{{ str_pad($rev->reviewed_to ?? 0, 5, '0', STR_PAD_LEFT) }}</span>
+                                                                    @else
+                                                                        <strong class="text-xs text-slate-800 block">{{ $rev->reviewer_name ?? 'Anonymous User' }}</strong>
+                                                                        <span class="text-[9px] text-slate-400 font-bold block mt-0.5">UID #US{{ str_pad($rev->reviewed_by ?? 0, 5, '0', STR_PAD_LEFT) }}</span>
+                                                                    @endif
                                                                 </div>
                                                             </div>
 
@@ -2838,6 +2855,26 @@
                                                                      <span class="font-bold">Customer Note:</span>
                                                                      <span class="italic">"{{ $order->customer_note }}"</span>
                                                                  </div>
+                                                             </div>
+                                                        @endif
+
+                                                        @if (isset($customerOrderReviews[$order->id]))
+                                                             <div class="p-3.5 bg-emerald-50 border border-emerald-100 rounded-2xl text-[11px] font-medium text-emerald-800 flex flex-col gap-1.5 mt-2">
+                                                                 <div class="flex justify-between items-center">
+                                                                     <span class="font-bold flex items-center gap-1.5 text-emerald-900">
+                                                                         <i class="fa-solid fa-star text-amber-400"></i> Customer Review Added
+                                                                     </span>
+                                                                     <div class="flex text-[9px] text-amber-400 gap-0.5">
+                                                                         @for ($i = 1; $i <= 5; $i++)
+                                                                             @if ($i <= round($customerOrderReviews[$order->id]->ratings))
+                                                                                 <i class="fa-solid fa-star"></i>
+                                                                             @else
+                                                                                 <i class="fa-regular fa-star"></i>
+                                                                             @endif
+                                                                         @endfor
+                                                                     </div>
+                                                                 </div>
+                                                                 <p class="italic text-slate-700">"{{ $customerOrderReviews[$order->id]->feedback }}"</p>
                                                              </div>
                                                         @endif
                                                     </div>

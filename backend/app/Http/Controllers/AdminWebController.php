@@ -582,6 +582,10 @@ class AdminWebController extends Controller
         $payments = collect();
         $confirmedBidReviews = collect();
         $dealChats = collect();
+        $retailOrders = collect();
+        $retailOrderItems = collect();
+        $customerOrders = collect();
+        $customerOrderItems = collect();
 
         if (in_array('farmer', $roles, true)) {
             $reviews = DB::table('buyer_farmer_reviews')
@@ -669,6 +673,7 @@ class AdminWebController extends Controller
                 ->select('retailer_products.*', 'crops.cropname as crop_name')
                 ->orderByDesc('retailer_products.created_at')
                 ->get();
+
         } elseif (in_array('delivery_partner', $roles, true)) {
             $reviews = DB::table('retailer_customer_delivery_partner_reviews')
                 ->where('reviewed_to', $user->id)
@@ -691,10 +696,47 @@ class AdminWebController extends Controller
         } elseif (in_array('customer', $roles, true)) {
             $history = DB::table('customer_orders')
                 ->where('customer_id', $user->id)
-                ->join('users as sellers', 'customer_orders.retailer_seller_id', '=', 'sellers.id')
-                ->select('customer_orders.*', 'sellers.full_name as seller_name')
+                ->orderByDesc('created_at')
+                ->get();
+
+            if ($history->isNotEmpty()) {
+                $orderSellers = DB::table('order_items')
+                    ->join('users as sellers', 'order_items.retailer_id', '=', 'sellers.id')
+                    ->whereIn('order_items.order_id', $history->pluck('id'))
+                    ->select('order_items.order_id', 'sellers.full_name')
+                    ->distinct()
+                    ->get()
+                    ->groupBy('order_id');
+
+                foreach ($history as $act) {
+                    $sellersForOrder = $orderSellers->get($act->id);
+                    $act->seller_name = $sellersForOrder 
+                        ? $sellersForOrder->pluck('full_name')->implode(', ') 
+                        : 'Marketplace';
+                }
+            }
+
+            // Fetch detailed customer orders
+            $customerOrders = DB::table('customer_orders')
+                ->leftJoin('users as delivery_partners', 'customer_orders.delivery_partner_id', '=', 'delivery_partners.id')
+                ->where('customer_orders.customer_id', $user->id)
+                ->select(
+                    'customer_orders.*',
+                    'delivery_partners.full_name as delivery_partner_name',
+                    'delivery_partners.phone_number as delivery_partner_phone'
+                )
                 ->orderByDesc('customer_orders.created_at')
                 ->get();
+
+            if ($customerOrders->isNotEmpty()) {
+                $customerOrderItems = DB::table('order_items')
+                    ->join('retailer_products', 'order_items.retailer_product_id', '=', 'retailer_products.id')
+                    ->join('users as sellers', 'order_items.retailer_id', '=', 'sellers.id')
+                    ->whereIn('order_items.order_id', $customerOrders->pluck('id'))
+                    ->select('order_items.*', 'retailer_products.product_name', 'retailer_products.unit_type', 'sellers.full_name as seller_name')
+                    ->get()
+                    ->groupBy('order_id');
+            }
         } elseif (in_array('buyer', $roles, true)) {
             $history = DB::table('confirmed_bids')
                 ->where('confirmed_bids.buyer_id', $user->id)
@@ -763,6 +805,10 @@ class AdminWebController extends Controller
             'dealChats' => $dealChats,
             'history' => $history,
             'cropRates' => $cropRates,
+            'retailOrders' => $retailOrders,
+            'retailOrderItems' => $retailOrderItems,
+            'customerOrders' => $customerOrders,
+            'customerOrderItems' => $customerOrderItems,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
     }

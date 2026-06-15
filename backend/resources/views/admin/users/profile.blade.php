@@ -91,7 +91,19 @@
             opacity: 1;
             margin-left: 6px;
         }
+        
+        /* Leaflet custom map icon adjustments */
+        .custom-leaflet-icon {
+            background: none !important;
+            border: none !important;
+        }
+        /* Hide Leaflet Routing Machine text instruction panel */
+        .leaflet-routing-container {
+            display: none !important;
+        }
     </style>
+    <!-- Google Maps JS SDK -->
+    <script src="https://maps.googleapis.com/maps/api/js?v=weekly"></script>
 </head>
 <body class="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased selection:bg-emerald-500/30">
     <div id="sidebar-overlay" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-30 hidden transition-opacity duration-300 opacity-0 md:hidden" aria-hidden="true"></div>
@@ -2879,7 +2891,292 @@
                                                                      @endforeach
                                                                  </div>
                                                              </details>
-                                                        @endif
+                                                         @endif
+
+                                                         <!-- Collapsible Logistics Request Details -->
+                                                         @if (isset($deliveryRequests) && isset($deliveryRequests[$order->id]))
+                                                             @php 
+                                                                 $delReq = $deliveryRequests[$order->id]; 
+                                                                 $sellersData = [];
+                                                                 if (isset($customerOrderItems[$order->id])) {
+                                                                     foreach ($customerOrderItems[$order->id] as $item) {
+                                                                         if (!empty($item->seller_latitude) && !empty($item->seller_longitude)) {
+                                                                             $sellersData[] = [
+                                                                                 'name' => $item->seller_name,
+                                                                                 'lat' => floatval($item->seller_latitude),
+                                                                                 'lng' => floatval($item->seller_longitude)
+                                                                             ];
+                                                                         }
+                                                                     }
+                                                                 }
+                                                                 // Unique by seller name to avoid duplicate markers for same seller
+                                                                 $sellersData = array_values(array_reduce($sellersData, function($carry, $item) {
+                                                                     $carry[$item['name']] = $item;
+                                                                     return $carry;
+                                                                 }, []));
+                                                             @endphp
+                                                             <details class="group border border-slate-200/60 rounded-2xl bg-slate-50/25 overflow-hidden transition-all duration-350 mt-2 logistics-drawer"
+                                                                      data-order-id="{{ $order->id }}"
+                                                                      data-pickup-lat="{{ $delReq->pickup_latitude }}"
+                                                                      data-pickup-lng="{{ $delReq->pickup_longitude }}"
+                                                                      data-pickup-addr="{{ $delReq->pickup_address }}"
+                                                                      data-delivery-lat="{{ $delReq->delivery_latitude }}"
+                                                                      data-delivery-lng="{{ $delReq->delivery_longitude }}"
+                                                                      data-delivery-addr="{{ $delReq->delivery_address }}"
+                                                                      data-sellers="{{ json_encode($sellersData) }}">
+                                                                 <summary class="flex justify-between items-center px-4 py-3 bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100/70 transition duration-205 select-none">
+                                                                     <span class="flex items-center gap-2">
+                                                                         <i class="fa-solid fa-truck-ramp-box text-slate-400 group-open:text-emerald-600 transition"></i>
+                                                                         Delivery Logistics &amp; Request Status (Status: <span class="uppercase text-emerald-700 font-extrabold">{{ $delReq->request_status }}</span>)
+                                                                     </span>
+                                                                     <span class="transition-transform duration-200 group-open:rotate-180">
+                                                                         <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                                                                     </span>
+                                                                 </summary>
+                                                                 <div class="px-4 py-4 bg-white space-y-4">
+                                                                     <!-- Request Metrics Grid -->
+                                                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                                                                         <div class="space-y-0.5">
+                                                                             <span class="text-[9px] uppercase font-bold text-slate-400 block">Pickup Location</span>
+                                                                             <span class="font-bold text-slate-700 block">{{ $delReq->pickup_address }}</span>
+                                                                         </div>
+                                                                         <div class="space-y-0.5">
+                                                                             <span class="text-[9px] uppercase font-bold text-slate-400 block">Drop Location</span>
+                                                                             <span class="font-bold text-slate-700 block">{{ $delReq->delivery_address }}</span>
+                                                                         </div>
+                                                                         <div class="space-y-0.5">
+                                                                             <span class="text-[9px] uppercase font-bold text-slate-400 block">Logistics Payout</span>
+                                                                             <span class="font-extrabold text-emerald-700 block">LKR {{ number_format($delReq->delivery_fee, 2) }}</span>
+                                                                             <span class="text-[8px] text-slate-400 block">System Comm: LKR {{ number_format($delReq->system_commission, 2) }}</span>
+                                                                         </div>
+                                                                         <div class="space-y-0.5">
+                                                                             <span class="text-[9px] uppercase font-bold text-slate-400 block">Distance & Expiry</span>
+                                                                             <span class="font-bold text-slate-700 block">
+                                                                                 {{ $delReq->estimated_distance_km ? number_format($delReq->estimated_distance_km, 1) . ' km' : 'N/A' }} 
+                                                                                 @if($delReq->estimated_distance_minutes)
+                                                                                     (~{{ $delReq->estimated_distance_minutes }} mins)
+                                                                                 @endif
+                                                                             </span>
+                                                                             @if($delReq->expires_at)
+                                                                                 <span class="text-[8px] text-rose-500 block">Expires: {{ \Carbon\Carbon::parse($delReq->expires_at)->format('h:i A') }}</span>
+                                                                             @endif
+                                                                         </div>
+                                                                     </div>
+
+                                                                     <!-- Route Map with Pickup, Retailers & Drop points -->
+                                                                     <div class="border-t border-slate-100 pt-3">
+                                                                         <span class="text-[10px] uppercase font-black text-slate-400 block mb-2 tracking-wide"><i class="fa-solid fa-map-location-dot mr-1 text-slate-400"></i> Logistics Dispatch &amp; Route Map</span>
+                                                                         <div id="logistics-map-{{ $order->id }}" class="h-64 rounded-2xl overflow-hidden border border-slate-200 w-full shadow-sm" style="z-index: 1;"></div>
+                                                                     </div>
+
+                                                                     <!-- Assigned Partners History -->
+                                                                     <div class="border-t border-slate-100 pt-3">
+                                                                         <span class="text-[10px] uppercase font-black text-slate-400 block mb-2 tracking-wide"><i class="fa-solid fa-people-carry-box mr-1 text-slate-400"></i> Assigned Delivery Partners Log</span>
+                                                                         @if (isset($deliveryAssignments[$delReq->id]) && count($deliveryAssignments[$delReq->id]) > 0)
+                                                                             <div class="overflow-x-auto border border-slate-100 rounded-xl">
+                                                                                 <table class="min-w-full divide-y divide-slate-100 text-[10px] text-left">
+                                                                                     <thead class="bg-slate-50 font-bold uppercase text-slate-400">
+                                                                                         <tr>
+                                                                                             <th class="px-3 py-2">Partner</th>
+                                                                                             <th class="px-3 py-2">Phone</th>
+                                                                                             <th class="px-3 py-2">Response status</th>
+                                                                                             <th class="px-3 py-2">Requested / Action Date</th>
+                                                                                             <th class="px-3 py-2">Details / Rejection Reason</th>
+                                                                                         </tr>
+                                                                                     </thead>
+                                                                                     <tbody class="divide-y divide-slate-100 text-slate-700 font-semibold font-sans">
+                                                                                         @foreach ($deliveryAssignments[$delReq->id] as $assign)
+                                                                                             @php
+                                                                                                 $statBadge = 'bg-amber-50 text-amber-700 border border-amber-100';
+                                                                                                 if ($assign->status === 'accepted' || $assign->status === 'completed') {
+                                                                                                     $statBadge = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+                                                                                                 } elseif ($assign->status === 'rejected' || $assign->status === 'cancelled') {
+                                                                                                     $statBadge = 'bg-rose-50 text-rose-700 border border-rose-100';
+                                                                                                 }
+                                                                                             @endphp
+                                                                                             <tr class="hover:bg-slate-50/40">
+                                                                                                 <td class="px-3 py-2 font-bold flex items-center gap-1.5">
+                                                                                                     @if ($assign->partner_avatar)
+                                                                                                         <img src="{{ asset($assign->partner_avatar) }}" class="w-4 h-4 rounded-full object-cover">
+                                                                                                     @else
+                                                                                                         <div class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[8px] uppercase">
+                                                                                                             {{ substr($assign->partner_name ?? 'P', 0, 1) }}
+                                                                                                         </div>
+                                                                                                     @endif
+                                                                                                     {{ $assign->partner_name }}
+                                                                                                 </td>
+                                                                                                 <td class="px-3 py-2 font-mono">{{ $assign->partner_phone ?? 'N/A' }}</td>
+                                                                                                 <td class="px-3 py-2">
+                                                                                                     <span class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider {{ $statBadge }}">
+                                                                                                         {{ $assign->status }}
+                                                                                                     </span>
+                                                                                                 </td>
+                                                                                                 <td class="px-3 py-2 text-slate-400 font-medium">
+                                                                                                     Req: {{ \Carbon\Carbon::parse($assign->requested_at)->format('M d, h:i A') }}
+                                                                                                     @if($assign->accepted_at)
+                                                                                                         <br><span class="text-emerald-600">Acc: {{ \Carbon\Carbon::parse($assign->accepted_at)->format('M d, h:i A') }}</span>
+                                                                                                     @elseif($assign->rejected_at)
+                                                                                                         <br><span class="text-rose-500">Rej: {{ \Carbon\Carbon::parse($assign->rejected_at)->format('M d, h:i A') }}</span>
+                                                                                                     @endif
+                                                                                                 </td>
+                                                                                                 <td class="px-3 py-2 text-slate-500 italic font-medium max-w-[200px] truncate">
+                                                                                                     {{ $assign->rejection_reason ?: 'No notes or rejection reason specified.' }}
+                                                                                                 </td>
+                                                                                             </tr>
+                                                                                         @endforeach
+                                                                                     </tbody>
+                                                                                 </table>
+                                                                             </div>
+                                                                         @else
+                                                                             <div class="p-3 text-center border border-dashed border-slate-150 rounded-xl text-[10px] text-slate-400 font-medium">
+                                                                                 No assignments or responses recorded yet for this dispatch.
+                                                                             </div>
+                                                                         @endif
+                                                                     </div>
+                                                                 </div>
+                                                             </details>
+                                                         @endif
+
+                                                         <!-- Collapsible Live Delivery Tracking Timeline -->
+                                                         @if (isset($deliveryTracking) && isset($deliveryTracking[$order->id]) && count($deliveryTracking[$order->id]) > 0)
+                                                             @php 
+                                                                 $trackLogs = $deliveryTracking[$order->id]; 
+                                                                 $latestTrack = $trackLogs->last();
+                                                                 $delReqForTrack = $deliveryRequests[$order->id] ?? null;
+                                                                 $sellersDataForTrack = [];
+                                                                 if (isset($customerOrderItems[$order->id])) {
+                                                                     foreach ($customerOrderItems[$order->id] as $item) {
+                                                                         if (!empty($item->seller_latitude) && !empty($item->seller_longitude)) {
+                                                                             $sellersDataForTrack[] = [
+                                                                                 'name' => $item->seller_name,
+                                                                                 'lat' => floatval($item->seller_latitude),
+                                                                                 'lng' => floatval($item->seller_longitude)
+                                                                             ];
+                                                                         }
+                                                                     }
+                                                                 }
+                                                                 // Unique by seller name to avoid duplicate markers for same seller
+                                                                 $sellersDataForTrack = array_values(array_reduce($sellersDataForTrack, function($carry, $item) {
+                                                                     $carry[$item['name']] = $item;
+                                                                     return $carry;
+                                                                 }, []));
+                                                             @endphp
+                                                             <details class="group border border-slate-200/60 rounded-2xl bg-slate-50/25 overflow-hidden transition-all duration-350 mt-2 live-tracking-drawer"
+                                                                      data-order-id="{{ $order->id }}"
+                                                                      data-lat="{{ $latestTrack->current_latitude }}"
+                                                                      data-lng="{{ $latestTrack->current_longitude }}"
+                                                                      data-vehicle="{{ $latestTrack->partner_vehicle_type }}"
+                                                                      data-partner-name="{{ $latestTrack->partner_name ?? 'Delivery Partner' }}"
+                                                                      data-pickup-lat="{{ $delReqForTrack->pickup_latitude ?? '' }}"
+                                                                      data-pickup-lng="{{ $delReqForTrack->pickup_longitude ?? '' }}"
+                                                                      data-pickup-addr="{{ $delReqForTrack->pickup_address ?? '' }}"
+                                                                      data-delivery-lat="{{ $delReqForTrack->delivery_latitude ?? '' }}"
+                                                                      data-delivery-lng="{{ $delReqForTrack->delivery_longitude ?? '' }}"
+                                                                      data-delivery-addr="{{ $delReqForTrack->delivery_address ?? '' }}"
+                                                                      data-sellers="{{ json_encode($sellersDataForTrack) }}">
+                                                                 <summary class="flex justify-between items-center px-4 py-3 bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100/70 transition duration-205 select-none">
+                                                                     <span class="flex items-center gap-2">
+                                                                         <i class="fa-solid fa-map-location-dot text-slate-400 group-open:text-emerald-600 transition"></i>
+                                                                         Live Delivery Tracking Checkpoints (Latest: <span class="uppercase text-emerald-700 font-extrabold">{{ str_replace('_', ' ', $latestTrack->status) }}</span>)
+                                                                     </span>
+                                                                     <span class="transition-transform duration-200 group-open:rotate-180">
+                                                                         <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                                                                     </span>
+                                                                 </summary>
+                                                                 <div class="px-4 py-4 bg-white">
+                                                                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                                                         <!-- Timeline -->
+                                                                         <div class="space-y-4">
+                                                                             <span class="text-[10px] uppercase font-black text-slate-400 block tracking-wide"><i class="fa-solid fa-route mr-1 text-slate-400"></i> Tracking History Checkpoints</span>
+                                                                             <div class="relative pl-6 border-l-2 border-slate-150 ml-3 space-y-4">
+                                                                                 @foreach ($trackLogs as $log)
+                                                                                     <div class="relative">
+                                                                                         <!-- Dot icon indicator -->
+                                                                                         <span class="absolute -left-[31px] top-0.5 w-4.5 h-4.5 rounded-full bg-emerald-100 border-2 border-white flex items-center justify-center text-[7px] text-emerald-700 shadow-sm font-black uppercase">
+                                                                                             <i class="fa-solid fa-circle-check"></i>
+                                                                                         </span>
+                                                                                         <div class="text-[11px]">
+                                                                                             <span class="font-extrabold text-slate-800 uppercase tracking-wide bg-slate-100 px-1.5 py-0.5 rounded mr-1">
+                                                                                                 {{ str_replace('_', ' ', $log->status) }}
+                                                                                             </span>
+                                                                                             <span class="text-slate-400 font-bold ml-1">{{ \Carbon\Carbon::parse($log->tracked_at)->format('M d, h:i A') }}</span>
+                                                                                             @if ($log->partner_name)
+                                                                                                 <span class="text-slate-400 text-[10px] block">Updated by Partner: <strong class="text-slate-500">{{ $log->partner_name }}</strong></span>
+                                                                                             @endif
+                                                                                             @if ($log->tracking_note)
+                                                                                                 <p class="text-[10px] text-slate-500 italic mt-0.5 font-medium bg-slate-50 p-1.5 rounded-lg border border-slate-100">"{{ $log->tracking_note }}"</p>
+                                                                                             @endif
+                                                                                         </div>
+                                                                                     </div>
+                                                                                 @endforeach
+                                                                             </div>
+                                                                         </div>
+
+                                                                         <!-- Live Map tracking -->
+                                                                         <div class="flex flex-col gap-2">
+                                                                             <span class="text-[10px] uppercase font-black text-slate-400 block tracking-wide"><i class="fa-solid fa-location-crosshairs mr-1 text-slate-400"></i> Partner Live Location Map</span>
+                                                                             <div id="live-tracking-map-{{ $order->id }}" class="h-48 rounded-2xl overflow-hidden border border-slate-200 w-full relative shadow-sm" style="z-index: 1;"></div>
+                                                                             <div class="flex justify-between items-center text-[9px] text-slate-400 font-bold px-1">
+                                                                                 <span>Coordinates: {{ number_format($latestTrack->current_latitude, 5) }}, {{ number_format($latestTrack->current_longitude, 5) }}</span>
+                                                                                 <a href="https://www.google.com/maps/search/?api=1&query={{ $latestTrack->current_latitude }},{{ $latestTrack->current_longitude }}" target="_blank" class="text-emerald-650 hover:underline">
+                                                                                     Open Google Maps <i class="fa-solid fa-arrow-up-right-from-square text-[8px] ml-0.5"></i>
+                                                                                 </a>
+                                                                             </div>
+                                                                         </div>
+                                                                     </div>
+                                                                 </div>
+                                                             </details>
+                                                         @endif
+
+                                                         <!-- Collapsible Detailed Status History Timeline -->
+                                                         @if (isset($orderStatusHistories) && isset($orderStatusHistories[$order->id]) && count($orderStatusHistories[$order->id]) > 0)
+                                                             @php $statusLogs = $orderStatusHistories[$order->id]; @endphp
+                                                             <details class="group border border-slate-200/60 rounded-2xl bg-slate-50/25 overflow-hidden transition-all duration-350 mt-2">
+                                                                 <summary class="flex justify-between items-center px-4 py-3 bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100/70 transition duration-205 select-none">
+                                                                     <span class="flex items-center gap-2">
+                                                                         <i class="fa-solid fa-clipboard-list-check text-slate-400 group-open:text-emerald-600 transition"></i>
+                                                                         Order Status Change History Log
+                                                                     </span>
+                                                                     <span class="transition-transform duration-200 group-open:rotate-180">
+                                                                         <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                                                                     </span>
+                                                                 </summary>
+                                                                 <div class="px-4 py-3 bg-white">
+                                                                     <div class="overflow-x-auto border border-slate-100 rounded-xl">
+                                                                         <table class="min-w-full divide-y divide-slate-100 text-[10px] text-left">
+                                                                             <thead class="bg-slate-50 font-bold uppercase text-slate-400">
+                                                                                 <tr>
+                                                                                     <th class="px-3 py-2">Transition</th>
+                                                                                     <th class="px-3 py-2">Operator / User</th>
+                                                                                     <th class="px-3 py-2">Change reason / notes</th>
+                                                                                     <th class="px-3 py-2">Date & Time</th>
+                                                                                 </tr>
+                                                                             </thead>
+                                                                             <tbody class="divide-y divide-slate-100 text-slate-700 font-semibold">
+                                                                                 @foreach ($statusLogs as $historyLog)
+                                                                                     <tr class="hover:bg-slate-50/30">
+                                                                                         <td class="px-3 py-2 font-bold flex items-center gap-1.5 flex-wrap">
+                                                                                             <span class="px-1 py-0.5 rounded text-[8px] bg-slate-100 text-slate-500 uppercase tracking-wider font-extrabold">{{ $historyLog->old_status ?: 'INIT' }}</span>
+                                                                                             <i class="fa-solid fa-arrow-right text-[8px] text-slate-400"></i>
+                                                                                             <span class="px-1 py-0.5 rounded text-[8px] bg-emerald-50 text-emerald-700 uppercase tracking-wider font-extrabold">{{ $historyLog->new_status }}</span>
+                                                                                         </td>
+                                                                                         <td class="px-3 py-2 font-bold text-slate-600">
+                                                                                             {{ $historyLog->changer_name ?: 'System Automator' }}
+                                                                                         </td>
+                                                                                         <td class="px-3 py-2 font-medium text-slate-500 italic max-w-[250px] whitespace-normal">
+                                                                                             {{ $historyLog->status_note ?: 'Status updated automatically by the platform.' }}
+                                                                                         </td>
+                                                                                         <td class="px-3 py-2 text-slate-400 font-medium">
+                                                                                             {{ \Carbon\Carbon::parse($historyLog->changed_at)->format('Y-m-d h:i A') }}
+                                                                                         </td>
+                                                                                     </tr>
+                                                                                 @endforeach
+                                                                             </tbody>
+                                                                         </table>
+                                                                     </div>
+                                                                 </div>
+                                                             </details>
+                                                         @endif
 
                                                         @if ($order->customer_note)
                                                              <div class="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] font-medium text-amber-800 flex items-start gap-2">
@@ -3289,7 +3586,418 @@
                         tabContainer.scrollLeft += e.deltaY;
                     }
                 });
+            }            // Google Maps Custom HTML Marker definition
+            class CustomHTMLMarker extends google.maps.OverlayView {
+                constructor(latlng, html, map, onClick) {
+                    super();
+                    this.latlng = latlng;
+                    this.html = html;
+                    this.onClick = onClick;
+                    this.setMap(map);
+                }
+                onAdd() {
+                    this.div = document.createElement('div');
+                    this.div.style.position = 'absolute';
+                    this.div.style.cursor = 'pointer';
+                    this.div.style.zIndex = '1000';
+                    this.div.innerHTML = this.html;
+                    if (this.onClick) {
+                        this.div.addEventListener('click', this.onClick);
+                    }
+                    const panes = this.getPanes();
+                    panes.overlayMouseTarget.appendChild(this.div);
+                }
+                draw() {
+                    const overlayProjection = this.getProjection();
+                    const position = overlayProjection.fromLatLngToDivPixel(this.latlng);
+                    this.div.style.left = (position.x - 20) + 'px';
+                    this.div.style.top = (position.y - 40) + 'px';
+                }
+                onRemove() {
+                    if (this.div) {
+                        this.div.parentNode.removeChild(this.div);
+                        this.div = null;
+                    }
+                }
             }
+
+            function getVehicleIcon(vehicleType) {
+                let faIcon = 'fa-truck';
+                const vt = (vehicleType || '').toLowerCase();
+                if (vt.includes('motorcycle')) {
+                    faIcon = 'fa-motorcycle';
+                } else if (vt.includes('threewheeler') || vt.includes('three_wheeler') || vt.includes('three-wheeler')) {
+                    faIcon = 'fa-car-side';
+                } else if (vt.includes('van')) {
+                    faIcon = 'fa-van-shuttle';
+                } else if (vt.includes('small_truck')) {
+                    faIcon = 'fa-truck-pickup';
+                } else if (vt.includes('medium_truck')) {
+                    faIcon = 'fa-truck';
+                } else if (vt.includes('large_truck')) {
+                    faIcon = 'fa-truck-moving';
+                } else {
+                    faIcon = 'fa-car';
+                }
+                return faIcon;
+            }
+
+            function setupMarker(map, lat, lng, html, popupText, infoWindow) {
+                const markerLatLng = new google.maps.LatLng(lat, lng);
+                const marker = new CustomHTMLMarker(markerLatLng, html, map, () => {
+                    if (popupText && infoWindow) {
+                        infoWindow.setContent(popupText);
+                        infoWindow.setPosition(markerLatLng);
+                        infoWindow.open(map);
+                    }
+                });
+                return marker;
+            }
+
+            function drawStraightLineFallback(map, pathCoordinates) {
+                new google.maps.Polyline({
+                    path: pathCoordinates,
+                    geodesic: true,
+                    strokeColor: '#10b981',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 3,
+                    map: map
+                });
+            }
+
+            function drawOSRMRoute(map, pLat, pLng, dLat, dLng, sellers, fallbackPath) {
+                const coords = [];
+                coords.push(`${pLng},${pLat}`);
+                sellers.forEach(seller => {
+                    const sLat = parseFloat(seller.lat);
+                    const sLng = parseFloat(seller.lng);
+                    if (!isNaN(sLat) && !isNaN(sLng)) {
+                        coords.push(`${sLng},${sLat}`);
+                    }
+                });
+                coords.push(`${dLng},${dLat}`);
+
+                const url = `https://router.project-osrm.org/route/v1/driving/${coords.join(';')}?overview=full&geometries=geojson`;
+
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                            const routeCoords = data.routes[0].geometry.coordinates.map(coord => {
+                                return { lat: coord[1], lng: coord[0] };
+                            });
+                            new google.maps.Polyline({
+                                path: routeCoords,
+                                geodesic: true,
+                                strokeColor: '#10b981',
+                                strokeOpacity: 0.85,
+                                strokeWeight: 5,
+                                map: map
+                            });
+                        } else {
+                            drawStraightLineFallback(map, fallbackPath);
+                        }
+                    })
+                    .catch(error => {
+                        console.error("OSRM route fetching failed:", error);
+                        drawStraightLineFallback(map, fallbackPath);
+                    });
+            }
+
+            function renderRouteAndFit(map, pLat, pLng, dLat, dLng, sellers, liveLat, liveLng, hasLive) {
+                const hasPickup = !isNaN(pLat) && !isNaN(pLng);
+                const hasDelivery = !isNaN(dLat) && !isNaN(dLng);
+                
+                const bounds = new google.maps.LatLngBounds();
+                const pathCoordinates = [];
+
+                if (hasPickup) {
+                    bounds.extend(new google.maps.LatLng(pLat, pLng));
+                    pathCoordinates.push({ lat: pLat, lng: pLng });
+                }
+
+                sellers.forEach(seller => {
+                    const sLat = parseFloat(seller.lat);
+                    const sLng = parseFloat(seller.lng);
+                    if (!isNaN(sLat) && !isNaN(sLng)) {
+                        bounds.extend(new google.maps.LatLng(sLat, sLng));
+                        pathCoordinates.push({ lat: sLat, lng: sLng });
+                    }
+                });
+
+                if (hasDelivery) {
+                    bounds.extend(new google.maps.LatLng(dLat, dLng));
+                    pathCoordinates.push({ lat: dLat, lng: dLng });
+                }
+
+                if (hasLive && !isNaN(liveLat) && !isNaN(liveLng)) {
+                    bounds.extend(new google.maps.LatLng(liveLat, liveLng));
+                }
+
+                // Fit bounds
+                if (!bounds.isEmpty()) {
+                    map.orderBounds = bounds;
+                    setTimeout(() => {
+                        map.fitBounds(bounds);
+                    }, 350);
+                }
+
+                // Try to get directions from Google Maps Directions Service
+                if (hasPickup && hasDelivery) {
+                    const directionsService = new google.maps.DirectionsService();
+                    const directionsRenderer = new google.maps.DirectionsRenderer({
+                        map: map,
+                        suppressMarkers: true,
+                        preserveViewport: true,
+                        polylineOptions: {
+                            strokeColor: '#10b981',
+                            strokeOpacity: 0.85,
+                            strokeWeight: 5
+                        }
+                    });
+
+                    const waypoints = [];
+                    sellers.forEach(seller => {
+                        const sLat = parseFloat(seller.lat);
+                        const sLng = parseFloat(seller.lng);
+                        if (!isNaN(sLat) && !isNaN(sLng)) {
+                            waypoints.push({
+                                location: new google.maps.LatLng(sLat, sLng),
+                                stopover: true
+                            });
+                        }
+                    });
+
+                    const request = {
+                        origin: new google.maps.LatLng(pLat, pLng),
+                        destination: new google.maps.LatLng(dLat, dLng),
+                        waypoints: waypoints,
+                        travelMode: google.maps.TravelMode.DRIVING
+                    };
+
+                    directionsService.route(request, (result, status) => {
+                        if (status === google.maps.DirectionsStatus.OK) {
+                            directionsRenderer.setDirections(result);
+                        } else {
+                            // Fallback to OSRM real route polyline mapping
+                            drawOSRMRoute(map, pLat, pLng, dLat, dLng, sellers, pathCoordinates);
+                        }
+                    });
+                } else if (pathCoordinates.length >= 2) {
+                    drawStraightLineFallback(map, pathCoordinates);
+                }
+            }
+
+            // Google Maps logistics routing map dynamic initializer
+            const mapInstances = {};
+            document.querySelectorAll('.logistics-drawer').forEach(drawer => {
+                drawer.addEventListener('toggle', function(e) {
+                    if (!e.target.open) return;
+
+                    const orderId = e.target.getAttribute('data-order-id');
+                    const mapId = 'logistics-map-' + orderId;
+                    const mapContainer = document.getElementById(mapId);
+                    
+                    if (!mapContainer) return;
+
+                    if (mapInstances[orderId]) {
+                        setTimeout(() => {
+                            google.maps.event.trigger(mapInstances[orderId], 'resize');
+                            if (mapInstances[orderId].orderBounds) {
+                                mapInstances[orderId].fitBounds(mapInstances[orderId].orderBounds);
+                            }
+                        }, 350);
+                        return;
+                    }
+
+                    const pLat = parseFloat(e.target.getAttribute('data-pickup-lat'));
+                    const pLng = parseFloat(e.target.getAttribute('data-pickup-lng'));
+                    const pAddr = e.target.getAttribute('data-pickup-addr') || 'Pickup Point';
+
+                    const dLat = parseFloat(e.target.getAttribute('data-delivery-lat'));
+                    const dLng = parseFloat(e.target.getAttribute('data-delivery-lng'));
+                    const dAddr = e.target.getAttribute('data-delivery-addr') || 'Drop Location';
+
+                    const sellers = JSON.parse(e.target.getAttribute('data-sellers') || '[]');
+
+                    const hasPickup = !isNaN(pLat) && !isNaN(pLng);
+                    const hasDelivery = !isNaN(dLat) && !isNaN(dLng);
+                    const startLat = hasPickup ? pLat : (hasDelivery ? dLat : 6.91420);
+                    const startLng = hasPickup ? pLng : (hasDelivery ? dLng : 79.85170);
+
+                    // Initialize Google Map
+                    const map = new google.maps.Map(mapContainer, {
+                        center: { lat: startLat, lng: startLng },
+                        zoom: 13,
+                        mapTypeControl: false,
+                        streetViewControl: false,
+                        fullscreenControl: true
+                    });
+                    mapInstances[orderId] = map;
+
+                    const infoWindow = new google.maps.InfoWindow();
+
+                    // Mount Pickup Marker
+                    if (hasPickup) {
+                        setupMarker(
+                            map, 
+                            pLat, 
+                            pLng, 
+                            '<div class="w-8 h-8 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-truck-ramp-box text-xs"></i></div>', 
+                            `<strong>Logistics Pickup Point</strong><br><span class="text-xs text-slate-500">${pAddr}</span>`, 
+                            infoWindow
+                        );
+                    }
+
+                    // Mount Delivery Marker
+                    if (hasDelivery) {
+                        setupMarker(
+                            map, 
+                            dLat, 
+                            dLng, 
+                            '<div class="w-8 h-8 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-house-chimney text-xs"></i></div>', 
+                            `<strong>Customer Drop Location</strong><br><span class="text-xs text-slate-500">${dAddr}</span>`, 
+                            infoWindow
+                        );
+                    }
+
+                    // Mount Retailer Markers
+                    sellers.forEach(seller => {
+                        const sLat = parseFloat(seller.lat);
+                        const sLng = parseFloat(seller.lng);
+                        if (!isNaN(sLat) && !isNaN(sLng)) {
+                            setupMarker(
+                                map, 
+                                sLat, 
+                                sLng, 
+                                '<div class="w-8 h-8 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-store text-xs"></i></div>', 
+                                `<strong>Retailer Store Pickup</strong><br><span class="text-xs text-slate-500">${seller.name}</span>`, 
+                                infoWindow
+                            );
+                        }
+                    });
+
+                    // Render Route & Fit
+                    renderRouteAndFit(map, pLat, pLng, dLat, dLng, sellers, NaN, NaN, false);
+                });
+            });
+
+            // Google Maps live tracking map dynamic initializer
+            const liveMapInstances = {};
+            document.querySelectorAll('.live-tracking-drawer').forEach(drawer => {
+                drawer.addEventListener('toggle', function(e) {
+                    if (!e.target.open) return;
+
+                    const orderId = e.target.getAttribute('data-order-id');
+                    const mapId = 'live-tracking-map-' + orderId;
+                    const mapContainer = document.getElementById(mapId);
+                    
+                    if (!mapContainer) return;
+
+                    if (liveMapInstances[orderId]) {
+                        setTimeout(() => {
+                            google.maps.event.trigger(liveMapInstances[orderId], 'resize');
+                            if (liveMapInstances[orderId].orderBounds) {
+                                liveMapInstances[orderId].fitBounds(liveMapInstances[orderId].orderBounds);
+                            }
+                        }, 350);
+                        return;
+                    }
+
+                    const lat = parseFloat(e.target.getAttribute('data-lat'));
+                    const lng = parseFloat(e.target.getAttribute('data-lng'));
+                    const vehicleType = (e.target.getAttribute('data-vehicle') || 'truck').toLowerCase();
+                    const partnerName = e.target.getAttribute('data-partner-name') || 'Delivery Partner';
+
+                    const pLat = parseFloat(e.target.getAttribute('data-pickup-lat'));
+                    const pLng = parseFloat(e.target.getAttribute('data-pickup-lng'));
+                    const pAddr = e.target.getAttribute('data-pickup-addr') || 'Pickup Point';
+
+                    const dLat = parseFloat(e.target.getAttribute('data-delivery-lat'));
+                    const dLng = parseFloat(e.target.getAttribute('data-delivery-lng'));
+                    const dAddr = e.target.getAttribute('data-delivery-addr') || 'Drop Location';
+
+                    const sellers = JSON.parse(e.target.getAttribute('data-sellers') || '[]');
+
+                    const hasLive = !isNaN(lat) && !isNaN(lng);
+                    const hasPickup = !isNaN(pLat) && !isNaN(pLng);
+                    const hasDelivery = !isNaN(dLat) && !isNaN(dLng);
+
+                    const startLat = hasLive ? lat : (hasPickup ? pLat : (hasDelivery ? dLat : 6.91420));
+                    const startLng = hasLive ? lng : (hasPickup ? pLng : (hasDelivery ? dLng : 79.85170));
+
+                    // Initialize Google Map
+                    const map = new google.maps.Map(mapContainer, {
+                        center: { lat: startLat, lng: startLng },
+                        zoom: 13,
+                        mapTypeControl: false,
+                        streetViewControl: false,
+                        fullscreenControl: true
+                    });
+                    liveMapInstances[orderId] = map;
+
+                    const infoWindow = new google.maps.InfoWindow();
+
+                    // Mount Pickup Marker
+                    if (hasPickup) {
+                        setupMarker(
+                            map, 
+                            pLat, 
+                            pLng, 
+                            '<div class="w-8 h-8 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-truck-ramp-box text-xs"></i></div>', 
+                            `<strong>Logistics Pickup Point</strong><br><span class="text-xs text-slate-500">${pAddr}</span>`, 
+                            infoWindow
+                        );
+                    }
+
+                    // Mount Delivery Marker
+                    if (hasDelivery) {
+                        setupMarker(
+                            map, 
+                            dLat, 
+                            dLng, 
+                            '<div class="w-8 h-8 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-house-chimney text-xs"></i></div>', 
+                            `<strong>Customer Drop Location</strong><br><span class="text-xs text-slate-500">${dAddr}</span>`, 
+                            infoWindow
+                        );
+                    }
+
+                    // Mount Retailer Markers
+                    sellers.forEach(seller => {
+                        const sLat = parseFloat(seller.lat);
+                        const sLng = parseFloat(seller.lng);
+                        if (!isNaN(sLat) && !isNaN(sLng)) {
+                            setupMarker(
+                                map, 
+                                sLat, 
+                                sLng, 
+                                '<div class="w-8 h-8 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-store text-xs"></i></div>', 
+                                `<strong>Retailer Store Pickup</strong><br><span class="text-xs text-slate-500">${seller.name}</span>`, 
+                                infoWindow
+                            );
+                        }
+                    });
+
+                    // Mount Partner Live Location
+                    if (hasLive) {
+                        const faIcon = getVehicleIcon(vehicleType);
+                        setupMarker(
+                            map, 
+                            lat, 
+                            lng, 
+                            `<div class="w-10 h-10 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-white shadow-lg relative" style="transform-origin: bottom center;">
+                                <i class="fa-solid ${faIcon} text-sm"></i>
+                                <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-emerald-600 rotate-45 border-r border-b border-white"></div>
+                            </div>`, 
+                            `<strong>${partnerName} (Live)</strong><br><span class="text-xs text-slate-500 font-bold">Vehicle: ${vehicleType.replace('_', ' ').toUpperCase()}</span>`, 
+                            infoWindow
+                        );
+                    }
+
+                    // Render Route & Fit
+                    renderRouteAndFit(map, pLat, pLng, dLat, dLng, sellers, lat, lng, hasLive);
+                });
+            });
 
             // Restore tab from URL hash on page load
             const hash = window.location.hash;

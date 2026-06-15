@@ -326,6 +326,8 @@ class HarvestListingStatusTest extends TestCase
         $retailSeller = User::factory()->create([
             'role' => json_encode(['retail_seller']),
             'full_name' => 'Agro Retail Mart',
+            'latitude' => 6.84000000,
+            'longitude' => 79.90000000,
         ]);
 
         $crop = Crop::create([
@@ -380,6 +382,63 @@ class HarvestListingStatusTest extends TestCase
             'updated_at' => now()->subDays(1),
         ]);
 
+        $deliveryPartner = User::factory()->create([
+            'role' => json_encode(['delivery_partner']),
+            'full_name' => 'Samantha Kumara',
+            'phone_number' => '0711223344',
+        ]);
+
+        $requestId = \Illuminate\Support\Facades\DB::table('order_delivery_requests')->insertGetId([
+            'order_id' => $orderId,
+            'request_status' => 'assigned',
+            'pickup_address' => 'Colombo Market',
+            'pickup_latitude' => 6.9271,
+            'pickup_longitude' => 79.8612,
+            'delivery_address' => '99/A, Galle Road, Colombo 03',
+            'delivery_latitude' => 6.9150,
+            'delivery_longitude' => 79.8500,
+            'delivery_fee' => 380.00,
+            'system_commission' => 19.00,
+            'estimated_distance_km' => 5.2,
+            'estimated_distance_minutes' => 18,
+            'expires_at' => now()->addHours(2),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('order_delivery_requests_assigned_partners')->insert([
+            'delivery_request_id' => $requestId,
+            'delivery_partner_id' => $deliveryPartner->id,
+            'status' => 'accepted',
+            'requested_at' => now()->subMinutes(15),
+            'accepted_at' => now()->subMinutes(10),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('order_delivery_tracking')->insert([
+            'order_id' => $orderId,
+            'delivery_partner_id' => $deliveryPartner->id,
+            'status' => 'on_the_way',
+            'current_latitude' => 6.9200,
+            'current_longitude' => 79.8550,
+            'tracking_note' => 'Heading past Galle Face, almost at destination.',
+            'tracked_at' => now()->subMinutes(5),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('order_status_histories')->insert([
+            'order_id' => $orderId,
+            'changed_by_user_id' => $deliveryPartner->id,
+            'old_status' => 'confirmed',
+            'new_status' => 'picked_up',
+            'status_note' => 'Picked up all items from Agro Retail Mart.',
+            'changed_at' => now()->subMinutes(12),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         // Create Order Item
         \Illuminate\Support\Facades\DB::table('order_items')->insert([
             'order_id' => $orderId,
@@ -415,6 +474,12 @@ class HarvestListingStatusTest extends TestCase
         $responseCustomer->assertSee('PAYHERE-TEST-REF-998822');
         $responseCustomer->assertSee('Amount: LKR 1,310.00');
         $responseCustomer->assertSee('Paid: Jun 14, 2026 12:00 PM');
+        $responseCustomer->assertSee('Delivery Logistics & Request Status');
+        $responseCustomer->assertSee('Colombo Market');
+        $responseCustomer->assertSee('Samantha Kumara');
+        $responseCustomer->assertSee('0711223344');
+        $responseCustomer->assertSee('Heading past Galle Face');
+        $responseCustomer->assertSee('Picked up all items from Agro Retail Mart');
 
         // Request Retail Seller Profile Page
         $responseRetailer = $this->actingAs($admin)

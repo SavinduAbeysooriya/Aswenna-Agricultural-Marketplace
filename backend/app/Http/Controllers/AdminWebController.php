@@ -442,6 +442,20 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Show offer campaigns and goals management screen.
+     */
+    public function offerCampaigns(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        return view('admin.offer-campaigns', [
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
      * Show delivery partner withdrawal requests management.
      */
     public function withdrawals(Request $request)

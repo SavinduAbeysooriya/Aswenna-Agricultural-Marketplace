@@ -368,6 +368,18 @@ class HarvestListingStatusTest extends TestCase
             'updated_at' => now()->subDays(1),
         ]);
 
+        // Create an Order Payment Record
+        \Illuminate\Support\Facades\DB::table('order_payments')->insert([
+            'order_id' => $orderId,
+            'customer_id' => $customer->id,
+            'transaction_reference' => 'PAYHERE-TEST-REF-998822',
+            'paid_amount' => 1310.00,
+            'payment_status' => 'paid',
+            'paid_at' => \Carbon\Carbon::parse('2026-06-14 12:00:00'),
+            'created_at' => now()->subDays(1),
+            'updated_at' => now()->subDays(1),
+        ]);
+
         // Create Order Item
         \Illuminate\Support\Facades\DB::table('order_items')->insert([
             'order_id' => $orderId,
@@ -400,6 +412,9 @@ class HarvestListingStatusTest extends TestCase
         $responseCustomer->assertSee('Nuwara Eliya Red Potatoes');
         $responseCustomer->assertSee('Seller: Agro Retail Mart');
         $responseCustomer->assertSee('LKR 1,310.00');
+        $responseCustomer->assertSee('PAYHERE-TEST-REF-998822');
+        $responseCustomer->assertSee('Amount: LKR 1,310.00');
+        $responseCustomer->assertSee('Paid: Jun 14, 2026 12:00 PM');
 
         // Request Retail Seller Profile Page
         $responseRetailer = $this->actingAs($admin)

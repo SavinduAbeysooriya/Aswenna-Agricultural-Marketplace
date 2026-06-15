@@ -2680,17 +2680,50 @@
                                                                  </div>
                                                                  <div class="space-y-1">
                                                                      <span class="text-[10px] uppercase font-bold text-slate-400 block">Payment Reference</span>
-                                                                     @if ($order->payment_status === 'paid')
-                                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100 mb-1">
-                                                                             Paid
-                                                                         </span>
-                                                                         @if ($order->payment_id)
-                                                                             <span class="text-[10px] font-mono text-slate-500 block">ID: {{ $order->payment_id }}</span>
+                                                                     @if (isset($orderPayments) && isset($orderPayments[$order->id]))
+                                                                         @php $payment = $orderPayments[$order->id]; @endphp
+                                                                         @if ($payment->payment_status === 'paid')
+                                                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100 mb-1 uppercase">
+                                                                                 Paid
+                                                                             </span>
+                                                                         @elseif ($payment->payment_status === 'refunded')
+                                                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-slate-100 text-slate-700 border border-slate-200 mb-1 uppercase">
+                                                                                 Refunded
+                                                                             </span>
+                                                                         @elseif ($payment->payment_status === 'failed')
+                                                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-rose-50 text-rose-700 border border-rose-100 mb-1 uppercase">
+                                                                                 Failed
+                                                                             </span>
+                                                                         @else
+                                                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-amber-50 text-amber-700 border border-amber-100 mb-1 uppercase">
+                                                                                 Pending
+                                                                             </span>
+                                                                         @endif
+
+                                                                         @if ($payment->transaction_reference)
+                                                                             <span class="text-[10px] font-mono text-slate-500 block">Ref: {{ $payment->transaction_reference }}</span>
+                                                                         @endif
+
+                                                                         <span class="text-[10px] text-slate-600 block font-semibold">Amount: LKR {{ number_format($payment->paid_amount, 2) }}</span>
+
+                                                                         @if ($payment->payment_status === 'paid' && $payment->paid_at)
+                                                                             <span class="text-[9px] text-slate-400 block mt-0.5">Paid: {{ \Carbon\Carbon::parse($payment->paid_at)->format('M d, Y h:i A') }}</span>
+                                                                         @elseif ($payment->payment_status === 'refunded' && $payment->refund_at)
+                                                                             <span class="text-[9px] text-slate-400 block mt-0.5">Refunded: {{ \Carbon\Carbon::parse($payment->refund_at)->format('M d, Y h:i A') }}</span>
                                                                          @endif
                                                                      @else
-                                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-amber-50 text-amber-700 border border-amber-100 uppercase">
-                                                                             {{ $order->payment_status }}
-                                                                         </span>
+                                                                         @if ($order->payment_status === 'paid')
+                                                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100 mb-1">
+                                                                                 Paid
+                                                                             </span>
+                                                                             @if ($order->payment_id)
+                                                                                 <span class="text-[10px] font-mono text-slate-500 block">ID: {{ $order->payment_id }}</span>
+                                                                             @endif
+                                                                         @else
+                                                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-amber-50 text-amber-700 border border-amber-100 uppercase">
+                                                                                 {{ $order->payment_status }}
+                                                                             </span>
+                                                                         @endif
                                                                      @endif
                                                                  </div>
                                                              </div>

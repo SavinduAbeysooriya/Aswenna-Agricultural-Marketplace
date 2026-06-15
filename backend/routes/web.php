@@ -63,3 +63,4 @@ Route::post('/admin/users/profile/{id}/delivery-partner/notes', [AdminWebControl
 
 // CSRF Protected Secure Session Termination
 Route::post('/admin/logout', [AdminWebController::class, 'logout'])->name('admin.logout');
+

@@ -588,6 +588,10 @@ class AdminWebController extends Controller
         $customerOrderItems = collect();
         $customerOrderReviews = collect();
         $orderPayments = collect();
+        $deliveryRequests = collect();
+        $deliveryAssignments = collect();
+        $deliveryTracking = collect();
+        $orderStatusHistories = collect();
 
         if (in_array('farmer', $roles, true)) {
             $reviews = DB::table('buyer_farmer_reviews')
@@ -743,7 +747,14 @@ class AdminWebController extends Controller
                     ->join('retailer_products', 'order_items.retailer_product_id', '=', 'retailer_products.id')
                     ->join('users as sellers', 'order_items.retailer_id', '=', 'sellers.id')
                     ->whereIn('order_items.order_id', $customerOrders->pluck('id'))
-                    ->select('order_items.*', 'retailer_products.product_name', 'retailer_products.unit_type', 'sellers.full_name as seller_name')
+                    ->select(
+                        'order_items.*',
+                        'retailer_products.product_name',
+                        'retailer_products.unit_type',
+                        'sellers.full_name as seller_name',
+                        'sellers.latitude as seller_latitude',
+                        'sellers.longitude as seller_longitude'
+                    )
                     ->get()
                     ->groupBy('order_id');
 
@@ -758,6 +769,48 @@ class AdminWebController extends Controller
                     ->whereIn('order_id', $customerOrders->pluck('id'))
                     ->get()
                     ->keyBy('order_id');
+
+                $deliveryRequests = DB::table('order_delivery_requests')
+                    ->whereIn('order_id', $customerOrders->pluck('id'))
+                    ->get()
+                    ->keyBy('order_id');
+
+                $requestIds = $deliveryRequests->pluck('id');
+                if ($requestIds->isNotEmpty()) {
+                    $deliveryAssignments = DB::table('order_delivery_requests_assigned_partners')
+                        ->join('users', 'order_delivery_requests_assigned_partners.delivery_partner_id', '=', 'users.id')
+                        ->whereIn('delivery_request_id', $requestIds)
+                        ->select(
+                            'order_delivery_requests_assigned_partners.*',
+                            'users.full_name as partner_name',
+                            'users.phone_number as partner_phone',
+                            'users.profile_picture_path as partner_avatar'
+                        )
+                        ->orderBy('requested_at', 'desc')
+                        ->get()
+                        ->groupBy('delivery_request_id');
+                }
+
+                $deliveryTracking = DB::table('order_delivery_tracking')
+                    ->leftJoin('users', 'order_delivery_tracking.delivery_partner_id', '=', 'users.id')
+                    ->leftJoin('delivery_partner_verification_data', 'users.id', '=', 'delivery_partner_verification_data.user_id')
+                    ->whereIn('order_id', $customerOrders->pluck('id'))
+                    ->select(
+                        'order_delivery_tracking.*',
+                        'users.full_name as partner_name',
+                        'delivery_partner_verification_data.vehicle_type as partner_vehicle_type'
+                    )
+                    ->orderBy('tracked_at', 'asc')
+                    ->get()
+                    ->groupBy('order_id');
+
+                $orderStatusHistories = DB::table('order_status_histories')
+                    ->leftJoin('users', 'order_status_histories.changed_by_user_id', '=', 'users.id')
+                    ->whereIn('order_id', $customerOrders->pluck('id'))
+                    ->select('order_status_histories.*', 'users.full_name as changer_name')
+                    ->orderBy('changed_at', 'asc')
+                    ->get()
+                    ->groupBy('order_id');
             }
         } elseif (in_array('buyer', $roles, true)) {
             $history = DB::table('confirmed_bids')
@@ -833,6 +886,10 @@ class AdminWebController extends Controller
             'customerOrderItems' => $customerOrderItems,
             'customerOrderReviews' => $customerOrderReviews,
             'orderPayments' => $orderPayments,
+            'deliveryRequests' => $deliveryRequests,
+            'deliveryAssignments' => $deliveryAssignments,
+            'deliveryTracking' => $deliveryTracking,
+            'orderStatusHistories' => $orderStatusHistories,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
     }

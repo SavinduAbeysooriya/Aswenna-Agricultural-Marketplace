@@ -308,4 +308,114 @@ class HarvestListingStatusTest extends TestCase
             'status' => 'sold_out',
         ]);
     }
+
+    public function test_admin_can_view_placed_orders_and_received_orders_tabs()
+    {
+        $admin = User::factory()->create([
+            'role' => json_encode(['admin']),
+            'full_name' => 'Admin User',
+            'email' => 'admin@test.com',
+        ]);
+
+        $customer = User::factory()->create([
+            'role' => json_encode(['customer']),
+            'full_name' => 'Lakmal Perera',
+            'phone_number' => '0777567890',
+        ]);
+
+        $retailSeller = User::factory()->create([
+            'role' => json_encode(['retail_seller']),
+            'full_name' => 'Agro Retail Mart',
+        ]);
+
+        $crop = Crop::create([
+            'cropname' => 'Test Potato',
+            'scientificname' => 'Solanum tuberosum',
+            'category' => 'Vegetable',
+            'status' => 'approved',
+        ]);
+
+        // Create a Retailer Product
+        $prodPotato = \Illuminate\Support\Facades\DB::table('retailer_products')->insertGetId([
+            'seller_id' => $retailSeller->id,
+            'crop_id' => $crop->id,
+            'product_name' => 'Nuwara Eliya Red Potatoes',
+            'price_per_unit' => 290.00,
+            'discount_price_per_unit' => 275.00,
+            'unit_type' => 'kg',
+            'stock_quantity' => 450.00,
+            'grade' => 'A',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Create a Customer Order
+        $orderId = \Illuminate\Support\Facades\DB::table('customer_orders')->insertGetId([
+            'order_number' => 'ORD-RETAIL-4482-17182918',
+            'customer_id' => $customer->id,
+            'delivery_address' => '99/A, Galle Road, Colombo 03',
+            'subtotal_amount' => 930.00,
+            'discount_amount' => 30.00,
+            'delivery_fee' => 380.00,
+            'system_commission_amount' => 46.50,
+            'tax_amount' => 0.00,
+            'total_amount' => 1310.00,
+            'payment_status' => 'paid',
+            'order_status' => 'delivered',
+            'placed_at' => now()->subDays(1),
+            'created_at' => now()->subDays(1),
+            'updated_at' => now()->subDays(1),
+        ]);
+
+        // Create Order Item
+        \Illuminate\Support\Facades\DB::table('order_items')->insert([
+            'order_id' => $orderId,
+            'retailer_product_id' => $prodPotato,
+            'retailer_id' => $retailSeller->id,
+            'quantity' => 2.00,
+            'total_price' => 580.00,
+            'discount_amount' => 30.00,
+            'final_price' => 550.00,
+            'grade' => 'A',
+            'created_at' => now()->subDays(1),
+            'updated_at' => now()->subDays(1),
+        ]);
+
+        // Request Customer Profile Page
+        $responseCustomer = $this->actingAs($admin)
+            ->withSession([
+                'admin_session' => [
+                    'user_id' => $admin->id,
+                    'username' => $admin->full_name,
+                    'email' => $admin->email,
+                    'logged_in_at' => now(),
+                ]
+            ])
+            ->get(route('admin.users.profile', $customer->id));
+
+        $responseCustomer->assertStatus(200);
+        $responseCustomer->assertSee('Placed Customer Orders');
+        $responseCustomer->assertSee('ORD-RETAIL-4482-17182918');
+        $responseCustomer->assertSee('Nuwara Eliya Red Potatoes');
+        $responseCustomer->assertSee('Seller: Agro Retail Mart');
+        $responseCustomer->assertSee('LKR 1,310.00');
+
+        // Request Retail Seller Profile Page
+        $responseRetailer = $this->actingAs($admin)
+            ->withSession([
+                'admin_session' => [
+                    'user_id' => $admin->id,
+                    'username' => $admin->full_name,
+                    'email' => $admin->email,
+                    'logged_in_at' => now(),
+                ]
+            ])
+            ->get(route('admin.users.profile', $retailSeller->id));
+
+        $responseRetailer->assertStatus(200);
+        $responseRetailer->assertSee('Retailer Store Catalog');
+        $responseRetailer->assertSee('Nuwara Eliya Red Potatoes');
+        $responseRetailer->assertDontSee('Received Customer Orders');
+    }
 }

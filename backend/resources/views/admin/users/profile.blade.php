@@ -432,6 +432,11 @@
                                         <i class="fa-solid fa-store"></i><span class="tab-text">Marketplace listings</span>
                                     </button>
                                 @endif
+                                @if (in_array('customer', $roles, true))
+                                    <button type="button" onclick="switchTab('tab-customer-orders')" id="btn-tab-customer-orders" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Placed Orders">
+                                        <i class="fa-solid fa-basket-shopping"></i><span class="tab-text">Placed Orders</span>
+                                    </button>
+                                @endif
                                 <button type="button" onclick="switchTab('tab-reviews')" id="btn-tab-reviews" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Ratings & Feedback">
                                     <i class="fa-solid fa-star"></i><span class="tab-text">Ratings & Feedback</span>
                                 </button>
@@ -2573,6 +2578,276 @@
                                                 <i class="fa-solid fa-arrow-trend-up text-2xl block mb-2 text-slate-300 animate-pulse"></i>
                                                 <p class="text-xs font-bold">No Crop Rate Submissions Match Filters</p>
                                                 <p class="text-[11px] text-slate-400 mt-1">Adjust search parameters or clear filters to view all entries.</p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
+
+                                @if (in_array('customer', $roles, true))
+                                    <!-- PANEL: Placed Customer Orders -->
+                                    <div id="tab-customer-orders" class="tab-content hidden animate-fade-in space-y-6">
+                                        <div class="flex items-center justify-between">
+                                            <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                                                <i class="fa-solid fa-basket-shopping text-emerald-600"></i> Placed Customer Orders
+                                            </h4>
+                                            <span class="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black uppercase tracking-wider">
+                                                {{ count($customerOrders) }} {{ Str::plural('Order', count($customerOrders)) }}
+                                            </span>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col justify-between">
+                                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Total Orders</span>
+                                                <strong class="mt-2 block text-lg font-black text-slate-900">
+                                                    {{ count($customerOrders) }}
+                                                </strong>
+                                            </div>
+                                            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col justify-between">
+                                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Completed Orders</span>
+                                                <strong class="mt-2 block text-lg font-black text-slate-900">
+                                                    {{ count($customerOrders->where('order_status', 'completed')) }}
+                                                </strong>
+                                            </div>
+                                            <div class="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col justify-between">
+                                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Active Orders</span>
+                                                <strong class="mt-2 block text-lg font-black text-slate-900">
+                                                    {{ count($customerOrders->whereNotIn('order_status', ['completed', 'cancelled', 'refunded'])) }}
+                                                </strong>
+                                            </div>
+                                            <div class="bg-slate-550 border border-slate-100 rounded-2xl p-4 flex flex-col justify-between">
+                                                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Total Spent</span>
+                                                <strong class="mt-2 block text-lg font-black text-slate-900">
+                                                    LKR {{ number_format($customerOrders->sum('total_amount'), 2) }}
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        @if (count($customerOrders) > 0)
+                                            <div class="space-y-6">
+                                                @foreach ($customerOrders as $order)
+                                                    <div class="border border-slate-200 rounded-3xl p-6 bg-white shadow-sm flex flex-col gap-6 hover:shadow-md transition duration-300 relative overflow-hidden">
+                                                        <!-- Top details row -->
+                                                        <div class="flex flex-wrap justify-between items-center gap-4 pb-4 border-b border-slate-150">
+                                                             <div>
+                                                                 <strong class="text-sm font-black text-slate-900">#{{ $order->order_number }}</strong>
+                                                                 <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Placed {{ \Carbon\Carbon::parse($order->placed_at)->format('M d, Y h:i A') }}</p>
+                                                             </div>
+                                                             <div class="flex gap-2">
+                                                                 <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-50 text-slate-700 border border-slate-250">
+                                                                     Order: {{ $order->order_status }}
+                                                                 </span>
+                                                                 <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-50 text-slate-750 border border-slate-250">
+                                                                     Payment: {{ $order->payment_status }}
+                                                                 </span>
+                                                             </div>
+                                                        </div>
+
+                                                        <!-- Grid layout with 4 columns -->
+                                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                                             <!-- Column 1: Logistics & Payment Info -->
+                                                             <div class="space-y-4">
+                                                                 <div class="space-y-1">
+                                                                     <span class="text-[10px] uppercase font-bold text-slate-400 block">Delivery Partner</span>
+                                                                     @if ($order->delivery_partner_name)
+                                                                         <span class="text-xs font-bold text-slate-800 block">{{ $order->delivery_partner_name }}</span>
+                                                                         @if ($order->delivery_partner_phone)
+                                                                             <a href="tel:{{ $order->delivery_partner_phone }}" class="text-xs text-emerald-600 hover:underline inline-flex items-center gap-1 font-semibold">
+                                                                                 <i class="fa-solid fa-phone text-[9px]"></i> {{ $order->delivery_partner_phone }}
+                                                                             </a>
+                                                                         @endif
+                                                                     @else
+                                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-slate-100 text-slate-655 border border-slate-200">
+                                                                             Not Assigned
+                                                                         </span>
+                                                                     @endif
+                                                                 </div>
+                                                                 <div class="space-y-1">
+                                                                     <span class="text-[10px] uppercase font-bold text-slate-400 block">Payment Reference</span>
+                                                                     @if ($order->payment_status === 'paid')
+                                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100 mb-1">
+                                                                             Paid
+                                                                         </span>
+                                                                         @if ($order->payment_id)
+                                                                             <span class="text-[10px] font-mono text-slate-500 block">ID: {{ $order->payment_id }}</span>
+                                                                         @endif
+                                                                     @else
+                                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-amber-50 text-amber-700 border border-amber-100 uppercase">
+                                                                             {{ $order->payment_status }}
+                                                                         </span>
+                                                                     @endif
+                                                                 </div>
+                                                             </div>
+
+                                                             <!-- Column 2: Shipping & Map Location -->
+                                                             <div class="space-y-3">
+                                                                 <div class="space-y-1">
+                                                                     <span class="text-[10px] uppercase font-bold text-slate-400 block">Delivery Address</span>
+                                                                     <p class="text-xs font-semibold text-slate-700 leading-relaxed">{{ $order->delivery_address }}</p>
+                                                                 </div>
+                                                                 @if ($order->delivery_latitude && $order->delivery_longitude)
+                                                                     <div class="rounded-xl overflow-hidden border border-slate-200 h-28 w-full relative group shadow-sm">
+                                                                         <iframe 
+                                                                             class="w-full h-full border-0" 
+                                                                             src="https://maps.google.com/maps?q={{ $order->delivery_latitude }},{{ $order->delivery_longitude }}&z=14&output=embed" 
+                                                                             allowfullscreen="" 
+                                                                             loading="lazy">
+                                                                         </iframe>
+                                                                         <div class="absolute inset-0 bg-slate-900/10 opacity-0 group-hover:opacity-100 transition duration-200 flex items-center justify-center pointer-events-none">
+                                                                             <a href="https://www.google.com/maps/search/?api=1&query={{ $order->delivery_latitude }},{{ $order->delivery_longitude }}" target="_blank" class="pointer-events-auto px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-black shadow flex items-center gap-1">
+                                                                                 <i class="fa-solid fa-map-location-dot"></i> View Map
+                                                                             </a>
+                                                                         </div>
+                                                                     </div>
+                                                                 @endif
+                                                             </div>
+
+                                                             <!-- Column 3: Order Lifecycle Timeline -->
+                                                             <div>
+                                                                 <span class="text-[10px] uppercase font-bold text-slate-400 block mb-2">Order Lifecycle Timeline</span>
+                                                                 <ul class="text-[11px] font-medium text-slate-500 space-y-2 border-l border-slate-200 pl-3 ml-1 relative">
+                                                                     <li class="relative">
+                                                                         <span class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-emerald-500 border border-white"></span>
+                                                                         <span class="text-slate-400">Placed:</span> {{ \Carbon\Carbon::parse($order->placed_at)->format('M d, Y h:i A') }}
+                                                                     </li>
+                                                                     @if ($order->expected_date_and_time)
+                                                                         <li class="relative">
+                                                                             <span class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-sky-500 border border-white"></span>
+                                                                             <span class="text-slate-400">Expected:</span> {{ \Carbon\Carbon::parse($order->expected_date_and_time)->format('M d, Y h:i A') }}
+                                                                         </li>
+                                                                     @endif
+                                                                     @if ($order->confirmed_at)
+                                                                         <li class="relative">
+                                                                             <span class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-blue-500 border border-white"></span>
+                                                                             <span class="text-slate-400">Confirmed:</span> {{ \Carbon\Carbon::parse($order->confirmed_at)->format('M d, Y h:i A') }}
+                                                                         </li>
+                                                                     @endif
+                                                                     @if ($order->picked_up_at)
+                                                                         <li class="relative">
+                                                                             <span class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-purple-500 border border-white"></span>
+                                                                             <span class="text-slate-400">Picked Up:</span> {{ \Carbon\Carbon::parse($order->picked_up_at)->format('M d, Y h:i A') }}
+                                                                         </li>
+                                                                     @endif
+                                                                     @if ($order->delivered_at)
+                                                                         <li class="relative">
+                                                                             <span class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-emerald-600 border border-white"></span>
+                                                                             <span class="text-slate-400">Delivered:</span> {{ \Carbon\Carbon::parse($order->delivered_at)->format('M d, Y h:i A') }}
+                                                                         </li>
+                                                                     @endif
+                                                                     @if ($order->cancelled_at)
+                                                                         <li class="relative">
+                                                                             <span class="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-rose-500 border border-white"></span>
+                                                                             <span class="text-rose-600 font-bold">Cancelled:</span> {{ \Carbon\Carbon::parse($order->cancelled_at)->format('M d, Y h:i A') }}
+                                                                             @if ($order->cancellation_reason)
+                                                                                 <span class="block text-[10px] text-rose-500 italic mt-0.5">"{{ $order->cancellation_reason }}"</span>
+                                                                             @endif
+                                                                         </li>
+                                                                     @endif
+                                                                 </ul>
+                                                             </div>
+
+                                                             <!-- Column 4: Financial Summary -->
+                                                             <div class="space-y-1.5 text-xs font-semibold text-slate-655">
+                                                                 <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Financial Summary</span>
+                                                                 <div class="flex justify-between">
+                                                                     <span>Subtotal:</span>
+                                                                     <span class="text-slate-800 font-bold">LKR {{ number_format($order->subtotal_amount, 2) }}</span>
+                                                                 </div>
+                                                                 @if ($order->discount_amount > 0)
+                                                                     <div class="flex justify-between text-rose-600 font-bold">
+                                                                         <span>Discount:</span>
+                                                                         <span>- LKR {{ number_format($order->discount_amount, 2) }}</span>
+                                                                     </div>
+                                                                 @endif
+                                                                 <div class="flex justify-between">
+                                                                     <span>Delivery Fee:</span>
+                                                                     <span class="text-slate-800">LKR {{ number_format($order->delivery_fee, 2) }}</span>
+                                                                 </div>
+                                                                 @if (isset($order->system_commission_amount) && $order->system_commission_amount > 0)
+                                                                     <div class="flex justify-between text-amber-700 font-bold">
+                                                                         <span>Commission (System):</span>
+                                                                         <span>- LKR {{ number_format($order->system_commission_amount, 2) }}</span>
+                                                                     </div>
+                                                                 @endif
+                                                                 <div class="flex justify-between border-t border-slate-100 pt-1.5 mt-1 text-slate-900 font-black text-sm">
+                                                                     <span>Total Amount:</span>
+                                                                     <span class="text-emerald-700">LKR {{ number_format($order->total_amount, 2) }}</span>
+                                                                 </div>
+                                                             </div>
+                                                        </div>
+
+                                                        <!-- Collapsible items list -->
+                                                        @if (isset($customerOrderItems[$order->id]))
+                                                             <details class="group border border-slate-200/60 rounded-2xl bg-slate-50/25 overflow-hidden transition-all duration-350">
+                                                                 <summary class="flex justify-between items-center px-4 py-3 bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100/70 transition duration-205 select-none">
+                                                                     <span class="flex items-center gap-2">
+                                                                         <i class="fa-solid fa-boxes-stacked text-slate-400 group-open:text-emerald-600 transition"></i>
+                                                                         View Order Items ({{ count($customerOrderItems[$order->id]) }})
+                                                                     </span>
+                                                                     <span class="transition-transform duration-200 group-open:rotate-180">
+                                                                         <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                                                                     </span>
+                                                                 </summary>
+                                                                 <div class="px-4 py-3 divide-y divide-slate-100 bg-white">
+                                                                     @foreach ($customerOrderItems[$order->id] as $item)
+                                                                         @php
+                                                                             $grade = strtoupper(trim($item->grade ?? 'A'));
+                                                                             if ($grade === 'A') {
+                                                                                 $gradeBadge = 'bg-amber-50 text-amber-700 border border-amber-200';
+                                                                             } elseif ($grade === 'B') {
+                                                                                 $gradeBadge = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                                                                             } else {
+                                                                                 $gradeBadge = 'bg-slate-100 text-slate-655 border border-slate-200';
+                                                                             }
+                                                                         @endphp
+                                                                         <div class="py-2.5 flex items-center justify-between text-xs">
+                                                                             <div class="space-y-1">
+                                                                                 <div class="font-bold text-slate-800 flex items-center gap-2">
+                                                                                     {{ $item->product_name }}
+                                                                                     <span class="px-1.5 py-0.5 text-[8px] font-black rounded {{ $gradeBadge }} uppercase tracking-wider">
+                                                                                         Grade {{ $grade }}
+                                                                                     </span>
+                                                                                 </div>
+                                                                                 @if (isset($item->seller_name))
+                                                                                     <div class="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                                                                                         <i class="fa-solid fa-store text-[9px]"></i> Seller: {{ $item->seller_name }}
+                                                                                     </div>
+                                                                                 @endif
+                                                                                 <div class="text-[11px] text-slate-500 font-semibold">
+                                                                                     Qty: {{ number_format($item->quantity, 2) }} {{ $item->unit_type }}
+                                                                                 </div>
+                                                                             </div>
+                                                                             <div class="text-right font-semibold">
+                                                                                 @if ($item->discount_amount > 0)
+                                                                                     <span class="text-[10px] text-slate-400 line-through block">LKR {{ number_format($item->total_price, 2) }}</span>
+                                                                                     <span class="text-slate-800">LKR {{ number_format($item->final_price, 2) }}</span>
+                                                                                     <span class="text-[9px] text-rose-650 font-bold block">- LKR {{ number_format($item->discount_amount, 2) }}</span>
+                                                                                 @else
+                                                                                     <span class="text-slate-800">LKR {{ number_format($item->final_price, 2) }}</span>
+                                                                                 @endif
+                                                                             </div>
+                                                                         </div>
+                                                                     @endforeach
+                                                                 </div>
+                                                             </details>
+                                                        @endif
+
+                                                        @if ($order->customer_note)
+                                                             <div class="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] font-medium text-amber-800 flex items-start gap-2">
+                                                                 <i class="fa-solid fa-comment-dots text-amber-500 mt-0.5"></i>
+                                                                 <div>
+                                                                     <span class="font-bold">Customer Note:</span>
+                                                                     <span class="italic">"{{ $order->customer_note }}"</span>
+                                                                 </div>
+                                                             </div>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <div class="border border-dashed border-slate-200 rounded-3xl p-12 text-center text-slate-400 bg-slate-50/50">
+                                                <i class="fa-solid fa-basket-shopping text-3xl text-slate-350 block mb-3 animate-pulse"></i>
+                                                <p class="text-xs font-bold">No Orders Placed</p>
+                                                <p class="text-[11px] text-slate-400 mt-1">This customer has not placed any orders yet.</p>
                                             </div>
                                         @endif
                                     </div>

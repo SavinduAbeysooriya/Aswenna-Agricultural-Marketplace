@@ -165,12 +165,28 @@ new class extends Component
                 ->orderByDesc('customer_orders.created_at')
                 ->get();
         } elseif ($this->role === 'customer') {
-            $this->selectedUserHistory = DB::table('customer_orders')
+            $history = DB::table('customer_orders')
                 ->where('customer_id', $userId)
-                ->join('users as sellers', 'customer_orders.retailer_seller_id', '=', 'sellers.id')
-                ->select('customer_orders.*', 'sellers.full_name as seller_name')
                 ->orderByDesc('customer_orders.created_at')
                 ->get();
+
+            if ($history->isNotEmpty()) {
+                $orderSellers = DB::table('order_items')
+                    ->join('users as sellers', 'order_items.retailer_id', '=', 'sellers.id')
+                    ->whereIn('order_items.order_id', $history->pluck('id'))
+                    ->select('order_items.order_id', 'sellers.full_name')
+                    ->distinct()
+                    ->get()
+                    ->groupBy('order_id');
+
+                foreach ($history as $act) {
+                    $sellersForOrder = $orderSellers->get($act->id);
+                    $act->seller_name = $sellersForOrder 
+                        ? $sellersForOrder->pluck('full_name')->implode(', ') 
+                        : 'Marketplace';
+                }
+            }
+            $this->selectedUserHistory = $history;
         } elseif ($this->role === 'buyer') {
             $this->selectedUserHistory = DB::table('confirmed_bids')
                 ->where('confirmed_bids.buyer_id', $userId)

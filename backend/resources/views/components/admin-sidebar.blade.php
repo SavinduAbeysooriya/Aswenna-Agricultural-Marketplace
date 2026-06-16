@@ -89,17 +89,7 @@
             </a>
         </div>
 
-        <!-- Audit & Logs -->
-        <div class="space-y-0.5 pt-2">
-            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-3 block mb-2">Audit Trails</span>
-            
-            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
-                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
-                    <i class="fa-solid fa-clock-rotate-left text-xs"></i>
-                </div>
-                <span>Platform Activity Logs</span>
-            </a>
-        </div>
+       
     </div>
 
     <!-- Sidebar footer Actions (Logout form) -->

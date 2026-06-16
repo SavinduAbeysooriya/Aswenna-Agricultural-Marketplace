@@ -452,6 +452,9 @@
                                 <button type="button" onclick="switchTab('tab-reviews')" id="btn-tab-reviews" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Ratings & Feedback">
                                     <i class="fa-solid fa-star"></i><span class="tab-text">Ratings & Feedback</span>
                                 </button>
+                                <button type="button" onclick="switchTab('tab-user-offer-progress')" id="btn-tab-user-offer-progress" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="User Offer Progress">
+                                    <i class="fa-solid fa-spinner"></i><span class="tab-text">Offer Progress</span>
+                                </button>
                                 <button type="button" onclick="switchTab('tab-history')" id="btn-tab-history" class="tab-btn px-5 py-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap border-transparent text-slate-500 hover:text-slate-900" title="Activity History">
                                     <i class="fa-solid fa-clock-rotate-left"></i><span class="tab-text">Activity History</span>
                                 </button>
@@ -2425,6 +2428,82 @@
                                             </div>
                                         @endif
                                     </div>
+                                </div>
+
+                                <!-- PANEL: User Offer Progress -->
+                                <div id="tab-user-offer-progress" class="tab-content hidden animate-fade-in space-y-4">
+                                    <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                                        <i class="fa-solid fa-spinner text-emerald-600"></i> Offer Progress & Rewards
+                                    </h4>
+                                    
+                                    @if (count($offerProgress) > 0)
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            @foreach ($offerProgress as $prog)
+                                                <div class="border border-slate-100 bg-slate-50/50 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                                                    <div>
+                                                        <div class="flex justify-between items-start gap-4">
+                                                            <div>
+                                                                <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-700 font-extrabold uppercase tracking-wide border border-emerald-100">
+                                                                    {{ $prog->campaign_code }}
+                                                                </span>
+                                                                <h5 class="mt-2 text-sm font-bold text-slate-900">{{ $prog->campaign_title }}</h5>
+                                                            </div>
+                                                            
+                                                            <div class="flex flex-col gap-1.5 items-end">
+                                                                @if ($prog->is_completed)
+                                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                                                        <i class="fa-solid fa-circle-check text-[9px]"></i> Completed
+                                                                    </span>
+                                                                @else
+                                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-100">
+                                                                        <i class="fa-solid fa-clock text-[9px]"></i> In Progress
+                                                                    </span>
+                                                                @endif
+
+                                                                @if ($prog->reward_claimed)
+                                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                                                        <i class="fa-solid fa-gift text-[9px]"></i> Claimed
+                                                                    </span>
+                                                                @else
+                                                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-150 text-slate-500 border border-slate-200">
+                                                                        <i class="fa-solid fa-circle-xmark text-[9px]"></i> Unclaimed
+                                                                    </span>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <p class="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+                                                            {{ $prog->campaign_description }}
+                                                        </p>
+
+                                                        @if ($prog->goal_name)
+                                                            <div class="mt-3 text-xs bg-white p-2.5 rounded-xl border border-slate-100">
+                                                                <strong class="text-slate-500 font-bold block mb-1">Goal Metric:</strong>
+                                                                <span class="font-semibold text-slate-800">{{ $prog->goal_name }}</span>
+                                                                <span class="text-slate-400 font-medium ml-1">(Target: {{ number_format($prog->goal_target_value, 0) }})</span>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+
+                                                    <div class="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2 text-[10px] text-slate-400 font-semibold">
+                                                        @if ($prog->is_completed && $prog->completed_at)
+                                                            <div>Completed at: <span class="text-slate-600">{{ \Carbon\Carbon::parse($prog->completed_at)->format('Y-m-d H:i A') }}</span></div>
+                                                        @endif
+                                                        @if ($prog->reward_claimed && $prog->reward_claimed_at)
+                                                            <div>Claimed at: <span class="text-slate-600">{{ \Carbon\Carbon::parse($prog->reward_claimed_at)->format('Y-m-d H:i A') }}</span></div>
+                                                        @endif
+                                                        @if ($prog->notes)
+                                                            <div class="mt-1 bg-slate-100/50 p-2 rounded text-slate-600 italic text-[11px]">"{{ $prog->notes }}"</div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <div class="border border-dashed border-slate-200 rounded-2xl p-12 text-center text-slate-400 bg-white">
+                                            <i class="fa-solid fa-gift text-2xl block mb-2 text-slate-350"></i> No offer progress records for this user.
+                                        </div>
+                                    @endif
                                 </div>
 
                                 <!-- PANEL 5: Activity History -->

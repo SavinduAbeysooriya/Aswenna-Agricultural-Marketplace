@@ -60,14 +60,21 @@
                 </div>
                 <span>Offer Campaigns</span>
             </a>
+
+            <a href="{{ route('admin.user-offer-progress') }}" class="group flex items-center space-x-3 px-3 py-2 rounded-xl {{ request()->routeIs('admin.user-offer-progress*') ? 'bg-emerald-50 text-emerald-700 font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold' }} text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg {{ request()->routeIs('admin.user-offer-progress*') ? 'bg-emerald-100 text-emerald-600 shadow-inner' : 'bg-transparent group-hover:bg-white text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm' }} flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-spinner text-xs"></i>
+                </div>
+                <span>User Offer Progress</span>
+            </a>
         </div>
 
         <!-- Finance Oversight -->
         <div class="space-y-0.5 pt-2">
             <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-3 block mb-2">Financial Treasury</span>
             
-            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
-                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
+            <a href="{{ route('admin.escrow-commissions') }}" class="group flex items-center space-x-3 px-3 py-2 rounded-xl {{ request()->routeIs('admin.escrow-commissions*') ? 'bg-emerald-50 text-emerald-700 font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold' }} text-xs transition-all">
+                <div class="w-7 h-7 rounded-lg {{ request()->routeIs('admin.escrow-commissions*') ? 'bg-emerald-100 text-emerald-600 shadow-inner' : 'bg-transparent group-hover:bg-white text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm' }} flex items-center justify-center transition-all">
                     <i class="fa-solid fa-wallet text-xs"></i>
                 </div>
                 <span>Escrow & Commissions</span>
@@ -82,17 +89,7 @@
             </a>
         </div>
 
-        <!-- Audit & Logs -->
-        <div class="space-y-0.5 pt-2">
-            <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-3 block mb-2">Audit Trails</span>
-            
-            <a href="#" class="group flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-all">
-                <div class="w-7 h-7 rounded-lg bg-transparent group-hover:bg-white flex items-center justify-center text-slate-400 group-hover:text-emerald-600 group-hover:shadow-sm transition-all">
-                    <i class="fa-solid fa-clock-rotate-left text-xs"></i>
-                </div>
-                <span>Platform Activity Logs</span>
-            </a>
-        </div>
+       
     </div>
 
     <!-- Sidebar footer Actions (Logout form) -->

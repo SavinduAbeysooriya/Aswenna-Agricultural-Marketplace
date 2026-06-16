@@ -456,6 +456,37 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Show the user offer progress logs.
+     */
+    public function userOfferProgress(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        // Fetch all progress with join
+        $progressList = DB::table('user_offer_progress')
+            ->join('users', 'user_offer_progress.user_id', '=', 'users.id')
+            ->join('offer_campaigns', 'user_offer_progress.offer_campaign_id', '=', 'offer_campaigns.id')
+            ->leftJoin('offer_goals', 'offer_campaigns.offer_goal_id', '=', 'offer_goals.id')
+            ->select(
+                'user_offer_progress.*',
+                'users.full_name as user_name',
+                'users.role as user_role',
+                'offer_campaigns.title as campaign_title',
+                'offer_campaigns.code as campaign_code',
+                'offer_goals.name as goal_name'
+            )
+            ->orderByDesc('user_offer_progress.created_at')
+            ->paginate(15);
+
+        return view('admin.user-offer-progress', [
+            'progressList' => $progressList,
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
      * Show delivery partner withdrawal requests management.
      */
     public function withdrawals(Request $request)
@@ -465,6 +496,97 @@ class AdminWebController extends Controller
         }
 
         return view('admin.withdrawals', [
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
+     * Show Escrow & Commissions oversight logs.
+     */
+    public function escrowCommissions(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        // 1. Fetch B2B Harvest Deal Bids Payments (Commissions)
+        $b2bCommissions = DB::table('confirmed_bids_payments')
+            ->join('confirmed_bids', 'confirmed_bids_payments.confirmed_bid_id', '=', 'confirmed_bids.id')
+            ->join('users as buyers', 'confirmed_bids_payments.buyer_id', '=', 'buyers.id')
+            ->join('users as farmers', 'confirmed_bids_payments.farmer_id', '=', 'farmers.id')
+            ->select(
+                'confirmed_bids_payments.*',
+                'buyers.full_name as buyer_name',
+                'farmers.full_name as farmer_name',
+                'confirmed_bids.notes as deal_notes'
+            )
+            ->orderByDesc('confirmed_bids_payments.date_and_time')
+            ->get();
+
+        // 2. Fetch B2C Retail Product Orders (Commissions)
+        $b2cCommissions = DB::table('customer_orders')
+            ->join('users as customers', 'customer_orders.customer_id', '=', 'customers.id')
+            ->select(
+                'customer_orders.id',
+                'customer_orders.order_number',
+                'customer_orders.total_amount',
+                'customer_orders.subtotal_amount',
+                'customer_orders.delivery_fee',
+                'customer_orders.system_commission_amount',
+                'customer_orders.payment_status',
+                'customer_orders.order_status',
+                'customer_orders.placed_at',
+                'customer_orders.created_at',
+                'customers.full_name as customer_name'
+            )
+            ->orderByDesc('customer_orders.created_at')
+            ->get();
+
+        // 3. Fetch Logistics/Delivery Commissions
+        $logisticsCommissions = DB::table('order_delivery_requests')
+            ->join('customer_orders', 'order_delivery_requests.order_id', '=', 'customer_orders.id')
+            ->leftJoin('users as delivery_partners', 'customer_orders.delivery_partner_id', '=', 'delivery_partners.id')
+            ->select(
+                'order_delivery_requests.*',
+                'customer_orders.order_number',
+                'delivery_partners.full_name as partner_name'
+            )
+            ->orderByDesc('order_delivery_requests.created_at')
+            ->get();
+
+        // Summary Calculations
+        $b2bTotal = $b2bCommissions->where('payment_status', 'paid')->sum('system_commission');
+        $b2cTotal = $b2cCommissions->where('payment_status', 'paid')->sum('system_commission_amount');
+        $logisticsTotal = $logisticsCommissions->sum('system_commission');
+
+        $overallTotal = $b2bTotal + $b2cTotal + $logisticsTotal;
+
+        // Escrowed funds (where payment is paid but order is not completed/delivered)
+        $escrowRetailFunds = DB::table('customer_orders')
+            ->where('payment_status', 'paid')
+            ->whereNotIn('order_status', ['delivered', 'cancelled'])
+            ->sum('total_amount');
+
+        $escrowB2BFunds = DB::table('confirmed_bids_payments')
+            ->where('payment_status', 'paid')
+            ->whereNotIn('confirmed_bid_id', function($query) {
+                $query->select('confirmed_bid_id')->from('buyer_farmer_reviews');
+            })
+            ->sum('farmer_amount'); // Approx escrowed funds for B2B until review is submitted
+
+        $totalEscrow = $escrowRetailFunds + $escrowB2BFunds;
+
+        return view('admin.escrow-commissions', [
+            'b2bCommissions' => $b2bCommissions,
+            'b2cCommissions' => $b2cCommissions,
+            'logisticsCommissions' => $logisticsCommissions,
+            'b2bTotal' => $b2bTotal,
+            'b2cTotal' => $b2cTotal,
+            'logisticsTotal' => $logisticsTotal,
+            'overallTotal' => $overallTotal,
+            'totalEscrow' => $totalEscrow,
+            'escrowRetailFunds' => $escrowRetailFunds,
+            'escrowB2BFunds' => $escrowB2BFunds,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
     }
@@ -872,6 +994,23 @@ class AdminWebController extends Controller
             $cropRates = $cropRatesQuery->paginate(5, ['*'], 'rates_page');
         }
 
+        // 5. Fetch User Offer Progress
+        $offerProgress = DB::table('user_offer_progress')
+            ->join('offer_campaigns', 'user_offer_progress.offer_campaign_id', '=', 'offer_campaigns.id')
+            ->leftJoin('offer_goals', 'offer_campaigns.offer_goal_id', '=', 'offer_goals.id')
+            ->where('user_offer_progress.user_id', $user->id)
+            ->select(
+                'user_offer_progress.*',
+                'offer_campaigns.title as campaign_title',
+                'offer_campaigns.description as campaign_description',
+                'offer_campaigns.code as campaign_code',
+                'offer_goals.name as goal_name',
+                'offer_goals.goal_type as goal_type',
+                'offer_goals.target_value as goal_target_value'
+            )
+            ->orderByDesc('user_offer_progress.created_at')
+            ->get();
+
         return view('admin.users.profile', [
             'user' => $user,
             'roles' => $roles,
@@ -904,6 +1043,7 @@ class AdminWebController extends Controller
             'deliveryAssignments' => $deliveryAssignments,
             'deliveryTracking' => $deliveryTracking,
             'orderStatusHistories' => $orderStatusHistories,
+            'offerProgress' => $offerProgress,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
     }

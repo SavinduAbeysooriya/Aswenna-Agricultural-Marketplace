@@ -9,9 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;950&family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Leaflet Map CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Google Maps JS SDK with Places Library -->
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ env('GOOGLE_MAPS_API_KEY') }}&libraries=places"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -589,46 +588,64 @@
             // Initialize Cascading dropdowns
             initLocations();
 
-            // Initialize Leaflet Map
+            // Initialize Google Map
             var initLat = parseFloat(document.getElementById('latitude').value) || 7.8731;
             var initLng = parseFloat(document.getElementById('longitude').value) || 80.7718;
             var hasCoords = document.getElementById('latitude').value && document.getElementById('longitude').value;
 
-            map = L.map('map').setView([initLat, initLng], hasCoords ? 14 : 7);
+            var mapOptions = {
+                center: { lat: initLat, lng: initLng },
+                zoom: hasCoords ? 14 : 7,
+                mapTypeControl: false,
+                fullscreenControl: false,
+                streetViewControl: false
+            };
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            }).addTo(map);
+            map = new google.maps.Map(document.getElementById('map'), mapOptions);
 
-            // Custom Premium Agri Marker Icon
-            var customIcon = L.divIcon({
-                html: '<div class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-white shadow-lg shadow-emerald-500/30"><i class="fa-solid fa-location-dot text-sm"></i></div>',
-                className: 'custom-leaflet-marker',
-                iconSize: [32, 32],
-                iconAnchor: [16, 32]
+            marker = new google.maps.Marker({
+                position: { lat: initLat, lng: initLng },
+                map: map,
+                draggable: true
             });
 
-            marker = L.marker([initLat, initLng], {
-                draggable: true,
-                icon: customIcon
-            }).addTo(map);
-
             // Update Lat/Long inputs when marker is dragged
-            marker.on('dragend', function() {
-                var position = marker.getLatLng();
-                updateCoordsInputs(position.lat, position.lng);
+            marker.addListener('dragend', function() {
+                var position = marker.getPosition();
+                updateCoordsInputs(position.lat(), position.lng());
             });
 
             // Update marker and inputs when map is clicked
-            map.on('click', function(e) {
-                marker.setLatLng(e.latlng);
-                updateCoordsInputs(e.latlng.lat, e.latlng.lng);
+            map.addListener('click', function(e) {
+                marker.setPosition(e.latLng);
+                updateCoordsInputs(e.latLng.lat(), e.latLng.lng());
             });
 
             // Manually entering coordinates changes map
             document.getElementById('latitude').addEventListener('input', syncMapFromInputs);
             document.getElementById('longitude').addEventListener('input', syncMapFromInputs);
+
+            // Google Places Autocomplete
+            var searchInput = document.getElementById('map-search-input');
+            var autocomplete = new google.maps.places.Autocomplete(searchInput);
+            autocomplete.bindTo('bounds', map);
+
+            autocomplete.addListener('place_changed', function() {
+                var place = autocomplete.getPlace();
+                if (!place.geometry || !place.geometry.location) {
+                    return;
+                }
+
+                if (place.geometry.viewport) {
+                    map.fitBounds(place.geometry.viewport);
+                } else {
+                    map.setCenter(place.geometry.location);
+                    map.setZoom(17);
+                }
+
+                marker.setPosition(place.geometry.location);
+                updateCoordsInputs(place.geometry.location.lat(), place.geometry.location.lng());
+            });
 
             // Initialize document upload wrapper visibility
             toggleBackImageUpload();
@@ -643,8 +660,10 @@
             var lat = parseFloat(document.getElementById('latitude').value);
             var lng = parseFloat(document.getElementById('longitude').value);
             if (!isNaN(lat) && !isNaN(lng)) {
-                marker.setLatLng([lat, lng]);
-                map.setView([lat, lng], 14);
+                var newPos = { lat: lat, lng: lng };
+                marker.setPosition(newPos);
+                map.setCenter(newPos);
+                map.setZoom(14);
             }
         }
 
@@ -652,39 +671,26 @@
             var query = document.getElementById('map-search-input').value;
             if (!query || query.trim() === '') return;
 
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        var lat = parseFloat(data[0].lat);
-                        var lon = parseFloat(data[0].lon);
-                        map.setView([lat, lon], 14);
-                        marker.setLatLng([lat, lon]);
-                        updateCoordsInputs(lat, lon);
-                    } else {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Location Not Found',
-                            text: 'Could not locate the requested address.',
-                            confirmButtonColor: '#10b981',
-                            customClass: {
-                                popup: 'rounded-3xl border border-slate-100 shadow-xl'
-                            }
-                        });
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
+            var geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ address: query }, function(results, status) {
+                if (status === 'OK' && results[0] && results[0].geometry) {
+                    var loc = results[0].geometry.location;
+                    map.setCenter(loc);
+                    map.setZoom(14);
+                    marker.setPosition(loc);
+                    updateCoordsInputs(loc.lat(), loc.lng());
+                } else {
                     Swal.fire({
-                        icon: 'error',
-                        title: 'Search Error',
-                        text: 'Failed to communicate with the location service.',
+                        icon: 'warning',
+                        title: 'Location Not Found',
+                        text: 'Google Maps could not locate the requested address.',
                         confirmButtonColor: '#10b981',
                         customClass: {
                             popup: 'rounded-3xl border border-slate-100 shadow-xl'
                         }
                     });
-                });
+                }
+            });
         }
 
         function toggleBackImageUpload() {

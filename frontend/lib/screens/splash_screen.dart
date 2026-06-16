@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/get_started_screen.dart';
@@ -15,25 +16,57 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
   late AnimationController _controller;
+  late AnimationController _pulseController;
+  
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
+    
+    // Main entrance animation controller
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1600),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    // Looping pulse animation controller for glowing aura
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _scaleAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack),
+      ),
     );
 
     _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.1, 0.6, curve: Curves.easeIn),
+      ),
+    );
+
+    _slideAnimation = Tween<double>(begin: 40.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.3, 0.9, curve: Curves.fastOutSlowIn),
+      ),
+    );
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(
+        parent: _pulseController,
+        curve: Curves.easeInOut,
+      ),
     );
 
     _controller.forward();
@@ -43,8 +76,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _checkSessionAndNavigate() async {
-    // Wait for the splash animation to play
-    await Future.delayed(const Duration(seconds: 3));
+    // Wait for the splash animation to show completely
+    await Future.delayed(const Duration(seconds: 4));
     if (!mounted) return;
 
     final token = await ApiService.getToken();
@@ -93,6 +126,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void dispose() {
     _controller.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -102,75 +136,107 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.darkGreen,
-              AppTheme.deepLeafGreen,
-            ],
-          ),
-        ),
+        color: AppTheme.darkGreen,
         child: Stack(
           children: [
-            // Subtle leaf pattern background accents using CustomPaint
+            // Lush landscape photo with heavy blur
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/welcome_bg1.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(),
+              ),
+            ),
+            // Blur effect
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  color: AppTheme.darkGreen.withOpacity(0.85),
+                ),
+              ),
+            ),
+            // Pattern overlays
             Positioned.fill(
               child: Opacity(
-                opacity: 0.08,
+                opacity: 0.06,
                 child: CustomPaint(
                   painter: PatternPainter(),
                 ),
               ),
             ),
+            // Content
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Animated Pulsing brand logo container
                   AnimatedBuilder(
-                    animation: _controller,
+                    animation: Listenable.merge([_controller, _pulseController]),
                     builder: (context, child) {
                       return Transform.scale(
                         scale: _scaleAnimation.value,
                         child: Opacity(
                           opacity: _opacityAnimation.value,
-                          child: Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: AppTheme.pureWhite,
-                              borderRadius: BorderRadius.circular(32),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.15),
-                                  blurRadius: 30,
-                                  offset: const Offset(0, 15),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.asset(
-                                  'assets/images/logo.png',
-                                  width: 80,
-                                  height: 80,
-                                  fit: BoxFit.contain,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Pulse aura glow behind logo
+                              Transform.scale(
+                                scale: _pulseAnimation.value,
+                                child: Container(
+                                  width: 140,
+                                  height: 140,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.freshGreen.withOpacity(0.18),
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
                               ),
-                            ),
+                              // Frosted border glow card
+                              Container(
+                                width: 125,
+                                height: 125,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(36),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.freshGreen.withOpacity(0.35),
+                                      blurRadius: 40,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(24),
+                                    child: Image.asset(
+                                      'assets/images/logo.png',
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 36),
+                  // Title and Subtitle with slide-up fade transition
                   AnimatedBuilder(
                     animation: _controller,
                     builder: (context, child) {
-                      return Opacity(
-                        opacity: _opacityAnimation.value,
-                        child: child,
+                      return Transform.translate(
+                        offset: Offset(0, _slideAnimation.value),
+                        child: Opacity(
+                          opacity: _opacityAnimation.value,
+                          child: child,
+                        ),
                       );
                     },
                     child: const Column(
@@ -178,18 +244,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         Text(
                           'Aswenna',
                           style: TextStyle(
-                            color: AppTheme.pureWhite,
-                            fontSize: 38,
+                            color: Colors.white,
+                            fontSize: 42,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
+                            letterSpacing: -1.0,
                           ),
                         ),
+                        SizedBox(height: 4),
                         Text(
                           'අස්වැන්න',
                           style: TextStyle(
                             color: AppTheme.lightMint,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
@@ -198,35 +266,52 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ],
               ),
             ),
+            // Footer credits at bottom
             Positioned(
-              bottom: 50,
+              bottom: 60,
               left: 0,
               right: 0,
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, child) {
-                  return Opacity(
-                    opacity: _opacityAnimation.value,
-                    child: child,
+                  return Transform.translate(
+                    offset: Offset(0, _slideAnimation.value * 0.5),
+                    child: Opacity(
+                      opacity: _opacityAnimation.value,
+                      child: child,
+                    ),
                   );
                 },
                 child: Column(
                   children: [
-                    const Text(
-                      'Smart Agriculture Marketplace',
-                      style: TextStyle(
-                        color: AppTheme.lightMint,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
+                    // Premium thin circular progress indicator
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.0,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.freshGreen.withOpacity(0.85),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Smart Agriculture Marketplace'.toUpperCase(),
+                      style: TextStyle(
+                        color: AppTheme.lightMint.withOpacity(0.7),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       'Direct Farmer-to-Buyer Ecosystem',
                       style: TextStyle(
-                        color: AppTheme.lightMint.withOpacity(0.8),
+                        color: AppTheme.lightMint.withOpacity(0.5),
                         fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -240,7 +325,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 }
 
-// Beautiful leaf background illustrator
+// Leaf background patterns
 class PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -248,7 +333,6 @@ class PatternPainter extends CustomPainter {
       ..color = AppTheme.lightMint
       ..style = PaintingStyle.fill;
 
-    // Draw small leaves decoration randomly
     final path = Path();
     path.moveTo(0, 0);
     path.quadraticBezierTo(20, -5, 30, 20);

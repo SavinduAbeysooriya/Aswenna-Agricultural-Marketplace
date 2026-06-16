@@ -36,6 +36,9 @@ Route::post('/admin/reset-password', [AdminWebController::class, 'resetPasswordS
 
 // Secure Platform Oversight Dashboard Panel
 Route::get('/admin/dashboard', [AdminWebController::class, 'dashboard'])->name('admin.dashboard');
+Route::get('/admin/dashboard/stats', [AdminWebController::class, 'dashboardStats'])->name('admin.dashboard.stats');
+Route::get('/admin/profile', [AdminWebController::class, 'adminProfile'])->name('admin.profile');
+Route::post('/admin/profile/update', [AdminWebController::class, 'updateAdminProfile'])->name('admin.profile.update');
 Route::get('/admin/crops', [AdminWebController::class, 'crops'])->name('admin.crops');
 Route::get('/admin/crop-rates', [AdminWebController::class, 'cropRates'])->name('admin.crop-rates');
 Route::get('/admin/crop-growth-stages', [AdminWebController::class, 'cropGrowthStages'])->name('admin.crop-growth-stages');
@@ -60,7 +63,7 @@ Route::post('/admin/users/profile/{id}/retail-notes', [AdminWebController::class
 Route::post('/admin/users/profile/{id}/delivery-partner/approve', [AdminWebController::class, 'approveDeliveryPartnerVehicle'])->name('admin.users.profile.delivery-partner.approve');
 Route::post('/admin/users/profile/{id}/delivery-partner/reject', [AdminWebController::class, 'rejectDeliveryPartnerVehicle'])->name('admin.users.profile.delivery-partner.reject');
 Route::post('/admin/users/profile/{id}/delivery-partner/notes', [AdminWebController::class, 'updateDeliveryPartnerNotes'])->name('admin.users.profile.delivery-partner.notes');
-
+Route::post('/admin/change-password', [AdminWebController::class, 'changePassword'])->name('admin.change-password');
 
 
 

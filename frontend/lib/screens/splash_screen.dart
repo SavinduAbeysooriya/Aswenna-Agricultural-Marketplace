@@ -20,9 +20,16 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   late AnimationController _controller;
   late AnimationController _pulseController;
   
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
-  late Animation<double> _slideAnimation;
+  late Animation<double> _logoScale;
+  late Animation<double> _logoRotate;
+  late Animation<double> _logoOpacity;
+
+  late Animation<double> _textSlideUp;
+  late Animation<double> _textOpacity;
+
+  late Animation<double> _sloganSlideUp;
+  late Animation<double> _sloganOpacity;
+  
   late Animation<double> _pulseAnimation;
 
   @override
@@ -32,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Main entrance animation controller
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1800),
     );
 
     // Looping pulse animation controller for glowing aura
@@ -41,24 +48,53 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _scaleAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+    // Staggered Entrance Animations Setup
+    _logoScale = Tween<double>(begin: 0.4, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
       ),
     );
 
-    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _logoRotate = Tween<double>(begin: -0.2, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.1, 0.6, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.65, curve: Curves.easeOutBack),
       ),
     );
 
-    _slideAnimation = Tween<double>(begin: 40.0, end: 0.0).animate(
+    _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.3, 0.9, curve: Curves.fastOutSlowIn),
+        curve: const Interval(0.0, 0.45, curve: Curves.easeIn),
+      ),
+    );
+
+    _textSlideUp = Tween<double>(begin: 50.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.25, 0.75, curve: Curves.fastOutSlowIn),
+      ),
+    );
+
+    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.25, 0.65, curve: Curves.easeIn),
+      ),
+    );
+
+    _sloganSlideUp = Tween<double>(begin: 30.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.45, 0.95, curve: Curves.fastOutSlowIn),
+      ),
+    );
+
+    _sloganOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.45, 0.85, curve: Curves.easeIn),
       ),
     );
 
@@ -139,24 +175,33 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         color: AppTheme.darkGreen,
         child: Stack(
           children: [
-            // Lush landscape photo with heavy blur
+            // Farmer work field background image
             Positioned.fill(
               child: Image.asset(
-                'assets/images/welcome_bg1.jpg',
+                'assets/images/splash_bg.jpg',
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => const SizedBox(),
               ),
             ),
-            // Blur effect
+            // Cinematic gradient overlay with soft blur
             Positioned.fill(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                 child: Container(
-                  color: AppTheme.darkGreen.withOpacity(0.85),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppTheme.darkGreen.withOpacity(0.4),
+                        Colors.black.withOpacity(0.85),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-            // Pattern overlays
+            // Decorative background patterns
             Positioned.fill(
               child: Opacity(
                 opacity: 0.06,
@@ -165,7 +210,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 ),
               ),
             ),
-            // Content
+            // Center Logo & Text Contents
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -174,53 +219,64 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                   AnimatedBuilder(
                     animation: Listenable.merge([_controller, _pulseController]),
                     builder: (context, child) {
-                      return Transform.scale(
-                        scale: _scaleAnimation.value,
-                        child: Opacity(
-                          opacity: _opacityAnimation.value,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Pulse aura glow behind logo
-                              Transform.scale(
-                                scale: _pulseAnimation.value,
-                                child: Container(
-                                  width: 140,
-                                  height: 140,
+                      return Transform.rotate(
+                        angle: _logoRotate.value,
+                        child: Transform.scale(
+                          scale: _logoScale.value,
+                          child: Opacity(
+                            opacity: _logoOpacity.value,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                // Pulse aura glow behind logo
+                                Transform.scale(
+                                  scale: _pulseAnimation.value,
+                                  child: Container(
+                                    width: 140,
+                                    height: 140,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.freshGreen.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.freshGreen.withOpacity(0.1),
+                                          blurRadius: 20,
+                                          spreadRadius: 5,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // Logo Card container
+                                Container(
+                                  width: 125,
+                                  height: 125,
                                   decoration: BoxDecoration(
-                                    color: AppTheme.freshGreen.withOpacity(0.18),
-                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(36),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.freshGreen.withOpacity(0.35),
+                                        blurRadius: 40,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ),
-                              // Frosted border glow card
-                              Container(
-                                width: 125,
-                                height: 125,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(36),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppTheme.freshGreen.withOpacity(0.35),
-                                      blurRadius: 40,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(24),
-                                    child: Image.asset(
-                                      'assets/images/logo.png',
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.contain,
+                                  child: Center(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(24),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12.0),
+                                        child: Image.asset(
+                                          'assets/images/logo.png',
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -232,9 +288,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     animation: _controller,
                     builder: (context, child) {
                       return Transform.translate(
-                        offset: Offset(0, _slideAnimation.value),
+                        offset: Offset(0, _textSlideUp.value),
                         child: Opacity(
-                          opacity: _opacityAnimation.value,
+                          opacity: _textOpacity.value,
                           child: child,
                         ),
                       );
@@ -266,7 +322,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 ],
               ),
             ),
-            // Footer credits at bottom
+            // Footer Slogan and progress bar at the bottom
             Positioned(
               bottom: 60,
               left: 0,
@@ -275,9 +331,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 animation: _controller,
                 builder: (context, child) {
                   return Transform.translate(
-                    offset: Offset(0, _slideAnimation.value * 0.5),
+                    offset: Offset(0, _sloganSlideUp.value),
                     child: Opacity(
-                      opacity: _opacityAnimation.value,
+                      opacity: _sloganOpacity.value,
                       child: child,
                     ),
                   );

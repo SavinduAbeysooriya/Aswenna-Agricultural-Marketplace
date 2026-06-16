@@ -119,7 +119,7 @@ class GetStartedScreen extends StatelessWidget {
                       
                       // Description
                       const Text(
-                        'Connect directly with verified farmers, buyers, retailers, and couriers islandwide.',
+                        'Connect directly with verified farmers, buyers, retailers, and delivery partners across Sri Lanka.',
                         style: TextStyle(
                           color: Color(0xFF64748B), // Slate-500
                           fontSize: 14,

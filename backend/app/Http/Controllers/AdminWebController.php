@@ -386,6 +386,362 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Helper to retrieve all admin dashboard statistical data.
+     */
+    private function getDashboardData()
+    {
+        // 1. Platform Volume (Total Paid B2B Bids + Paid B2C Customer Orders)
+        $b2bPaidTotal = DB::table('confirmed_bids_payments')->where('payment_status', 'paid')->sum('total_amount');
+        $b2cPaidTotal = DB::table('customer_orders')->where('payment_status', 'paid')->sum('total_amount');
+        $totalVolume = (float)($b2bPaidTotal + $b2cPaidTotal);
+
+        // Platform Volume Trend: last 7 days vs previous 7 days (days 8-14)
+        $b2bThisWeek = DB::table('confirmed_bids_payments')
+            ->where('payment_status', 'paid')
+            ->where('date_and_time', '>=', now()->subDays(7))
+            ->sum('total_amount');
+        $b2cThisWeek = DB::table('customer_orders')
+            ->where('payment_status', 'paid')
+            ->where('placed_at', '>=', now()->subDays(7))
+            ->sum('total_amount');
+        $volumeThisWeek = $b2bThisWeek + $b2cThisWeek;
+
+        $b2bPrevWeek = DB::table('confirmed_bids_payments')
+            ->where('payment_status', 'paid')
+            ->where('date_and_time', '>=', now()->subDays(14))
+            ->where('date_and_time', '<', now()->subDays(7))
+            ->sum('total_amount');
+        $b2cPrevWeek = DB::table('customer_orders')
+            ->where('payment_status', 'paid')
+            ->where('placed_at', '>=', now()->subDays(14))
+            ->where('placed_at', '<', now()->subDays(7))
+            ->sum('total_amount');
+        $volumePrevWeek = $b2bPrevWeek + $b2cPrevWeek;
+
+        $volumeTrend = 0.0;
+        if ($volumePrevWeek > 0) {
+            $volumeTrend = (($volumeThisWeek - $volumePrevWeek) / $volumePrevWeek) * 100;
+        } elseif ($volumeThisWeek > 0) {
+            $volumeTrend = 100.0;
+        }
+
+        // 2. Active Farmers
+        $totalFarmers = User::whereJsonContains('role', 'farmer')->count();
+        $newFarmersThisWeek = User::whereJsonContains('role', 'farmer')
+            ->where('created_at', '>=', now()->subDays(7))
+            ->count();
+
+        // 3. Total Deliveries & Success Rate
+        $totalDeliveries = DB::table('customer_orders')
+            ->whereIn('order_status', ['delivered', 'completed'])
+            ->count();
+
+        $totalOrdersCount = DB::table('customer_orders')->count();
+        $cancelledOrdersCount = DB::table('customer_orders')->where('order_status', 'cancelled')->count();
+        $nonCancelledCount = $totalOrdersCount - $cancelledOrdersCount;
+        $deliverySuccessRate = 100.0;
+        if ($nonCancelledCount > 0) {
+            $deliverySuccessRate = ($totalDeliveries / $nonCancelledCount) * 100;
+        }
+
+        // 4. Platform Cut (Commissions)
+        $b2bCommissions = DB::table('confirmed_bids_payments')->where('payment_status', 'paid')->sum('system_commission');
+        $b2cCommissions = DB::table('customer_orders')->where('payment_status', 'paid')->sum('system_commission_amount');
+        $logisticsCommissions = DB::table('order_delivery_requests')
+            ->join('customer_orders', 'order_delivery_requests.order_id', '=', 'customer_orders.id')
+            ->where('customer_orders.payment_status', 'paid')
+            ->sum('order_delivery_requests.system_commission');
+        $totalCommissions = (float)($b2bCommissions + $b2cCommissions + $logisticsCommissions);
+
+        // 5. Pending Harvest Listings for Crop Verification Pipeline
+        $pendingListings = DB::table('harvest_listings')
+            ->join('users', 'harvest_listings.farmer_id', '=', 'users.id')
+            ->join('crops', 'harvest_listings.crop_id', '=', 'crops.id')
+            ->where('harvest_listings.status', 'pending_approval')
+            ->select(
+                'harvest_listings.id',
+                'harvest_listings.available_quantity',
+                'harvest_listings.unit',
+                'harvest_listings.grade',
+                'harvest_listings.price_per_unit',
+                'users.full_name as farmer_name',
+                'users.phone_number as farmer_phone',
+                'crops.cropname as crop_name'
+            )
+            ->orderByDesc('harvest_listings.created_at')
+            ->limit(5)
+            ->get();
+
+        $pendingListingsCount = DB::table('harvest_listings')
+            ->where('status', 'pending_approval')
+            ->count();
+
+        // 6. Treasury 7-Day Commission Chart Data
+        $chartData = [];
+        $chartLabels = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i);
+            $dateString = $date->toDateString();
+            $chartLabels[] = $date->format('D');
+
+            $b2bDay = DB::table('confirmed_bids_payments')
+                ->where('payment_status', 'paid')
+                ->whereDate('date_and_time', $dateString)
+                ->sum('system_commission');
+
+            $b2cDay = DB::table('customer_orders')
+                ->where('payment_status', 'paid')
+                ->whereDate('placed_at', $dateString)
+                ->sum('system_commission_amount');
+
+            $logisticsDay = DB::table('order_delivery_requests')
+                ->join('customer_orders', 'order_delivery_requests.order_id', '=', 'customer_orders.id')
+                ->where('customer_orders.payment_status', 'paid')
+                ->whereDate('order_delivery_requests.created_at', $dateString)
+                ->sum('order_delivery_requests.system_commission');
+
+            $chartData[] = (float)($b2bDay + $b2cDay + $logisticsDay);
+        }
+
+        // 7. Recent Platform Activities Audit Ledger
+        $recentUsers = DB::table('users')
+            ->select('id', DB::raw("CONCAT('New user registered: ', full_name) as title"), 'created_at', DB::raw("'registration' as type"))
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get();
+
+        $recentListings = DB::table('harvest_listings')
+            ->join('users', 'harvest_listings.farmer_id', '=', 'users.id')
+            ->join('crops', 'harvest_listings.crop_id', '=', 'crops.id')
+            ->select('harvest_listings.id', DB::raw("CONCAT(users.full_name, ' listed ', crops.cropname) as title"), 'harvest_listings.created_at', DB::raw("'harvest' as type"))
+            ->orderByDesc('harvest_listings.created_at')
+            ->limit(5)
+            ->get();
+
+        $recentOrders = DB::table('customer_orders')
+            ->join('users', 'customer_orders.customer_id', '=', 'users.id')
+            ->select('customer_orders.id', DB::raw("CONCAT(users.full_name, ' ordered ', customer_orders.order_number) as title"), 'customer_orders.created_at', DB::raw("'order' as type"))
+            ->orderByDesc('customer_orders.created_at')
+            ->limit(5)
+            ->get();
+
+        $recentPayments = DB::table('confirmed_bids_payments')
+            ->join('users', 'confirmed_bids_payments.buyer_id', '=', 'users.id')
+            ->select('confirmed_bids_payments.id', DB::raw("CONCAT('Payment LKR ', confirmed_bids_payments.total_amount, ' from ', users.full_name) as title"), 'confirmed_bids_payments.created_at', DB::raw("'payment' as type"))
+            ->orderByDesc('confirmed_bids_payments.created_at')
+            ->limit(5)
+            ->get();
+
+        $activities = collect()
+            ->merge($recentUsers)
+            ->merge($recentListings)
+            ->merge($recentOrders)
+            ->merge($recentPayments)
+            ->sortByDesc('created_at')
+            ->take(5)
+            ->values();
+
+        // 8. Pending User & Vehicle Verifications Pipeline
+        $pendingSellers = DB::table('retail_seller_verification_data')
+            ->join('users', 'retail_seller_verification_data.user_id', '=', 'users.id')
+            ->where('retail_seller_verification_data.status', 'pending')
+            ->select('users.id', 'users.full_name', DB::raw("'Retail Seller Registration' as description"), 'retail_seller_verification_data.created_at', DB::raw("'store' as icon"))
+            ->get();
+
+        $pendingDelivery = DB::table('delivery_partner_verification_data')
+            ->join('users', 'delivery_partner_verification_data.user_id', '=', 'users.id')
+            ->where('delivery_partner_verification_data.status', 'pending')
+            ->select('users.id', 'users.full_name', DB::raw("CONCAT('Delivery Partner (', delivery_partner_verification_data.vehicle_type, ')') as description"), 'delivery_partner_verification_data.created_at', DB::raw("'truck' as icon"))
+            ->get();
+
+        $pendingDocs = DB::table('user_verification_documents')
+            ->join('users', 'user_verification_documents.user_id', '=', 'users.id')
+            ->where('user_verification_documents.verification_status', 'pending')
+            ->select('users.id', 'users.full_name', DB::raw("CONCAT('Document Verification (', user_verification_documents.document_type, ')') as description"), 'user_verification_documents.created_at', DB::raw("'file-shield' as icon"))
+            ->get();
+
+        $verifications = collect()
+            ->merge($pendingSellers)
+            ->merge($pendingDelivery)
+            ->merge($pendingDocs)
+            ->unique('id')
+            ->sortByDesc('created_at')
+            ->take(4)
+            ->values();
+
+        // 9. Cultivation Details
+        $totalLands = DB::table('lands')->count();
+        $avgLandSize = (float)(DB::table('lands')->avg('size') ?: 0.0);
+        $totalLandCrops = DB::table('land_crops')->count();
+        $cultivationLogs = DB::table('daily_cultivation_logs')
+            ->join('users', 'daily_cultivation_logs.farmer_id', '=', 'users.id')
+            ->join('lands', 'daily_cultivation_logs.land_id', '=', 'lands.id')
+            ->join('crop_growth_stages', 'daily_cultivation_logs.growth_stage_id', '=', 'crop_growth_stages.id')
+            ->select(
+                'daily_cultivation_logs.id',
+                'users.full_name as farmer_name',
+                'lands.registration_number',
+                'crop_growth_stages.name as stage_name',
+                'daily_cultivation_logs.notes',
+                'daily_cultivation_logs.created_at'
+            )
+            ->orderByDesc('daily_cultivation_logs.created_at')
+            ->limit(3)
+            ->get();
+
+        // 10. B2C Retail & Logistics Details
+        $totalProducts = DB::table('retailer_products')->count();
+        $activeProducts = DB::table('retailer_products')->where('status', 'active')->count();
+        $totalRetailOrders = DB::table('customer_orders')->count();
+        $recentRetailOrders = DB::table('customer_orders')
+            ->join('users as customers', 'customer_orders.customer_id', '=', 'customers.id')
+            ->leftJoin('order_items', 'customer_orders.id', '=', 'order_items.order_id')
+            ->leftJoin('users as sellers', 'order_items.retailer_id', '=', 'sellers.id')
+            ->select(
+                'customer_orders.id',
+                'customer_orders.order_number',
+                'customers.full_name as customer_name',
+                DB::raw("COALESCE(GROUP_CONCAT(DISTINCT sellers.full_name SEPARATOR ', '), 'N/A') as seller_name"),
+                'customer_orders.total_amount',
+                'customer_orders.payment_status',
+                'customer_orders.order_status',
+                'customer_orders.created_at'
+            )
+            ->groupBy(
+                'customer_orders.id',
+                'customer_orders.order_number',
+                'customers.full_name',
+                'customer_orders.total_amount',
+                'customer_orders.payment_status',
+                'customer_orders.order_status',
+                'customer_orders.created_at'
+            )
+            ->orderByDesc('customer_orders.created_at')
+            ->limit(5)
+            ->get();
+
+        $totalDeliveryRequests = DB::table('order_delivery_requests')->count();
+        $completedDeliveries = DB::table('order_delivery_requests')->where('request_status', 'completed')->count();
+        $deliveryTrackingLogs = DB::table('order_delivery_tracking')
+            ->join('customer_orders', 'order_delivery_tracking.order_id', '=', 'customer_orders.id')
+            ->join('users', 'order_delivery_tracking.delivery_partner_id', '=', 'users.id')
+            ->select(
+                'order_delivery_tracking.id',
+                'customer_orders.order_number',
+                'users.full_name as partner_name',
+                'order_delivery_tracking.status',
+                'order_delivery_tracking.tracking_note',
+                'order_delivery_tracking.tracked_at'
+            )
+            ->orderByDesc('order_delivery_tracking.tracked_at')
+            ->limit(3)
+            ->get();
+
+        // 11. Treasury & Wallet Transactions
+        $pendingWithdrawRequestsCount = DB::table('withdraw_requests')->where('status', 'pending')->count();
+        $pendingWithdrawRequestsSum = (float)(DB::table('withdraw_requests')->where('status', 'pending')->sum('request_amount') ?: 0.0);
+        $withdrawRequestsList = DB::table('withdraw_requests')
+            ->join('users', 'withdraw_requests.user_id', '=', 'users.id')
+            ->select(
+                'withdraw_requests.id',
+                'users.full_name',
+                'withdraw_requests.request_amount',
+                'withdraw_requests.bank_name',
+                'withdraw_requests.bank_account_number',
+                'withdraw_requests.status',
+                'withdraw_requests.created_at'
+            )
+            ->orderByDesc('withdraw_requests.created_at')
+            ->limit(4)
+            ->get();
+
+        $recentTransactionsList = DB::table('wallet_transactions')
+            ->join('users', 'wallet_transactions.user_id', '=', 'users.id')
+            ->select(
+                'wallet_transactions.id',
+                'users.full_name',
+                'wallet_transactions.amount',
+                'wallet_transactions.transaction_type',
+                'wallet_transactions.description',
+                'wallet_transactions.status',
+                'wallet_transactions.created_at'
+            )
+            ->orderByDesc('wallet_transactions.created_at')
+            ->limit(4)
+            ->get();
+
+        // 12. Gamification & Offers
+        $totalCampaigns = DB::table('offer_campaigns')->count();
+        $activeCampaigns = DB::table('offer_campaigns')->where('is_active', true)->count();
+        $recentOfferProgress = DB::table('user_offer_progress')
+            ->join('users', 'user_offer_progress.user_id', '=', 'users.id')
+            ->join('offer_campaigns', 'user_offer_progress.offer_campaign_id', '=', 'offer_campaigns.id')
+            ->select(
+                'user_offer_progress.id',
+                'users.full_name as user_name',
+                'offer_campaigns.title as campaign_title',
+                'user_offer_progress.is_completed',
+                'user_offer_progress.updated_at'
+            )
+            ->orderByDesc('user_offer_progress.updated_at')
+            ->limit(3)
+            ->get();
+
+        // 13. AI Chatbot Sessions & Chat count
+        $totalChatbotSessions = DB::table('chatbot_sessions')->count();
+        $totalChats = DB::table('chats')->count();
+        $recentChatbotLogs = DB::table('chatbot_sessions')
+            ->leftJoin('users', 'chatbot_sessions.user_id', '=', 'users.id')
+            ->select(
+                'chatbot_sessions.id',
+                'users.full_name as user_name',
+                'chatbot_sessions.message',
+                'chatbot_sessions.response',
+                'chatbot_sessions.created_at'
+            )
+            ->orderByDesc('chatbot_sessions.created_at')
+            ->limit(3)
+            ->get();
+
+        return [
+            'totalVolume' => $totalVolume,
+            'volumeTrend' => $volumeTrend,
+            'totalFarmers' => $totalFarmers,
+            'newFarmersThisWeek' => $newFarmersThisWeek,
+            'totalDeliveries' => $totalDeliveries,
+            'deliverySuccessRate' => $deliverySuccessRate,
+            'totalCommissions' => $totalCommissions,
+            'pendingListings' => $pendingListings,
+            'pendingListingsCount' => $pendingListingsCount,
+            'chartData' => $chartData,
+            'chartLabels' => $chartLabels,
+            'activities' => $activities,
+            'verifications' => $verifications,
+            'totalLands' => $totalLands,
+            'avgLandSize' => $avgLandSize,
+            'totalLandCrops' => $totalLandCrops,
+            'cultivationLogs' => $cultivationLogs,
+            'totalProducts' => $totalProducts,
+            'activeProducts' => $activeProducts,
+            'totalRetailOrders' => $totalRetailOrders,
+            'recentRetailOrders' => $recentRetailOrders,
+            'totalDeliveryRequests' => $totalDeliveryRequests,
+            'completedDeliveries' => $completedDeliveries,
+            'deliveryTrackingLogs' => $deliveryTrackingLogs,
+            'pendingWithdrawRequestsCount' => $pendingWithdrawRequestsCount,
+            'pendingWithdrawRequestsSum' => $pendingWithdrawRequestsSum,
+            'withdrawRequestsList' => $withdrawRequestsList,
+            'recentTransactionsList' => $recentTransactionsList,
+            'totalCampaigns' => $totalCampaigns,
+            'activeCampaigns' => $activeCampaigns,
+            'recentOfferProgress' => $recentOfferProgress,
+            'totalChatbotSessions' => $totalChatbotSessions,
+            'totalChats' => $totalChats,
+            'recentChatbotLogs' => $recentChatbotLogs,
+        ];
+    }
+
+    /**
      * Show the platform operations administration console.
      */
     public function dashboard(Request $request)
@@ -394,9 +750,23 @@ class AdminWebController extends Controller
             return $redirect;
         }
 
-        return view('admin.dashboard', [
-            'pendingCropCount' => Crop::where('status', 'pending')->count(),
-        ]);
+        $data = $this->getDashboardData();
+        $data['pendingCropCount'] = Crop::where('status', 'pending')->count();
+
+        return view('admin.dashboard', $data);
+    }
+
+    /**
+     * Endpoint to fetch the latest dashboard statistics dynamically (for AJAX polling).
+     */
+    public function dashboardStats(Request $request)
+    {
+        if (!$request->session()->has('admin_session') && !\Illuminate\Support\Facades\Auth::check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $data = $this->getDashboardData();
+        return response()->json($data);
     }
 
     /**
@@ -1577,5 +1947,162 @@ class AdminWebController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('landing');
+    }
+
+    /**
+     * Update the logged-in administrator's password.
+     */
+    public function changePassword(Request $request)
+    {
+        if (!$request->session()->has('admin_session') && !\Illuminate\Support\Facades\Auth::check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $request->validate([
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user) {
+            $adminSession = $request->session()->get('admin_session');
+            $user = User::find($adminSession['user_id'] ?? null);
+        }
+
+        if (!$user || !Hash::check($request->input('current_password'), $user->password)) {
+            return response()->json(['error' => 'The current password provided is incorrect.'], 422);
+        }
+
+        $user->password = Hash::make($request->input('new_password'));
+        $user->save();
+
+        return response()->json(['success' => 'Your password has been successfully updated.']);
+    }
+
+    /**
+     * Show the administrator's profile management screen.
+     */
+    public function adminProfile(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user) {
+            $adminSession = $request->session()->get('admin_session');
+            $user = User::find($adminSession['user_id'] ?? null);
+        }
+
+        $verificationDocs = DB::table('user_verification_documents')->where('user_id', $user->id)->get();
+
+        return view('admin.profile', [
+            'user' => $user,
+            'verificationDocs' => $verificationDocs,
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
+     * Update the administrator's profile details.
+     */
+    public function updateAdminProfile(Request $request)
+    {
+        if (!$request->session()->has('admin_session') && !\Illuminate\Support\Facades\Auth::check()) {
+            return back()->withErrors(['error' => 'Unauthorized']);
+        }
+
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user) {
+            $adminSession = $request->session()->get('admin_session');
+            $user = User::find($adminSession['user_id'] ?? null);
+        }
+
+        if (!$user) {
+            return back()->withErrors(['error' => 'Administrator account not found.']);
+        }
+
+        $request->validate([
+            'full_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'phone_number' => 'nullable|string|max:20',
+            'phone_number_2' => 'nullable|string|max:20',
+            'national_id' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:100',
+            'district' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+            'profile_picture' => 'nullable|image|max:2048',
+            'current_password' => 'nullable|required_with:new_password|string',
+            'new_password' => 'nullable|string|min:6|confirmed',
+        ]);
+
+        $user->full_name = $request->input('full_name');
+        $user->email = $request->input('email');
+        $user->phone_number = $request->input('phone_number');
+        $user->phone_number_2 = $request->input('phone_number_2');
+        $user->national_id = $request->input('national_id');
+        $user->address = $request->input('address');
+        $user->city = $request->input('city');
+        $user->district = $request->input('district');
+        $user->province = $request->input('province');
+        $user->latitude = $request->input('latitude');
+        $user->longitude = $request->input('longitude');
+
+        // Handle profile picture upload
+        if ($request->hasFile('profile_picture')) {
+            try {
+                $path = $request->file('profile_picture')->store('profiles', 'public');
+                $user->profile_picture_path = $path;
+            } catch (\Exception $e) {
+                logger()->error('Profile picture upload failed: ' . $e->getMessage());
+            }
+        }
+
+        if ($request->filled('new_password')) {
+            if (!Hash::check($request->input('current_password'), $user->password)) {
+                return back()->withErrors(['current_password' => 'The current password provided is incorrect.'])->withInput();
+            }
+            $user->password = Hash::make($request->input('new_password'));
+        }
+
+        $user->save();
+
+        // Handle verification document upload
+        if ($request->filled('verification_document_type') && $request->hasFile('verification_front_image')) {
+            $request->validate([
+                'verification_document_type' => 'required|string|in:national_id,business_registration,driving_license,gap_certificate',
+                'verification_front_image' => 'required|image|max:2048',
+                'verification_back_image' => 'nullable|image|max:2048',
+            ]);
+
+            try {
+                $frontPath = $request->file('verification_front_image')->store('verifications', 'public');
+                $backPath = null;
+                if ($request->hasFile('verification_back_image')) {
+                    $backPath = $request->file('verification_back_image')->store('verifications', 'public');
+                }
+
+                DB::table('user_verification_documents')->insert([
+                    'user_id' => $user->id,
+                    'document_type' => $request->input('verification_document_type'),
+                    'front_image_path' => $frontPath,
+                    'back_image_path' => $backPath,
+                    'verification_status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } catch (\Exception $e) {
+                logger()->error('Verification document upload failed: ' . $e->getMessage());
+            }
+        }
+
+        // Update active session metadata
+        $request->session()->put('admin_session.username', $user->full_name);
+        $request->session()->put('admin_session.email', $user->email);
+
+        return back()->with('success', 'Administrator profile and verification documents updated successfully.');
     }
 }

@@ -67,4 +67,12 @@ class User extends Authenticatable
             'is_active' => 'boolean',
         ];
     }
+
+    /**
+     * Get the offer progress records for the user.
+     */
+    public function userOfferProgress()
+    {
+        return $this->hasMany(UserOfferProgress::class, 'user_id');
+    }
 }

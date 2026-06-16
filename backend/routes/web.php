@@ -40,6 +40,7 @@ Route::get('/admin/crops', [AdminWebController::class, 'crops'])->name('admin.cr
 Route::get('/admin/crop-rates', [AdminWebController::class, 'cropRates'])->name('admin.crop-rates');
 Route::get('/admin/crop-growth-stages', [AdminWebController::class, 'cropGrowthStages'])->name('admin.crop-growth-stages');
 Route::get('/admin/offer-campaigns', [AdminWebController::class, 'offerCampaigns'])->name('admin.offer-campaigns');
+Route::get('/admin/user-offer-progress', [AdminWebController::class, 'userOfferProgress'])->name('admin.user-offer-progress');
 Route::get('/admin/withdrawals', [AdminWebController::class, 'withdrawals'])->name('admin.withdrawals');
 Route::get('/admin/users/roles', [AdminWebController::class, 'userRoles'])->name('admin.users.roles');
 Route::get('/admin/users/{role}', [AdminWebController::class, 'usersList'])->name('admin.users.index');

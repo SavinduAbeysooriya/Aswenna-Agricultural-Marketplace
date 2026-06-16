@@ -456,6 +456,37 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Show the user offer progress logs.
+     */
+    public function userOfferProgress(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        // Fetch all progress with join
+        $progressList = DB::table('user_offer_progress')
+            ->join('users', 'user_offer_progress.user_id', '=', 'users.id')
+            ->join('offer_campaigns', 'user_offer_progress.offer_campaign_id', '=', 'offer_campaigns.id')
+            ->leftJoin('offer_goals', 'offer_campaigns.offer_goal_id', '=', 'offer_goals.id')
+            ->select(
+                'user_offer_progress.*',
+                'users.full_name as user_name',
+                'users.role as user_role',
+                'offer_campaigns.title as campaign_title',
+                'offer_campaigns.code as campaign_code',
+                'offer_goals.name as goal_name'
+            )
+            ->orderByDesc('user_offer_progress.created_at')
+            ->paginate(15);
+
+        return view('admin.user-offer-progress', [
+            'progressList' => $progressList,
+            'pendingCropCount' => Crop::where('status', 'pending')->count(),
+        ]);
+    }
+
+    /**
      * Show delivery partner withdrawal requests management.
      */
     public function withdrawals(Request $request)
@@ -872,6 +903,23 @@ class AdminWebController extends Controller
             $cropRates = $cropRatesQuery->paginate(5, ['*'], 'rates_page');
         }
 
+        // 5. Fetch User Offer Progress
+        $offerProgress = DB::table('user_offer_progress')
+            ->join('offer_campaigns', 'user_offer_progress.offer_campaign_id', '=', 'offer_campaigns.id')
+            ->leftJoin('offer_goals', 'offer_campaigns.offer_goal_id', '=', 'offer_goals.id')
+            ->where('user_offer_progress.user_id', $user->id)
+            ->select(
+                'user_offer_progress.*',
+                'offer_campaigns.title as campaign_title',
+                'offer_campaigns.description as campaign_description',
+                'offer_campaigns.code as campaign_code',
+                'offer_goals.name as goal_name',
+                'offer_goals.goal_type as goal_type',
+                'offer_goals.target_value as goal_target_value'
+            )
+            ->orderByDesc('user_offer_progress.created_at')
+            ->get();
+
         return view('admin.users.profile', [
             'user' => $user,
             'roles' => $roles,
@@ -904,6 +952,7 @@ class AdminWebController extends Controller
             'deliveryAssignments' => $deliveryAssignments,
             'deliveryTracking' => $deliveryTracking,
             'orderStatusHistories' => $orderStatusHistories,
+            'offerProgress' => $offerProgress,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
     }

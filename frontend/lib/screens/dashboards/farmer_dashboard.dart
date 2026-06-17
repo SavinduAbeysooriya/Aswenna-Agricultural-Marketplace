@@ -876,7 +876,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             ? Icons.cancel_rounded
             : Icons.hourglass_top_rounded;
 
-    Future<void> _openCropPicker() async {
+    Future<void> openCropPicker() async {
       final landId = int.tryParse(land['id']?.toString() ?? '');
       if (landId == null) return;
 
@@ -961,7 +961,11 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     }
 
     final crops = land['crops'] as List?;
-    final cropCount = crops?.length ?? 0;
+    final List<dynamic> images = land['land_images'] is List ? land['land_images'] : [];
+    final List<dynamic> documents = land['land_documents'] is List ? land['land_documents'] : [];
+    final String? rejectedReason = land['rejected_reason']?.toString();
+    final double? lat = double.tryParse(land['latitude']?.toString() ?? '');
+    final double? lng = double.tryParse(land['longitude']?.toString() ?? '');
 
     return InkWell(
       onTap: () async {
@@ -1001,67 +1005,66 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Top row header
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppTheme.lightMint,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(Icons.terrain_rounded, color: AppTheme.deepLeafGreen, size: 22),
+                  child: const Icon(Icons.terrain_rounded, color: AppTheme.deepLeafGreen, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        '${land['size']} Perches',
+                        style: const TextStyle(
+                          color: AppTheme.darkGreen,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
                       Row(
                         children: [
-                          Text(
-                            '${land['size']} Perches · ${_ownershipLabel(land['ownership_type'])}',
-                            style: const TextStyle(
-                              color: AppTheme.darkGreen,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _ownershipLabel(land['ownership_type']),
+                              style: const TextStyle(
+                                color: Color(0xFF475569),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                          if (cropCount > 0) ...[
+                          if (land['registration_number'] != null && land['registration_number'].toString().isNotEmpty) ...[
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppTheme.lightMint,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$cropCount Crops',
-                                style: const TextStyle(
-                                  color: AppTheme.deepLeafGreen,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            Text(
+                              'Reg: ${land['registration_number']}',
+                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
                             ),
                           ],
                         ],
                       ),
-                      if (land['registration_number'] != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Reg: ${land['registration_number']}',
-                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
-                          ),
-                        ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.2), width: 1),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1069,11 +1072,12 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                       Icon(statusIcon, size: 12, color: statusColor),
                       const SizedBox(width: 4),
                       Text(
-                        status[0].toUpperCase() + status.substring(1),
+                        status.toUpperCase(),
                         style: TextStyle(
                           color: statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
@@ -1081,9 +1085,479 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+
+            // Rejection reason warning card
+            if (status == 'rejected' && rejectedReason != null && rejectedReason.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF5F5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFEE2E2), width: 1.2),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Verification Rejected',
+                            style: TextStyle(
+                              color: Color(0xFF991B1B),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            rejectedReason,
+                            style: const TextStyle(
+                              color: Color(0xFFB91C1C),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Growing crops wrap badges list
+            if (crops != null && crops.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Text(
+                'Growing Crops',
+                style: TextStyle(
+                  color: Color(0xFF475569),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: crops.map<Widget>((c) {
+                  final name = (c is Map ? c['cropname'] : c.toString()) ?? 'Crop';
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightMint,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.deepLeafGreen.withValues(alpha: 0.15), width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.spa_rounded, color: AppTheme.deepLeafGreen, size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: AppTheme.darkGreen,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+
+            // Side-by-side gallery and location map layout (Compact space saver)
+            if (images.isNotEmpty && lat != null && lng != null) ...[
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Gallery Preview Column
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Land Gallery',
+                          style: TextStyle(
+                            color: Color(0xFF475569),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          height: 110,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: images.length,
+                            itemBuilder: (context, idx) {
+                              final path = images[idx]?.toString() ?? '';
+                              final url = ApiService.fileUrl(path);
+                              if (url == null) return const SizedBox.shrink();
+                              return GestureDetector(
+                                onTap: () => _showFullScreenImage(context, url),
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 6),
+                                  width: idx == 0 ? 100 : 75,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(11),
+                                    child: Image.network(
+                                      url,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, progress) {
+                                        if (progress == null) return child;
+                                        return Container(
+                                          color: const Color(0xFFF8FAFC),
+                                          child: const Center(
+                                            child: SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.deepLeafGreen),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (context, err, stack) {
+                                        return Container(
+                                          color: const Color(0xFFF8FAFC),
+                                          child: const Center(
+                                            child: Icon(Icons.image_not_supported_outlined, color: Color(0xFF94A3B8), size: 18),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Pinned Location Mini Map Column
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Location Map',
+                          style: TextStyle(
+                            color: Color(0xFF475569),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            height: 110,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Stack(
+                              children: [
+                                GoogleMap(
+                                  initialCameraPosition: CameraPosition(
+                                    target: LatLng(lat, lng),
+                                    zoom: 14,
+                                  ),
+                                  markers: {
+                                    Marker(
+                                      markerId: MarkerId(land['id']?.toString() ?? 'land_pin'),
+                                      position: LatLng(lat, lng),
+                                    ),
+                                  },
+                                  liteModeEnabled: true,
+                                  zoomGesturesEnabled: false,
+                                  scrollGesturesEnabled: false,
+                                  tiltGesturesEnabled: false,
+                                  rotateGesturesEnabled: false,
+                                  myLocationButtonEnabled: false,
+                                  myLocationEnabled: false,
+                                  mapToolbarEnabled: false,
+                                ),
+                                Positioned.fill(
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => MapLocationPicker(
+                                              initialLatitude: lat,
+                                              initialLongitude: lng,
+                                              title: 'Land Location',
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              // Fallback block if only map or gallery is present
+              if (images.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'Land Gallery',
+                  style: TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 90,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: images.length,
+                    itemBuilder: (context, idx) {
+                      final path = images[idx]?.toString() ?? '';
+                      final url = ApiService.fileUrl(path);
+                      if (url == null) return const SizedBox.shrink();
+                      return GestureDetector(
+                        onTap: () => _showFullScreenImage(context, url),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          width: 130,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(11),
+                            child: Image.network(
+                              url,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, progress) {
+                                if (progress == null) return child;
+                                return Container(
+                                  color: const Color(0xFFF8FAFC),
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.deepLeafGreen),
+                                    ),
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, err, stack) {
+                                return Container(
+                                  color: const Color(0xFFF8FAFC),
+                                  child: const Center(
+                                    child: Icon(Icons.image_not_supported_outlined, color: Color(0xFF94A3B8), size: 20),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              if (lat != null && lng != null) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'Land Location Map',
+                  style: TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: 140,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Stack(
+                      children: [
+                        GoogleMap(
+                          initialCameraPosition: CameraPosition(
+                            target: LatLng(lat, lng),
+                            zoom: 15,
+                          ),
+                          markers: {
+                            Marker(
+                              markerId: MarkerId(land['id']?.toString() ?? 'land_pin'),
+                              position: LatLng(lat, lng),
+                            ),
+                          },
+                          liteModeEnabled: true,
+                          zoomGesturesEnabled: false,
+                          scrollGesturesEnabled: false,
+                          tiltGesturesEnabled: false,
+                          rotateGesturesEnabled: false,
+                          myLocationButtonEnabled: false,
+                          myLocationEnabled: false,
+                          mapToolbarEnabled: false,
+                        ),
+                        Positioned.fill(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => MapLocationPicker(
+                                      initialLatitude: lat,
+                                      initialLongitude: lng,
+                                      title: 'Land Location',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+
+            // Registered documents listing and viewer
+            if (documents.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Text(
+                'Registered Documents',
+                style: TextStyle(
+                  color: Color(0xFF475569),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Column(
+                children: documents.map<Widget>((doc) {
+                  final title = (doc is Map ? doc['title'] : '')?.toString() ?? 'Document';
+                  final path = (doc is Map ? doc['path'] : '')?.toString() ?? '';
+                  final url = ApiService.fileUrl(path);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.description_rounded, color: AppTheme.deepLeafGreen, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            title.isNotEmpty ? title : 'Document file',
+                            style: const TextStyle(
+                              color: Color(0xFF1E293B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (url != null)
+                          GestureDetector(
+                            onTap: () {
+                              if (path.toLowerCase().endsWith('.pdf')) {
+                                _openPdf(url);
+                              } else {
+                                _showFullScreenImage(context, url);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFECFDF5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.visibility_rounded, color: AppTheme.deepLeafGreen, size: 14),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+
+            // Land Notes: vertical border quote strip style
+            if (land['notes'] != null && land['notes'].toString().isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Text(
+                'Land Notes',
+                style: TextStyle(
+                  color: Color(0xFF475569),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(left: 10, top: 4, bottom: 4),
+                decoration: const BoxDecoration(
+                  border: Border(left: BorderSide(color: AppTheme.freshGreen, width: 3)),
+                ),
+                child: Text(
+                  land['notes'].toString(),
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 14),
             const Divider(color: Color(0xFFF1F5F9), height: 1),
             const SizedBox(height: 12),
+
+            // Footer coordinates shortcut and main action items
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1091,17 +1565,46 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (land['latitude'] != null && land['longitude'] != null)
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on_rounded, size: 14, color: Color(0xFF64748B)),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${double.tryParse(land['latitude'].toString())?.toStringAsFixed(5)}, '
-                              '${double.tryParse(land['longitude'].toString())?.toStringAsFixed(5)}',
-                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
+                      if (lat != null && lng != null)
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MapLocationPicker(
+                                  initialLatitude: lat,
+                                  initialLongitude: lng,
+                                  title: 'Land Location',
+                                ),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.map_rounded, size: 15, color: AppTheme.deepLeafGreen),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    '${double.tryParse(land['latitude'].toString())?.toStringAsFixed(5)}, '
+                                    '${double.tryParse(land['longitude'].toString())?.toStringAsFixed(5)}',
+                                    style: const TextStyle(
+                                      color: AppTheme.deepLeafGreen,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.open_in_new_rounded, size: 10, color: AppTheme.deepLeafGreen),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                     ],
                   ),
@@ -1114,8 +1617,8 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
-                        tooltip: 'Crops',
-                        onPressed: _openCropPicker,
+                        tooltip: 'Manage Crops',
+                        onPressed: openCropPicker,
                         constraints: const BoxConstraints(),
                         padding: const EdgeInsets.all(8),
                         icon: const Icon(Icons.grass_outlined, size: 18, color: Color(0xFF475569)),
@@ -1128,7 +1631,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
-                        tooltip: 'Edit',
+                        tooltip: 'Edit Land Details',
                         onPressed: () async {
                           final landId = int.tryParse(land['id']?.toString() ?? '');
                           if (landId == null) return;
@@ -1156,27 +1659,71 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                 ),
               ],
             ),
-            if (land['notes'] != null && land['notes'].toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  land['notes'].toString(),
-                  style: const TextStyle(color: Color(0xFF475569), fontSize: 12, height: 1.3),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
           ],
         ),
       ),
     );
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (context) {
+        return GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.zero,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                InteractiveViewer(
+                  panEnabled: true,
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stack) => const Icon(
+                      Icons.broken_image_rounded,
+                      color: Colors.white,
+                      size: 64,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 16,
+                  right: 16,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openPdf(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open document URL.')),
+      );
+    }
   }
 
   String _ownershipLabel(dynamic type) {

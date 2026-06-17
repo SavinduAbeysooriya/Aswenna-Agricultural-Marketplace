@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -3254,6 +3255,46 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> changePassword(String currentPassword, String newPassword, String confirmPassword) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse(baseUrl + '/user/change-password');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ' + (token ?? ''),
+        },
+        body: jsonEncode({
+          'current_password': currentPassword,
+          'new_password': newPassword,
+          'confirm_password': confirmPassword,
+        }),
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      
+      if (response.statusCode == 422 && data['errors'] != null && data['errors'] is Map) {
+        final errorsMap = data['errors'] as Map<String, dynamic>;
+        final buffer = StringBuffer();
+        errorsMap.forEach((key, value) {
+          if (value is List) {
+            buffer.writeln(value.join(', '));
+          } else {
+            buffer.writeln(value.toString());
+          }
+        });
+        return {'success': false, 'message': buffer.toString().trim()};
+      }
+      
+      return {'success': false, 'message': data['message'] ?? 'Failed to change password.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ' + e.toString()};
+    }
+  }
+
   // ===================================================================
   // Review Methods
   // ===================================================================
@@ -3753,6 +3794,22 @@ class ApiService {
     final token = await getToken();
     if (token == null) return {'success': false, 'message': 'Session expired.'};
     final url = Uri.parse('$baseUrl/delivery/earnings');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getWalletDetails() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/user/wallet');
     try {
       final response = await http.get(url, headers: {
         'Content-Type': 'application/json',

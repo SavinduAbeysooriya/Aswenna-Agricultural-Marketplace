@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -28,12 +29,34 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   Map<String, dynamic>? _profile;
   List<dynamic> _lands = [];
   bool _isLoadingLands = false;
+  Map<String, dynamic>? _wallet;
+  bool _isLoadingWallet = false;
+  List<dynamic> _walletTransactions = [];
 
   Map<String, dynamic> get _user =>
       Map<String, dynamic>.from(_profile?['user'] ?? {});
 
   Map<String, dynamic> get _farmerData =>
       Map<String, dynamic>.from(_profile?['farmer_verification'] ?? {});
+
+  bool get _isProfileIncomplete {
+    if (_profile == null) return false;
+    final phone = _text(_user['phone_number']);
+    final hasDummyPhone = phone.startsWith('REG-') || phone.startsWith('G-');
+    final hasNoLocation = _locationLabel == 'Location not set';
+    return hasDummyPhone || hasNoLocation;
+  }
+
+  Future<void> _openProfileEditor() async {
+    final updatedProfile = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (context) => FarmerProfileEditScreen(profile: _profile),
+      ),
+    );
+    if (updatedProfile != null && mounted) {
+      _replaceProfile(updatedProfile);
+    }
+  }
 
   // Harvest Listings State
   List<dynamic> _harvestListings = [];
@@ -49,6 +72,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     _loadLands();
     _loadHarvestListings();
     _loadFarmerBids();
+    _loadWalletDetails();
   }
 
   Future<void> _loadLands() async {
@@ -81,6 +105,17 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     });
   }
 
+  Future<void> _loadWalletDetails() async {
+    setState(() => _isLoadingWallet = true);
+    final result = await ApiService.getWalletDetails();
+    if (!mounted) return;
+    setState(() {
+      _wallet = result['success'] == true ? Map<String, dynamic>.from(result['wallet'] ?? {}) : null;
+      _walletTransactions = result['success'] == true ? List<dynamic>.from(result['transactions'] ?? []) : [];
+      _isLoadingWallet = false;
+    });
+  }
+
   Future<void> _loadProfile() async {
     setState(() {
       _isLoadingProfile = true;
@@ -109,19 +144,28 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
       backgroundColor: AppTheme.softGray,
       appBar: AppBar(
         titleSpacing: 16,
+        elevation: 0,
+        backgroundColor: AppTheme.pureWhite,
+        surfaceTintColor: Colors.transparent,
         title: Row(
           children: [
             InkWell(
               customBorder: const CircleBorder(),
               onTap: _openProfile,
-              child: CircleAvatar(
-                backgroundColor: AppTheme.lightMint,
-                backgroundImage: _profileImageUrl == null
-                    ? null
-                    : NetworkImage(_profileImageUrl!),
-                child: _profileImageUrl == null
-                    ? const Icon(Icons.person, color: AppTheme.deepLeafGreen)
-                    : null,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.deepLeafGreen.withValues(alpha: 0.3), width: 1.5),
+                ),
+                child: CircleAvatar(
+                  backgroundColor: AppTheme.lightMint,
+                  backgroundImage: _profileImageUrl == null
+                      ? null
+                      : NetworkImage(_profileImageUrl!),
+                  child: _profileImageUrl == null
+                      ? const Icon(Icons.person, color: AppTheme.deepLeafGreen)
+                      : null,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -131,21 +175,31 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Hello, $_firstName',
+                    'Hello, $_firstName !',
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.darkGreen,
+                      color: Color(0xFF1E293B),
                     ),
                   ),
-                  Text(
-                    '$_locationLabel - Farmer',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF64748B),
-                    ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_rounded, size: 12, color: AppTheme.deepLeafGreen),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _locationLabel,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -153,21 +207,21 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'Profile',
-            icon: const Icon(
-              Icons.account_circle_outlined,
-              color: AppTheme.deepLeafGreen,
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
             ),
-            onPressed: _openProfile,
-          ),
-          IconButton(
-            tooltip: 'Notifications',
-            icon: const Icon(
-              Icons.notifications_outlined,
-              color: AppTheme.deepLeafGreen,
+            child: IconButton(
+              tooltip: 'Notifications',
+              icon: const Icon(
+                Icons.notifications_outlined,
+                color: Color(0xFF1E293B),
+                size: 22,
+              ),
+              onPressed: () {},
             ),
-            onPressed: () {},
           ),
         ],
       ),
@@ -178,6 +232,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
           await _loadLands();
           await _loadHarvestListings();
           await _loadFarmerBids();
+          await _loadWalletDetails();
         },
         child: IndexedStack(
           index: _currentIndex,
@@ -191,13 +246,36 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         ),
       ),
       bottomNavigationBar: _buildBottomNav(context),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppTheme.deepLeafGreen, AppTheme.darkGreen],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.deepLeafGreen.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-        backgroundColor: AppTheme.deepLeafGreen,
-        tooltip: 'AI Agent',
-        child: const Icon(Icons.smart_toy_outlined, color: Colors.white),
+        child: FloatingActionButton(
+          heroTag: null,
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          highlightElevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          tooltip: 'AI Agent',
+          child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 26),
+        ),
       ),
     );
   }
@@ -218,22 +296,273 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   String? get _profileImageUrl {
     final path = _text(_user['profile_picture_path']);
     if (path == '-') return null;
-    if (path.startsWith('http')) return path;
-    return null;
+    return ApiService.fileUrl(path);
+  }
+
+  Widget _buildProfileIncompleteBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFFFFBEB), // Amber 50
+            Color(0xFFFEF3C7), // Amber 100
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFFDE68A), // Amber 200
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFD97706).withOpacity(0.06), // Amber shadow
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withOpacity(0.15), // Amber icon bg
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFB45309), // Amber 700
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Profile Incomplete',
+                      style: TextStyle(
+                        color: Color(0xFF78350F), // Amber 900
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Please complete your phone number and location details to unlock all trading and land management features.',
+                      style: TextStyle(
+                        color: const Color(0xFF92400E).withOpacity(0.9), // Amber 800
+                        fontSize: 12,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: TextButton.icon(
+              onPressed: _openProfileEditor,
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFFD97706), // Amber 600
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Text(
+                'Complete Now',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              label: const Icon(
+                Icons.arrow_forward_rounded,
+                size: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildHomeTab() {
+    final String availableBalance = double.tryParse(_wallet?['available_balance']?.toString() ?? '0')
+            ?.toStringAsFixed(2) ?? '0.00';
+    final String totalEarned = double.tryParse(_wallet?['total_earned']?.toString() ?? '0')
+            ?.toStringAsFixed(2) ?? '0.00';
+    final String pendingBalance = double.tryParse(_wallet?['pending_balance']?.toString() ?? '0')
+            ?.toStringAsFixed(2) ?? '0.00';
+
     return _scrollTab(
       children: [
-        if (_isLoadingProfile) const LinearProgressIndicator(minHeight: 3),
+        if (_isLoadingProfile || _isLoadingWallet) const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: LinearProgressIndicator(minHeight: 3, color: AppTheme.deepLeafGreen),
+        ),
         if (_profileError.isNotEmpty) _buildErrorBanner(),
-        _buildWeatherCard(),
+        if (_isProfileIncomplete) _buildProfileIncompleteBanner(),
+        
+        // --- Wallet & Earnings Hero Widget ---
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppTheme.darkGreen, AppTheme.deepLeafGreen],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.deepLeafGreen.withValues(alpha: 0.25),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.account_balance_wallet_rounded, color: Colors.white70, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'AVAILABLE BALANCE',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  InkWell(
+                    onTap: () => setState(() => _currentIndex = 3),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        children: [
+                          Text(
+                            'Wallet',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 8),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'LKR $availableBalance',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TOTAL NET EARNED',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'LKR $totalEarned',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(width: 1, height: 28, color: Colors.white24),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PENDING ESCROW',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'LKR $pendingBalance',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 24),
+
+        // --- Activity Summary Grid ---
         const Text(
-          'Earnings Summary',
+          'Activity Summary',
           style: TextStyle(
             color: AppTheme.darkGreen,
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -241,36 +570,258 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         Row(
           children: [
             Expanded(
-              child: _buildMetricCard(
-                'Total Revenue',
-                'LKR 0.00',
-                Icons.account_balance_wallet_rounded,
-                const Color(0xFF10B981),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildMetricCard(
-                'Registered Lands',
-                '${_lands.length} Lands',
+              child: _buildHomeSummaryCard(
+                'Registered\nLands',
+                '${_lands.length}',
                 Icons.terrain_rounded,
                 AppTheme.accentGold,
+                () => setState(() => _currentIndex = 1),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildHomeSummaryCard(
+                'Active Crop\nYields',
+                '${_harvestListings.length}',
+                Icons.eco_rounded,
+                AppTheme.deepLeafGreen,
+                () => setState(() => _currentIndex = 2),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildHomeSummaryCard(
+                'Incoming\nBids',
+                '${_farmerBids.length}',
+                Icons.gavel_rounded,
+                const Color(0xFF0284C7),
+                () {
+                  setState(() {
+                    _currentIndex = 2;
+                    _yieldSubTab = 1;
+                  });
+                },
               ),
             ),
           ],
         ),
         const SizedBox(height: 24),
-        _buildSectionHeader('Your Active Yields', 'Add Yield', () {
-          setState(() => _currentIndex = 2);
-        }),
-        const SizedBox(height: 8),
-        _buildEmptyState(
-          icon: Icons.inventory_2_outlined,
-          title: 'No active yields yet',
-          subtitle:
-              'Create your first crop yield listing when harvest is ready.',
+
+        // --- Recent Crop Listings Section ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Your Recent Yields',
+              style: TextStyle(
+                color: AppTheme.darkGreen,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (_harvestListings.isNotEmpty)
+              TextButton(
+                onPressed: () => setState(() => _currentIndex = 2),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+          ],
         ),
+        const SizedBox(height: 12),
+        if (_harvestListings.isEmpty)
+          _buildEmptyState(
+            icon: Icons.inventory_2_outlined,
+            title: 'No active yields yet',
+            subtitle: 'Create your first crop yield listing when harvest is ready.',
+          )
+        else
+          ..._harvestListings.take(3).map((listing) => _buildRecentListingCard(listing)),
       ],
+    );
+  }
+
+  Widget _buildHomeSummaryCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.deepLeafGreen.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 18),
+                ),
+                const Icon(Icons.arrow_outward_rounded, size: 12, color: Color(0xFF94A3B8)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF64748B),
+                height: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentListingCard(dynamic listing) {
+    final String cropName = listing['cropname']?.toString() ?? 'Crop';
+    final String grade = listing['grade']?.toString() ?? 'A';
+    final String price = listing['price_per_unit']?.toString() ?? '0.00';
+    final String qty = listing['available_quantity']?.toString() ?? '0';
+    final String unit = listing['unit']?.toString() ?? 'kg';
+    final String status = listing['status']?.toString() ?? 'active';
+
+    Color statusColor = AppTheme.deepLeafGreen;
+    if (status == 'draft') statusColor = Colors.grey;
+    if (status == 'pending_approval') statusColor = AppTheme.accentGold;
+    if (status == 'rejected') statusColor = Colors.red;
+
+    final String? imageUrl = listing['image_1'] ?? listing['crop_image'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: () async {
+          final id = int.tryParse(listing['id']?.toString() ?? '');
+          if (id == null) return;
+          final refresh = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HarvestListingDetailScreen(
+                listingId: id,
+                role: 'farmer',
+              ),
+            ),
+          );
+          if (refresh == true) {
+            _loadHarvestListings();
+            _loadFarmerBids();
+          }
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                  image: imageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(ApiService.fileUrl(imageUrl) ?? ''),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: imageUrl == null
+                    ? const Icon(Icons.eco_rounded, color: AppTheme.deepLeafGreen, size: 22)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          cropName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Grade $grade',
+                            style: const TextStyle(
+                              fontSize: 8,
+                              color: Color(0xFF0369A1),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$qty $unit  •  LKR $price/$unit',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -409,6 +960,9 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
       }
     }
 
+    final crops = land['crops'] as List?;
+    final cropCount = crops?.length ?? 0;
+
     return InkWell(
       onTap: () async {
         final landId = int.tryParse(land['id']?.toString() ?? '');
@@ -428,18 +982,19 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
           );
         }
       },
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: AppTheme.pureWhite,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.deepLeafGreen.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: AppTheme.deepLeafGreen.withValues(alpha: 0.03),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -448,115 +1003,180 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
           children: [
             Row(
               children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppTheme.lightMint,
-                  borderRadius: BorderRadius.circular(14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightMint,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.terrain_rounded, color: AppTheme.deepLeafGreen, size: 22),
                 ),
-                child: const Icon(Icons.terrain_rounded, color: AppTheme.deepLeafGreen, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${land['size']} Perches · ${_ownershipLabel(land['ownership_type'])}',
-                      style: const TextStyle(
-                        color: AppTheme.darkGreen,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '${land['size']} Perches · ${_ownershipLabel(land['ownership_type'])}',
+                            style: const TextStyle(
+                              color: AppTheme.darkGreen,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          if (cropCount > 0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.lightMint,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$cropCount Crops',
+                                style: const TextStyle(
+                                  color: AppTheme.deepLeafGreen,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                    if (land['registration_number'] != null)
+                      if (land['registration_number'] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            'Reg: ${land['registration_number']}',
+                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 12, color: statusColor),
+                      const SizedBox(width: 4),
                       Text(
-                        'Reg: ${land['registration_number']}',
-                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                        status[0].toUpperCase() + status.substring(1),
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 13, color: statusColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      status[0].toUpperCase() + status.substring(1),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              IconButton(
-                tooltip: 'Crops',
-                onPressed: _openCropPicker,
-                icon: const Icon(Icons.grass_outlined, size: 18, color: Color(0xFF64748B)),
-              ),
-              const SizedBox(width: 2),
-              IconButton(
-                tooltip: 'Edit',
-                onPressed: () async {
-                  final landId = int.tryParse(land['id']?.toString() ?? '');
-                  if (landId == null) return;
-                  final updated = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) => EditLandScreen(landId: landId, land: land),
-                    ),
-                  );
-                  if (updated == true) {
-                    _loadLands();
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Land updated. Status set to Pending for approval.'),
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF64748B)),
-              ),
-            ],
-          ),
-          if (land['latitude'] != null && land['longitude'] != null) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(Icons.location_on_rounded, size: 14, color: Color(0xFF64748B)),
-                const SizedBox(width: 4),
-                Text(
-                  '${double.tryParse(land['latitude'].toString())?.toStringAsFixed(5)}, '
-                  '${double.tryParse(land['longitude'].toString())?.toStringAsFixed(5)}',
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ],
-          if (land['notes'] != null && land['notes'].toString().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              land['notes'].toString(),
-              style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 12),
+            const Divider(color: Color(0xFFF1F5F9), height: 1),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (land['latitude'] != null && land['longitude'] != null)
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded, size: 14, color: Color(0xFF64748B)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${double.tryParse(land['latitude'].toString())?.toStringAsFixed(5)}, '
+                              '${double.tryParse(land['longitude'].toString())?.toStringAsFixed(5)}',
+                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        tooltip: 'Crops',
+                        onPressed: _openCropPicker,
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(8),
+                        icon: const Icon(Icons.grass_outlined, size: 18, color: Color(0xFF475569)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        tooltip: 'Edit',
+                        onPressed: () async {
+                          final landId = int.tryParse(land['id']?.toString() ?? '');
+                          if (landId == null) return;
+                          final updated = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute(
+                              builder: (_) => EditLandScreen(landId: landId, land: land),
+                            ),
+                          );
+                          if (updated == true) {
+                            _loadLands();
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Land updated. Status set to Pending for approval.'),
+                              ),
+                            );
+                          }
+                        },
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(8),
+                        icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF475569)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
+            if (land['notes'] != null && land['notes'].toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  land['notes'].toString(),
+                  style: const TextStyle(color: Color(0xFF475569), fontSize: 12, height: 1.3),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
   }
 
   String _ownershipLabel(dynamic type) {
@@ -584,34 +1204,9 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         }),
         Row(
           children: [
-            ChoiceChip(
-              label: const Text('My Listings', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              selected: _yieldSubTab == 0,
-              selectedColor: AppTheme.lightMint,
-              checkmarkColor: AppTheme.deepLeafGreen,
-              labelStyle: TextStyle(
-                color: _yieldSubTab == 0 ? AppTheme.deepLeafGreen : Colors.grey[700],
-              ),
-              onSelected: (val) {
-                if (val) setState(() => _yieldSubTab = 0);
-              },
-            ),
-            const SizedBox(width: 12),
-            ChoiceChip(
-              label: const Text('Incoming Bids', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              selected: _yieldSubTab == 1,
-              selectedColor: AppTheme.lightMint,
-              checkmarkColor: AppTheme.deepLeafGreen,
-              labelStyle: TextStyle(
-                color: _yieldSubTab == 1 ? AppTheme.deepLeafGreen : Colors.grey[700],
-              ),
-              onSelected: (val) {
-                if (val) {
-                  setState(() => _yieldSubTab = 1);
-                  _loadFarmerBids();
-                }
-              },
-            ),
+            _buildYieldSubTabChip(0, 'My Listings'),
+            const SizedBox(width: 8),
+            _buildYieldSubTabChip(1, 'Incoming Bids'),
           ],
         ),
         const SizedBox(height: 16),
@@ -669,29 +1264,30 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                         _loadFarmerBids();
                       }
                     },
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     child: Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.deepLeafGreen.withOpacity(0.02),
-                            blurRadius: 10,
+                            color: AppTheme.deepLeafGreen.withValues(alpha: 0.02),
+                            blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
                         ],
-                        border: Border.all(color: const Color(0xFFF1F5F1)),
                       ),
                       child: Row(
                         children: [
                           Container(
-                            width: 64,
-                            height: 64,
+                            width: 68,
+                            height: 68,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFAFAFA),
-                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
                               image: imageUrl != null
                                   ? DecorationImage(
                                       image: NetworkImage(ApiService.fileUrl(imageUrl) ?? ''),
@@ -700,7 +1296,17 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                                   : null,
                             ),
                             child: imageUrl == null
-                                ? const Icon(Icons.eco_outlined, color: AppTheme.deepLeafGreen)
+                                ? Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [AppTheme.lightMint, AppTheme.lightMint.withOpacity(0.5)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: const Icon(Icons.eco_rounded, color: AppTheme.deepLeafGreen, size: 28),
+                                  )
                                 : null,
                           ),
                           const SizedBox(width: 14),
@@ -720,26 +1326,26 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                                       ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.deepLeafGreen.withOpacity(0.08),
+                                        color: const Color(0xFFE0F2FE),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
                                         'Grade $grade',
                                         style: const TextStyle(
-                                          fontSize: 10,
-                                          color: AppTheme.deepLeafGreen,
+                                          fontSize: 9,
+                                          color: Color(0xFF0369A1),
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 3),
                                 Text(
                                   'Quantity: $qty $unit',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                                 ),
                                 const SizedBox(height: 6),
                                 Row(
@@ -748,8 +1354,8 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                                     Text(
                                       'LKR $price / $unit',
                                       style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
                                         color: AppTheme.deepLeafGreen,
                                       ),
                                     ),
@@ -833,29 +1439,30 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                         _loadFarmerBids();
                       }
                     },
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     child: Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.deepLeafGreen.withOpacity(0.02),
-                            blurRadius: 10,
+                            color: AppTheme.deepLeafGreen.withValues(alpha: 0.02),
+                            blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
                         ],
-                        border: Border.all(color: const Color(0xFFF1F5F1)),
                       ),
                       child: Row(
                         children: [
                           Container(
-                            width: 64,
-                            height: 64,
+                            width: 68,
+                            height: 68,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFAFAFA),
-                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
                               image: imageUrl != null
                                   ? DecorationImage(
                                       image: NetworkImage(ApiService.fileUrl(imageUrl) ?? ''),
@@ -864,7 +1471,13 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                                   : null,
                             ),
                             child: imageUrl == null
-                                ? const Icon(Icons.gavel_rounded, color: AppTheme.accentGold)
+                                ? Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFFBEB),
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: const Icon(Icons.gavel_rounded, color: AppTheme.accentGold, size: 28),
+                                  )
                                 : null,
                           ),
                           const SizedBox(width: 14),
@@ -884,7 +1497,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                                       ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: statusColor.withOpacity(0.08),
                                         borderRadius: BorderRadius.circular(8),
@@ -901,14 +1514,22 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  'Bidder: $buyerName',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Bidder: ',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.bold),
+                                    ),
+                                    Text(
+                                      buyerName,
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   'Bid Qty: $qty $unit',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                                 ),
                                 const SizedBox(height: 6),
                                 Row(
@@ -917,12 +1538,12 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
                                     Text(
                                       'Bid Rate: LKR $bidPrice / $unit',
                                       style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
                                         color: AppTheme.deepLeafGreen,
                                       ),
                                     ),
-                                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
                                   ],
                                 ),
                               ],
@@ -940,7 +1561,54 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     );
   }
 
+  Widget _buildYieldSubTabChip(int index, String label) {
+    final isSelected = _yieldSubTab == index;
+    final accentColor = AppTheme.deepLeafGreen;
+    return InkWell(
+      onTap: () {
+        setState(() => _yieldSubTab = index);
+        if (index == 1) {
+          _loadFarmerBids();
+        }
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? accentColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? accentColor : const Color(0xFFE2E8F0),
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: accentColor.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : const Color(0xFF64748B),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildWalletTab() {
+    final String availableBalance = double.tryParse(_wallet?['available_balance']?.toString() ?? '0')
+            ?.toStringAsFixed(2) ?? '0.00';
+    final String pendingBalance = double.tryParse(_wallet?['pending_balance']?.toString() ?? '0')
+            ?.toStringAsFixed(2) ?? '0.00';
+
     return _scrollTab(
       children: [
         _buildSectionTitle('Wallet'),
@@ -950,7 +1618,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             Expanded(
               child: _buildMetricCard(
                 'Available',
-                'LKR 0.00',
+                'LKR $availableBalance',
                 Icons.savings_rounded,
                 AppTheme.deepLeafGreen,
               ),
@@ -958,21 +1626,121 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             const SizedBox(width: 16),
             Expanded(
               child: _buildMetricCard(
-                'Pending',
-                'LKR 0.00',
+                'Pending Escrow',
+                'LKR $pendingBalance',
                 Icons.pending_actions_rounded,
                 AppTheme.accentGold,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        _buildEmptyState(
-          icon: Icons.receipt_long_outlined,
-          title: 'No wallet activity',
-          subtitle: 'Completed sales and withdrawals will appear here.',
+        const SizedBox(height: 24),
+        const Text(
+          'Recent Transactions',
+          style: TextStyle(
+            color: AppTheme.darkGreen,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
         ),
+        const SizedBox(height: 12),
+        if (_walletTransactions.isEmpty)
+          _buildEmptyState(
+            icon: Icons.receipt_long_outlined,
+            title: 'No wallet activity',
+            subtitle: 'Completed sales and withdrawals will appear here.',
+          )
+        else
+          Column(
+            children: _walletTransactions.map((tx) => _buildTransactionCard(tx)).toList(),
+          ),
       ],
+    );
+  }
+
+  Widget _buildTransactionCard(dynamic tx) {
+    final double amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
+    final String description = tx['description']?.toString() ?? 'Transaction';
+    final String status = tx['status']?.toString() ?? 'completed';
+    final String dateStr = tx['created_at']?.toString() ?? '';
+
+    final isIncome = amount > 0;
+    final displayAmount = (isIncome ? '+' : '') + ' LKR ' + amount.abs().toStringAsFixed(2);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isIncome ? AppTheme.deepLeafGreen.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isIncome ? Icons.add_circle_rounded : Icons.remove_circle_rounded,
+              color: isIncome ? AppTheme.deepLeafGreen : Colors.red,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      dateStr.split('T').first,
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: status == 'completed' ? const Color(0xFFE6F4EA) : const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          color: status == 'completed' ? const Color(0xFF137333) : const Color(0xFFB06000),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            displayAmount,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: isIncome ? AppTheme.deepLeafGreen : Colors.red,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -981,72 +1749,92 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
       children: children,
     );
   }
 
   Widget _buildWeatherCard() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppTheme.deepLeafGreen, AppTheme.freshGreen],
+          colors: [AppTheme.deepLeafGreen, AppTheme.darkGreen, Color(0xFF0F3E10)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.deepLeafGreen.withValues(alpha: 0.2),
-            blurRadius: 15,
+            color: AppTheme.deepLeafGreen.withValues(alpha: 0.3),
+            blurRadius: 20,
             offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.wb_sunny_rounded, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Weather Forecast',
-                      style: TextStyle(
-                        color: AppTheme.lightMint,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '21 C - Sunny Intervals',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Profile and land data are ready for marketplace planning.',
-                  style: TextStyle(
-                    color: AppTheme.lightMint.withValues(alpha: 0.9),
-                    fontSize: 11,
-                    height: 1.3,
-                  ),
-                ),
-              ],
+          Positioned(
+            right: -24,
+            bottom: -36,
+            child: Icon(
+              Icons.eco_rounded,
+              color: Colors.white.withValues(alpha: 0.09),
+              size: 160,
             ),
           ),
-          const Icon(Icons.spa_rounded, color: AppTheme.lightMint, size: 64),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.wb_sunny_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'WEATHER FORECAST',
+                    style: TextStyle(
+                      color: Color(0xFFF1F8E9),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                '28°C · Sunny Intervals',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Perfect day for harvesting and updating land logs.',
+                style: TextStyle(
+                  color: const Color(0xFFF1F8E9).withOpacity(0.9),
+                  fontSize: 12,
+                  height: 1.3,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1058,15 +1846,18 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     IconData icon,
     Color color,
   ) {
+    final accentColor = AppTheme.deepLeafGreen;
+    final displayColor = color == AppTheme.accentGold ? const Color(0xFFF59E0B) : accentColor;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.pureWhite,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
         boxShadow: [
           BoxShadow(
             color: AppTheme.deepLeafGreen.withValues(alpha: 0.04),
-            blurRadius: 10,
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -1074,13 +1865,20 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: displayColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: displayColor, size: 24),
+          ),
+          const SizedBox(height: 16),
           Text(
             label,
             style: const TextStyle(
               color: Color(0xFF64748B),
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1089,7 +1887,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             value,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppTheme.darkGreen,
+              color: Color(0xFF0F172A),
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
@@ -1272,35 +2070,70 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     );
   }
 
-  BottomNavigationBar _buildBottomNav(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: _currentIndex,
-      selectedItemColor: AppTheme.deepLeafGreen,
-      unselectedItemColor: const Color(0xFF94A3B8),
-      showUnselectedLabels: true,
-      type: BottomNavigationBarType.fixed,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.landscape_rounded),
-          label: 'Lands',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.inventory_2_rounded),
-          label: 'Yields',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.wallet_rounded),
-          label: 'Wallet',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.note_alt_rounded),
-          label: 'Logs',
-        ),
-      ],
-      onTap: (index) {
-        setState(() => _currentIndex = index);
-      },
+  Widget _buildBottomNav(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildBottomNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+          _buildBottomNavItem(1, Icons.landscape_rounded, Icons.landscape_outlined, 'Lands'),
+          _buildBottomNavItem(2, Icons.inventory_2_rounded, Icons.inventory_2_outlined, 'Yields'),
+          _buildBottomNavItem(3, Icons.wallet_rounded, Icons.wallet_outlined, 'Wallet'),
+          _buildBottomNavItem(4, Icons.note_alt_rounded, Icons.note_alt_outlined, 'Logs'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem(int index, IconData selectedIcon, IconData unselectedIcon, String label) {
+    final isSelected = _currentIndex == index;
+    final accentColor = AppTheme.deepLeafGreen;
+    
+    return InkWell(
+      onTap: () => setState(() => _currentIndex = index),
+      borderRadius: BorderRadius.circular(24),
+      child: isSelected
+          ? Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: accentColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: accentColor.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(
+                selectedIcon,
+                color: Colors.white,
+                size: 22,
+              ),
+            )
+          : Container(
+              padding: const EdgeInsets.all(12),
+              child: Icon(
+                unselectedIcon,
+                color: const Color(0xFF94A3B8),
+                size: 22,
+              ),
+            ),
     );
   }
 
@@ -1314,6 +2147,11 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
           onRefresh: _loadProfile,
           onLogout: _logout,
           onProfileUpdated: _replaceProfile,
+          onViewTransactions: () {
+            setState(() {
+              _currentIndex = 3; // Switch to Wallet tab
+            });
+          },
         ),
       ),
     );
@@ -1350,6 +2188,7 @@ class FarmerProfileScreen extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final Future<void> Function() onLogout;
   final void Function(Map<String, dynamic> profile) onProfileUpdated;
+  final VoidCallback? onViewTransactions;
 
   const FarmerProfileScreen({
     super.key,
@@ -1359,6 +2198,7 @@ class FarmerProfileScreen extends StatefulWidget {
     required this.onRefresh,
     required this.onLogout,
     required this.onProfileUpdated,
+    this.onViewTransactions,
   });
 
   @override
@@ -1370,12 +2210,18 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   late bool _isLoading;
   late String _errorMessage;
 
+  Map<String, dynamic>? _wallet;
+  List<dynamic> _lands = [];
+  bool _isLoadingWallet = false;
+  bool _isLoadingLands = false;
+
   @override
   void initState() {
     super.initState();
     _profile = widget.profile;
     _isLoading = widget.isLoading;
     _errorMessage = widget.errorMessage;
+    _loadWalletAndLandsDetails();
   }
 
   Map<String, dynamic> get _user =>
@@ -1433,22 +2279,62 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     return items;
   }
 
+  Future<void> _loadWalletAndLandsDetails() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingWallet = true;
+        _isLoadingLands = true;
+      });
+    }
+    try {
+      final walletResult = await ApiService.getWalletDetails();
+      final landsResult = await ApiService.getFarmerLands();
+      if (!mounted) return;
+      setState(() {
+        _wallet = walletResult['success'] == true ? Map<String, dynamic>.from(walletResult['wallet'] ?? {}) : null;
+        _lands = landsResult['success'] == true ? List<dynamic>.from(landsResult['lands'] ?? []) : [];
+        _isLoadingWallet = false;
+        _isLoadingLands = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingWallet = false;
+          _isLoadingLands = false;
+        });
+      }
+    }
+  }
+
+  String? get _profileImageUrl {
+    final path = _text(_user['profile_picture_path']);
+    if (path == '-') return null;
+    return ApiService.fileUrl(path);
+  }
+
+  LatLng? get _profileLatLng {
+    final lat = double.tryParse(_text(_user['latitude']));
+    final lng = double.tryParse(_text(_user['longitude']));
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.softGray,
       appBar: AppBar(
-        title: const Text('Farmer Profile'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.darkGreen),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh Profile',
+            icon: const Icon(Icons.refresh_rounded, color: AppTheme.darkGreen),
             onPressed: _refreshProfile,
-          ),
-          IconButton(
-            tooltip: 'Edit Profile',
-            icon: const Icon(Icons.edit_rounded),
-            onPressed: _openEditor,
           ),
         ],
       ),
@@ -1459,92 +2345,134 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           children: [
             if (_isLoading) const LinearProgressIndicator(minHeight: 3),
             if (_errorMessage.isNotEmpty) _buildErrorBanner(_errorMessage),
-            _buildProfileHeader(),
-            const SizedBox(height: 16),
-            _buildLocationMapCard(),
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              title: 'Personal Details',
-              icon: Icons.badge_outlined,
-              rows: [
-                _InfoRow('Full Name', _text(_user['full_name'])),
-                _InfoRow('Email', _text(_user['email'])),
-                _InfoRow('Phone', _text(_user['phone_number'])),
-                _InfoRow('Second Phone', _text(_user['phone_number_2'])),
-                _InfoRow('National ID', _text(_user['national_id'])),
-                _InfoRow('Verified', _boolText(_user['is_verified'])),
-                _InfoRow('Active', _boolText(_user['is_active'])),
+            
+            // Premium Header Row
+            Row(
+              children: [
+                const Text(
+                  'My profile',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.darkGreen,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _openEditor,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.freshGreen.withValues(alpha: 0.3), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.edit_outlined,
+                      color: AppTheme.deepLeafGreen,
+                      size: 20,
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              title: 'Address',
-              icon: Icons.location_on_outlined,
-              rows: [
-                _InfoRow('Address', _text(_user['address'])),
-                _InfoRow('City', _text(_user['city'])),
-                _InfoRow('District', _text(_user['district'])),
-                _InfoRow('Province', _text(_user['province'])),
-                _InfoRow('Latitude', _text(_user['latitude'])),
-                _InfoRow('Longitude', _text(_user['longitude'])),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              title: 'Farmer Verification',
-              icon: Icons.verified_user_outlined,
-              rows: [
-                _InfoRow('Record ID', _text(_farmerData['id'])),
-                _InfoRow(
-                  'License No',
-                  _text(_farmerData['farming_license_number']),
-                ),
-                _InfoRow(
-                  'Organic Cert No',
-                  _text(_farmerData['organic_certificate_number']),
-                ),
-                _InfoRow(
-                  'Organic Expiry',
-                  _text(_farmerData['organic_certificate_expiry']),
-                ),
-                _InfoRow(
-                  'GAP Cert No',
-                  _text(_farmerData['gap_certificate_number']),
-                ),
-                _InfoRow(
-                  'GAP Expiry',
-                  _text(_farmerData['gap_certificate_expiry']),
-                ),
-                _InfoRow('Total Lands', _text(_farmerData['total_lands'])),
-                _InfoRow('Created', _text(_farmerData['created_at'])),
-                _InfoRow('Updated', _text(_farmerData['updated_at'])),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildDocumentsCard(),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _openEditor,
-              icon: const Icon(Icons.edit_location_alt_rounded),
-              label: const Text('Update Profile Details'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.deepLeafGreen,
+            const SizedBox(height: 24),
+
+            // Profile Avatar & Details Column
+            Center(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: AppTheme.lightMint,
+                    backgroundImage: _profileImageUrl != null ? NetworkImage(_profileImageUrl!) : null,
+                    child: _profileImageUrl == null
+                        ? Text(
+                            _initials(_text(_user['full_name'], fallback: 'Farmer')),
+                            style: const TextStyle(
+                              color: AppTheme.deepLeafGreen,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _text(_user['full_name'], fallback: 'Farmer'),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_text(_user['email'])} | ${_text(_user['phone_number'])}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildVerificationBadge(),
+                ],
               ),
+            ),
+            const SizedBox(height: 24),
+
+            // Account Details Card
+            _buildAccountDetailsCard(),
+            const SizedBox(height: 20),
+
+            // Custom styled menu list tiles
+            _buildMenuTile(
+              icon: Icons.home_work_rounded,
+              iconColor: const Color(0xFF2E7D32),
+              iconBgColor: const Color(0xFFE8F5E9),
+              title: 'Farm Address',
+              subtitle: 'Manage physical farming address details',
+              onTap: _showAddressBottomSheet,
+            ),
+            _buildMenuTile(
+              icon: Icons.map_rounded,
+              iconColor: const Color(0xFF1565C0),
+              iconBgColor: const Color(0xFFE3F2FD),
+              title: 'GPS Coordinates & Map',
+              subtitle: 'View coordinates and pinned farm location',
+              onTap: _showGPSLocationBottomSheet,
+            ),
+            _buildMenuTile(
+              icon: Icons.assignment_turned_in_rounded,
+              iconColor: const Color(0xFF7B1FA2),
+              iconBgColor: const Color(0xFFF3E5F5),
+              title: 'Verification Documents',
+              subtitle: 'Farming license, GAP & Organic certificates',
+              onTap: _showDocumentsBottomSheet,
+            ),
+            _buildMenuTile(
+              icon: Icons.security_rounded,
+              iconColor: const Color(0xFFF57F17),
+              iconBgColor: const Color(0xFFFFF8E1),
+              title: 'Account Security',
+              subtitle: 'Manage account access details',
+              onTap: _showSecurityBottomSheet,
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: widget.onLogout,
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Logout'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Color(0xFFFCA5A5)),
-              ),
-            ),
+            _buildLogoutTile(),
+            const SizedBox(height: 30),
           ],
         ),
       ),
@@ -1575,6 +2503,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     }
 
     await widget.onRefresh();
+    await _loadWalletAndLandsDetails();
   }
 
   Future<void> _openEditor() async {
@@ -1594,168 +2523,57 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     widget.onProfileUpdated(updatedProfile);
   }
 
-  Widget _buildLocationMapCard() {
-    final position = _profileLatLng;
+  Widget _buildVerificationBadge() {
+    final isVerified = _user['is_verified'] == true || _user['is_verified'] == 1 || _user['is_verified'] == '1';
+    final color = isVerified ? AppTheme.freshGreen : const Color(0xFFF59E0B);
+    final bgColor = isVerified ? AppTheme.freshGreen.withValues(alpha: 0.1) : const Color(0xFFFEF3C7);
+    final label = isVerified ? 'Verified Farmer' : 'Pending Verification';
+    final icon = isVerified ? Icons.verified_user_rounded : Icons.pending_actions_rounded;
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
+        color: bgColor,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepLeafGreen.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.pin_drop_outlined,
-                color: AppTheme.deepLeafGreen,
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Pinned Farm Location',
-                  style: TextStyle(
-                    color: AppTheme.darkGreen,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              TextButton(onPressed: _openEditor, child: const Text('Edit')),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox(
-              height: 180,
-              child: position == null
-                  ? Container(
-                      color: const Color(0xFFF8FAFC),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'No pinned location yet.',
-                        style: TextStyle(color: Color(0xFF64748B)),
-                      ),
-                    )
-                  : GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: position,
-                        zoom: 14,
-                      ),
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('farm_location'),
-                          position: position,
-                        ),
-                      },
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
-                    ),
-            ),
-          ),
-          const SizedBox(height: 10),
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 6),
           Text(
-            position == null
-                ? 'Use Update Profile Details to set latitude and longitude.'
-                : '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}',
-            style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
     );
   }
 
-  LatLng? get _profileLatLng {
-    final lat = double.tryParse(_text(_user['latitude']));
-    final lng = double.tryParse(_text(_user['longitude']));
-    if (lat == null || lng == null) return null;
-    return LatLng(lat, lng);
-  }
+  Widget _buildAccountDetailsCard() {
+    final phone = _text(_user['phone_number']);
+    final phone2 = _text(_user['phone_number_2']);
+    final nationalId = _text(_user['national_id']);
+    final email = _text(_user['email']);
+    final fullName = _text(_user['full_name'], fallback: 'Farmer');
+    final walletBalance = double.tryParse(_wallet?['available_balance']?.toString() ?? '0') ?? 0.0;
+    final walletDisplay = 'LKR ${walletBalance.toStringAsFixed(2)}';
+    final landsCount = _lands.length;
 
-  Widget _buildProfileHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.deepLeafGreen.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 34,
-            backgroundColor: AppTheme.lightMint,
-            child: Text(
-              _initials(_text(_user['full_name'], fallback: 'Farmer')),
-              style: const TextStyle(
-                color: AppTheme.deepLeafGreen,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _text(_user['full_name'], fallback: 'Farmer'),
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.darkGreen,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_text(_user['district'], fallback: 'Location not set')} - Farmer',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoCard({
-    required String title,
-    required IconData icon,
-    required List<_InfoRow> rows,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepLeafGreen.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -1763,180 +2581,976 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: AppTheme.deepLeafGreen),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppTheme.darkGreen,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
+              const Text(
+                'Account details',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  if (widget.onViewTransactions != null) {
+                    Navigator.of(context).pop();
+                    widget.onViewTransactions!();
+                  }
+                },
+                child: const Text(
+                  'Transactions',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.deepLeafGreen,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          for (final row in rows) _buildProfileRow(row.label, row.value),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '$fullName ($phone)',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: phone));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Phone number copied to clipboard!'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: const Icon(
+                    Icons.content_copy_rounded,
+                    size: 16,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (email != '-' || phone2 != '-' || nationalId != '-') ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+              ),
+              child: Column(
+                children: [
+                  if (email != '-')
+                    _buildDetailRow(Icons.email_outlined, 'Email', email),
+                  if (phone2 != '-') ...[
+                    if (email != '-') const SizedBox(height: 8),
+                    _buildDetailRow(Icons.phone_iphone_outlined, 'Second Phone', phone2),
+                  ],
+                  if (nationalId != '-') ...[
+                    if (email != '-' || phone2 != '-') const SizedBox(height: 8),
+                    _buildDetailRow(Icons.credit_card_outlined, 'National ID', nationalId),
+                  ],
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Account balance',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _isLoadingWallet
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          )
+                        : Text(
+                            walletDisplay,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+              Container(
+                height: 32,
+                width: 1,
+                color: const Color(0xFFE2E8F0),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Registered lands',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _isLoadingLands
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          )
+                        : Text(
+                            '$landsCount ${landsCount == 1 ? 'Land' : 'Lands'}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDocumentsCard() {
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF64748B)),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF64748B),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.01),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF94A3B8),
+          size: 20,
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _showModalSheet({
+    required String title,
+    required List<Widget> children,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ...children,
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAddressBottomSheet() {
+    _showModalSheet(
+      title: 'Farm Address',
+      children: [
+        _buildSheetRow('Address', _text(_user['address'])),
+        _buildSheetRow('City', _text(_user['city'])),
+        _buildSheetRow('District', _text(_user['district'])),
+        _buildSheetRow('Province', _text(_user['province'])),
+      ],
+    );
+  }
+
+  Widget _buildSheetRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF94A3B8),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        ],
+      ),
+    );
+  }
+
+  void _showGPSLocationBottomSheet() {
+    final position = _profileLatLng;
+    _showModalSheet(
+      title: 'GPS Coordinates & Map',
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: SizedBox(
+            height: 220,
+            child: position == null
+                ? Container(
+                    color: const Color(0xFFF8FAFC),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'No pinned location yet.',
+                      style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                    ),
+                  )
+                : GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: position,
+                      zoom: 14,
+                    ),
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('farm_location_sheet'),
+                        position: position,
+                      ),
+                    },
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                  ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'GPS Coordinates',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  position == null
+                      ? 'Not Set'
+                      : '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                ),
+              ],
+            ),
+            if (position != null)
+              IconButton(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(
+                    text: '${position.latitude}, ${position.longitude}',
+                  ));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Coordinates copied to clipboard!')),
+                  );
+                },
+                icon: const Icon(Icons.content_copy_rounded, color: Color(0xFF94A3B8), size: 18),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showDocumentsBottomSheet() {
     final verificationDocuments = _verificationDocuments
         .where((document) => document.hasAnyData)
         .toList();
 
+    _showModalSheet(
+      title: 'Verification Documents',
+      children: [
+        if (verificationDocuments.isNotEmpty) ...[
+          for (final doc in verificationDocuments) _buildDocSheetRow(doc),
+          const SizedBox(height: 10),
+        ],
+        if (_documents.isNotEmpty) ...[
+          const Text(
+            'General Uploads',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8)),
+          ),
+          const SizedBox(height: 8),
+          for (final item in _documents) _buildDocSheetRowGeneral(Map<String, dynamic>.from(item)),
+        ],
+        if (verificationDocuments.isEmpty && _documents.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text(
+              'No verification documents uploaded yet.',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDocSheetRow(_VerificationDocumentItem doc) {
+    final canOpen = doc.path != '-';
     return Container(
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.pureWhite,
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.assignment_rounded, color: AppTheme.deepLeafGreen, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  doc.title,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (doc.number != '-') doc.number,
+                    if (doc.expiry != '-') 'Expires ${doc.expiry}',
+                    if (!canOpen) 'No file uploaded',
+                  ].join(' - '),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+          if (canOpen)
+            IconButton(
+              onPressed: () => _openDocument(doc.path),
+              icon: const Icon(Icons.visibility_rounded, color: AppTheme.deepLeafGreen, size: 20),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocSheetRowGeneral(Map<String, dynamic> document) {
+    final status = _text(document['verification_status'], fallback: 'pending');
+    final type = _text(document['document_type']);
+    final isVerified = status.toLowerCase() == 'verified';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.insert_drive_file_rounded, color: AppTheme.deepLeafGreen, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  type,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isVerified ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: isVerified ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _openDocument(
+              document['front_image_url'] ?? document['front_image_path'],
+            ),
+            icon: const Icon(Icons.visibility_rounded, color: AppTheme.deepLeafGreen, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSecurityBottomSheet() {
+    final formKey = GlobalKey<FormState>();
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isLoading = false;
+    String? localError;
+    String? localSuccess;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 38,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Account Security',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).pop(),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF1F5F9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (localError != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF5F5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFFEE2E2)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline_rounded, color: Colors.red, size: 16),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    localError!,
+                                    style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        if (localSuccess != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFA7F3D0)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 16),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    localSuccess!,
+                                    style: const TextStyle(color: AppTheme.darkGreen, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        const Text(
+                          'Change Password',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+                        ),
+                        const SizedBox(height: 12),
+                        // Current Password
+                        TextFormField(
+                          controller: currentPasswordController,
+                          obscureText: obscureCurrent,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Current password is required.';
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Current Password',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                            suffixIcon: IconButton(
+                              icon: Icon(obscureCurrent ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: const Color(0xFF64748B)),
+                              onPressed: () => setModalState(() => obscureCurrent = !obscureCurrent),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppTheme.freshGreen, width: 1.5)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // New Password
+                        TextFormField(
+                          controller: newPasswordController,
+                          obscureText: obscureNew,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'New password is required.';
+                            }
+                            if (value.length < 6) {
+                              return 'Password must be at least 6 characters.';
+                            }
+                            if (value == currentPasswordController.text) {
+                              return 'New password must be different.';
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'New Password',
+                            prefixIcon: const Icon(Icons.lock_reset_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                            suffixIcon: IconButton(
+                              icon: Icon(obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: const Color(0xFF64748B)),
+                              onPressed: () => setModalState(() => obscureNew = !obscureNew),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppTheme.freshGreen, width: 1.5)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Confirm Password
+                        TextFormField(
+                          controller: confirmPasswordController,
+                          obscureText: obscureConfirm,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please confirm your new password.';
+                            }
+                            if (value != newPasswordController.text) {
+                              return 'Passwords do not match.';
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Confirm Password',
+                            prefixIcon: const Icon(Icons.gpp_good_outlined, color: AppTheme.deepLeafGreen, size: 20),
+                            suffixIcon: IconButton(
+                              icon: Icon(obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: const Color(0xFF64748B)),
+                              onPressed: () => setModalState(() => obscureConfirm = !obscureConfirm),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppTheme.freshGreen, width: 1.5)),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // Submit Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    if (!formKey.currentState!.validate()) return;
+                                    setModalState(() {
+                                      isLoading = true;
+                                      localError = null;
+                                      localSuccess = null;
+                                    });
+                                    final res = await ApiService.changePassword(
+                                      currentPasswordController.text,
+                                      newPasswordController.text,
+                                      confirmPasswordController.text,
+                                    );
+                                    setModalState(() {
+                                      isLoading = false;
+                                      if (res['success'] == true) {
+                                        localSuccess = 'Password changed successfully!';
+                                        currentPasswordController.clear();
+                                        newPasswordController.clear();
+                                        confirmPasswordController.clear();
+                                      } else {
+                                        localError = res['message'] ?? 'Failed to change password.';
+                                      }
+                                    });
+                                  },
+                            icon: isLoading
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
+                            label: Text(
+                              isLoading ? 'Updating Password...' : 'Update Password',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.darkGreen,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLogoutTile() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF5F5),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFEE2E2), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.deepLeafGreen.withValues(alpha: 0.04),
-            blurRadius: 10,
+            color: const Color(0xFFEF4444).withValues(alpha: 0.03),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            color: Color(0xFFFEE2E2),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 20),
+        ),
+        title: const Text(
+          'Log Out',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF991B1B),
+          ),
+        ),
+        subtitle: const Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            'Sign out securely from Aswenna',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFEF4444),
+            ),
+          ),
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios_rounded,
+          color: Color(0xFFFCA5A5),
+          size: 16,
+        ),
+        onTap: _showLogoutConfirmationDialog,
+      ),
+    );
+  }
+
+  void _showLogoutConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Row(
             children: [
-              Icon(Icons.description_outlined, color: AppTheme.deepLeafGreen),
+              Icon(Icons.logout_rounded, color: Color(0xFFDC2626)),
               SizedBox(width: 10),
               Text(
-                'Verification Documents',
+                'Log Out?',
                 style: TextStyle(
-                  color: AppTheme.darkGreen,
-                  fontSize: 15,
                   fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          if (verificationDocuments.isNotEmpty) ...[
-            for (final document in verificationDocuments)
-              _buildFarmerDocumentRow(document),
-            if (_documents.isNotEmpty) const SizedBox(height: 8),
+          content: const Text(
+            'Are you sure you want to sign out from your Aswenna farmer account?',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF475569),
+              height: 1.5,
+            ),
+          ),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onLogout();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: const Text(
+                'Yes, Log Out',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
-          if (_documents.isEmpty)
-            const Text(
-              'No general verification documents uploaded yet.',
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-            )
-          else
-            for (final item in _documents)
-              _buildDocumentRow(Map<String, dynamic>.from(item)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFarmerDocumentRow(_VerificationDocumentItem document) {
-    final canOpen = document.path != '-';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.assignment_turned_in_outlined,
-            color: AppTheme.darkGreen,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  document.title,
-                  style: const TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  [
-                    if (document.number != '-') document.number,
-                    if (document.expiry != '-') 'Expires ${document.expiry}',
-                    if (!canOpen) 'No file uploaded',
-                  ].join(' - '),
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'View document',
-            onPressed: canOpen ? () => _openDocument(document.path) : null,
-            icon: const Icon(Icons.visibility_outlined),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDocumentRow(Map<String, dynamic> document) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.insert_drive_file_outlined,
-            color: AppTheme.darkGreen,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _text(document['document_type']),
-                  style: const TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  _text(document['verification_status'], fallback: 'pending'),
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'View front',
-            onPressed: () => _openDocument(
-              document['front_image_url'] ?? document['front_image_path'],
-            ),
-            icon: const Icon(Icons.visibility_outlined),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1953,38 +3567,6 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         const SnackBar(content: Text('Unable to open this document.')),
       );
     }
-  }
-
-  Widget _buildProfileRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 116,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: Color(0xFF0F172A),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildErrorBanner(String message) {
@@ -2017,11 +3599,6 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     return text.isEmpty ? fallback : text;
   }
 
-  String _boolText(dynamic value) {
-    if (value == true || value == 1 || value == '1') return 'Yes';
-    return 'No';
-  }
-
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty || parts.first.isEmpty) return 'F';
@@ -2042,6 +3619,58 @@ class FarmerProfileEditScreen extends StatefulWidget {
 
 class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
   static const LatLng _defaultLocation = LatLng(7.8731, 80.7718);
+
+  static const List<String> _provincesList = [
+    'Central',
+    'Eastern',
+    'North Central',
+    'Northern',
+    'North Western',
+    'Sabaragamuwa',
+    'Southern',
+    'Uva',
+    'Western',
+  ];
+
+  static const Map<String, List<String>> _districtsMap = {
+    'Central': ['Kandy', 'Matale', 'Nuwara Eliya'],
+    'Eastern': ['Ampara', 'Batticaloa', 'Trincomalee'],
+    'North Central': ['Anuradhapura', 'Polonnaruwa'],
+    'Northern': ['Jaffna', 'Kilinochchi', 'Mannar', 'Mullaitivu', 'Vavuniya'],
+    'North Western': ['Kurunegala', 'Puttalam'],
+    'Sabaragamuwa': ['Kegalle', 'Ratnapura'],
+    'Southern': ['Galle', 'Hambantota', 'Matara'],
+    'Uva': ['Badulla', 'Moneragala'],
+    'Western': ['Colombo', 'Gampaha', 'Kalutara'],
+  };
+
+  static const Map<String, List<String>> _citiesMap = {
+    'Colombo': ['Colombo', 'Dehiwala-Mount Lavinia', 'Moratuwa', 'Sri Jayawardenepura Kotte', 'Kaduwela', 'Kolonnawa', 'Avissawella', 'Hanwella', 'Homagama', 'Maharagama', 'Kesbewa'],
+    'Gampaha': ['Gampaha', 'Negombo', 'Katunayake', 'Kelaniya', 'Ja-Ela', 'Wattala', 'Kadawatha', 'Kiribathgoda', 'Nittambuwa', 'Minuwangoda', 'Veyangoda', 'Mirigama'],
+    'Kalutara': ['Kalutara', 'Panadura', 'Horana', 'Matugama', 'Alutgama', 'Beruwala', 'Bandaragama'],
+    'Kandy': ['Kandy', 'Gampola', 'Nawalapitiya', 'Peradeniya', 'Katugastota', 'Kundasale', 'Wattegama', 'Kadugannawa'],
+    'Matale': ['Matale', 'Dambulla', 'Sigiriya', 'Galewela', 'Ukuwela', 'Yatawatta'],
+    'Nuwara Eliya': ['Nuwara Eliya', 'Hatton', 'Talawakele', 'Ginigathena', 'Hanguranketa', 'Walapane'],
+    'Galle': ['Galle', 'Hikkaduwa', 'Karapitiya', 'Ambalangoda', 'Elpitiya', 'Bentota', 'Baddegama'],
+    'Hambantota': ['Hambantota', 'Tangalle', 'Beliatta', 'Ambalantota', 'Tissamaharama', 'Middeniya'],
+    'Matara': ['Matara', 'Weligama', 'Akuressa', 'Deniyaya', 'Kamburupitiya', 'Dikwella'],
+    'Jaffna': ['Jaffna', 'Chavakachcheri', 'Point Pedro', 'Valvettithurai', 'Nallur'],
+    'Kilinochchi': ['Kilinochchi', 'Pallai', 'Pooneryn'],
+    'Mannar': ['Mannar', 'Nanattan', 'Madhu'],
+    'Mullaitivu': ['Mullaitivu', 'Oddusuddan', 'Puthukkudiyiruppu'],
+    'Vavuniya': ['Vavuniya', 'Nedunkeni', 'Cheddikulam'],
+    'Batticaloa': ['Batticaloa', 'Kattankudy', 'Eravur', 'Valachchenai', 'Kaluwanchikudy'],
+    'Ampara': ['Ampara', 'Kalmunai', 'Samanthurai', 'Sainthamaruthu', 'Pothuvil', 'Akkaraipattu'],
+    'Trincomalee': ['Trincomalee', 'Mutur', 'Kinniya', 'Kantale'],
+    'Kurunegala': ['Kurunegala', 'Kuliyapitiya', 'Ibbagamuwa', 'Wariyapola', 'Mawathagama', 'Pannala', 'Polgahawela', 'Alawwa', 'Narammala'],
+    'Puttalam': ['Puttalam', 'Chilaw', 'Marawila', 'Dankotuwa', 'Nattandiya', 'Anamaduwa', 'Kalpitiya'],
+    'Anuradhapura': ['Anuradhapura', 'Medawachchya', 'Mihintale', 'Kebithigollewa', 'Galenbindunuwewa', 'Eppawala', 'Tambuttegama'],
+    'Polonnaruwa': ['Polonnaruwa', 'Kaduruwela', 'Hingurakgoda', 'Medirigiriya', 'Welikanda'],
+    'Badulla': ['Badulla', 'Bandarawela', 'Hali-Ela', 'Diyatalawa', 'Ella', 'Welimada', 'Mahiyanganaya', 'Passara'],
+    'Moneragala': ['Moneragala', 'Wellawaya', 'Buttala', 'Bibile', 'Kataragama'],
+    'Kegalle': ['Kegalle', 'Mawanella', 'Rambukkana', 'Ruwanwella', 'Dehiowita', 'Deraniyagala', 'Warakapola'],
+    'Ratnapura': ['Ratnapura', 'Balangoda', 'Embilipitiya', 'Pelmadulla', 'Kahawatta', 'Kuruwita'],
+  };
 
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
@@ -2067,11 +3696,27 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
   String? _licenseFilePath;
   String? _organicFilePath;
   String? _gapFilePath;
+  String? _profilePicturePath;
   final List<_FarmerCertificateEdit> _otherCertificateEdits = [];
   bool _hasPinnedLocation = false;
   bool _isSaving = false;
   bool _isLocating = false;
   String _errorMessage = '';
+  String _selectedDocType = 'National ID';
+  String? _frontImagePath;
+  String? _backImagePath;
+
+  List<dynamic> get _documents =>
+      List<dynamic>.from(widget.profile?['documents'] ?? const []);
+
+  bool get _isVerified =>
+      _user['is_verified'] == true || _user['is_verified'] == 1 || _user['is_verified'] == '1';
+
+  dynamic get _verificationDoc =>
+      _documents.isNotEmpty ? _documents.first : null;
+
+  String? get _docStatus =>
+      _verificationDoc != null ? _verificationDoc['verification_status'] : null;
 
   Map<String, dynamic> get _user =>
       Map<String, dynamic>.from(widget.profile?['user'] ?? {});
@@ -2165,14 +3810,87 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.softGray,
-      appBar: AppBar(title: const Text('Update Farmer Profile')),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.darkGreen),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Update Farmer Profile',
+          style: TextStyle(
+            color: AppTheme.darkGreen,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           children: [
             if (_errorMessage.isNotEmpty) _buildErrorBanner(_errorMessage),
+            const SizedBox(height: 10),
+            Center(
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.freshGreen.withValues(alpha: 0.5), width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      radius: 54,
+                      backgroundColor: AppTheme.lightMint,
+                      backgroundImage: _profilePicturePath != null
+                          ? FileImage(File(_profilePicturePath!)) as ImageProvider
+                          : (_user['profile_picture_path'] != null && _value(_user['profile_picture_path']) != '-')
+                              ? NetworkImage(ApiService.fileUrl(_value(_user['profile_picture_path']))!) as ImageProvider
+                              : null,
+                      child: (_profilePicturePath == null && (_user['profile_picture_path'] == null || _value(_user['profile_picture_path']) == '-'))
+                          ? Text(
+                              _initials(_value(_user['full_name'], fallback: 'Farmer')),
+                              style: const TextStyle(
+                                color: AppTheme.deepLeafGreen,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: _pickProfilePicture,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.deepLeafGreen,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
             _buildEditorCard(
               title: 'Personal Details',
               icon: Icons.badge_outlined,
@@ -2220,12 +3938,41 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
                   Icons.home_outlined,
                   maxLines: 2,
                 ),
-                _buildTextField(_cityController, 'City', Icons.location_city),
-                _buildTextField(_districtController, 'District', Icons.map),
-                _buildTextField(
-                  _provinceController,
-                  'Province',
-                  Icons.public_rounded,
+                _buildDropdownField(
+                  label: 'Province',
+                  icon: Icons.public_rounded,
+                  value: _provinceController.text,
+                  items: _provincesList,
+                  onChanged: (val) {
+                    setState(() {
+                      _provinceController.text = val ?? '';
+                      _districtController.text = '';
+                      _cityController.text = '';
+                    });
+                  },
+                ),
+                _buildDropdownField(
+                  label: 'District',
+                  icon: Icons.map,
+                  value: _districtController.text,
+                  items: _districtsMap[_provinceController.text] ?? const [],
+                  onChanged: (val) {
+                    setState(() {
+                      _districtController.text = val ?? '';
+                      _cityController.text = '';
+                    });
+                  },
+                ),
+                _buildDropdownField(
+                  label: 'City',
+                  icon: Icons.location_city,
+                  value: _cityController.text,
+                  items: _citiesMap[_districtController.text] ?? const [],
+                  onChanged: (val) {
+                    setState(() {
+                      _cityController.text = val ?? '';
+                    });
+                  },
                 ),
               ],
             ),
@@ -2251,6 +3998,8 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
                   'Organic Certificate Expiry',
                   Icons.event_outlined,
                   hintText: 'YYYY-MM-DD',
+                  readOnly: true,
+                  onTap: () => _selectDate(context, _organicExpiryController),
                 ),
                 _buildTextField(
                   _gapNumberController,
@@ -2262,6 +4011,8 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
                   'GAP Certificate Expiry',
                   Icons.event_available_outlined,
                   hintText: 'YYYY-MM-DD',
+                  readOnly: true,
+                  onTap: () => _selectDate(context, _gapExpiryController),
                 ),
                 _buildTextField(
                   _totalLandsController,
@@ -2273,24 +4024,36 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
             ),
             const SizedBox(height: 16),
             _buildVerificationUploadsCard(),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _isSaving ? null : _saveProfile,
-              icon: _isSaving
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.save_rounded),
-              label: Text(_isSaving ? 'Saving...' : 'Save Profile'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.deepLeafGreen,
+            const SizedBox(height: 16),
+            _buildIdentityVerificationCard(),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSaving ? null : _saveProfile,
+                icon: _isSaving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
+                label: Text(
+                  _isSaving ? 'Saving Changes...' : 'Save Profile Details',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.darkGreen,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 2,
+                ),
               ),
             ),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -2341,6 +4104,151 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
     );
   }
 
+  Future<void> _pickVerificationDoc(bool isFront) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
+      allowMultiple: false,
+      withData: false,
+    );
+
+    final path = result?.files.single.path;
+    if (path == null || path.isEmpty) return;
+
+    setState(() {
+      if (isFront) {
+        _frontImagePath = path;
+      } else {
+        _backImagePath = path;
+      }
+    });
+  }
+
+  Widget _buildIdentityVerificationCard() {
+    final verificationDoc = _verificationDoc;
+    final docStatus = _docStatus;
+    final isVerified = _isVerified;
+
+    Color statusColor = const Color(0xFF757575);
+    if (isVerified) {
+      statusColor = AppTheme.deepLeafGreen;
+    } else if (docStatus == 'pending') {
+      statusColor = const Color(0xFFF59E0B);
+    } else if (docStatus == 'rejected') {
+      statusColor = Colors.red;
+    }
+
+    return _buildEditorCard(
+      title: 'Identity Verification Documents',
+      icon: Icons.assignment_ind_outlined,
+      children: [
+        if (verificationDoc != null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Document Type', style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                    Text(
+                      (verificationDoc['document_type'] ?? '').toString().toUpperCase().replaceAll('_', ' '),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Status', style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                      child: Text(
+                        (verificationDoc['verification_status'] ?? '').toString().toUpperCase(),
+                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                if (docStatus == 'rejected' && verificationDoc['rejection_reason'] != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                    child: Text(
+                      "Reason: ${verificationDoc['rejection_reason']}",
+                      style: const TextStyle(fontSize: 11, color: Color(0xFFC62828), fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+        if (!isVerified && (verificationDoc == null || docStatus == 'rejected')) ...[
+          _buildDropdownField(
+            label: 'Select Document to Upload',
+            value: _selectedDocType,
+            items: const ['National ID', 'Driving License'],
+            icon: Icons.assignment_ind_rounded,
+            onChanged: (val) {
+              if (val != null) {
+                setState(() => _selectedDocType = val);
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () => _pickVerificationDoc(true),
+                  icon: const Icon(Icons.add_photo_alternate_outlined, color: AppTheme.deepLeafGreen),
+                  label: Text(_frontImagePath == null ? 'Front Image' : 'Front Selected', style: const TextStyle(color: AppTheme.darkGreen, fontSize: 12)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () => _pickVerificationDoc(false),
+                  icon: const Icon(Icons.add_photo_alternate_outlined, color: AppTheme.deepLeafGreen),
+                  label: Text(_backImagePath == null ? 'Back (Optional)' : 'Back Selected', style: const TextStyle(color: AppTheme.darkGreen, fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ] else if (!isVerified && docStatus == 'pending') ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+              'Your verification documents are under review. You will be notified once the admin completes the review.',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildOtherCertificateEditor(int index) {
     final certificate = _otherCertificateEdits[index];
     return Container(
@@ -2348,7 +4256,7 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
@@ -2399,14 +4307,15 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
           Icon(
-            hasSelected ? Icons.check_circle : Icons.description_outlined,
+            hasSelected ? Icons.check_circle_rounded : Icons.description_outlined,
             color: hasSelected ? AppTheme.freshGreen : AppTheme.deepLeafGreen,
+            size: 22,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2440,19 +4349,19 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
           IconButton(
             tooltip: 'Choose file',
             onPressed: onPick,
-            icon: const Icon(Icons.attach_file_rounded),
+            icon: const Icon(Icons.attach_file_rounded, color: AppTheme.deepLeafGreen),
           ),
           if (hasSelected)
             IconButton(
               tooltip: 'Clear selection',
               onPressed: onClear,
-              icon: const Icon(Icons.close_rounded),
+              icon: const Icon(Icons.close_rounded, color: Colors.red),
             )
           else
             IconButton(
               tooltip: 'View existing',
               onPressed: hasExisting ? () => _openDocument(existing) : null,
-              icon: const Icon(Icons.visibility_outlined),
+              icon: const Icon(Icons.visibility_outlined, color: AppTheme.deepLeafGreen),
             ),
         ],
       ),
@@ -2543,9 +4452,25 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
                     decimal: true,
                     signed: true,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Latitude',
+                    labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.bold),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
                     isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppTheme.freshGreen),
+                    ),
                   ),
                   onChanged: _onManualLatLng,
                 ),
@@ -2558,9 +4483,25 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
                     decimal: true,
                     signed: true,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Longitude',
+                    labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.bold),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
                     isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppTheme.freshGreen),
+                    ),
                   ),
                   onChanged: _onManualLatLng,
                 ),
@@ -2621,6 +4562,50 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
     );
   }
 
+  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    DateTime initialDate = DateTime.now();
+    final text = controller.text.trim();
+    if (text.isNotEmpty) {
+      final parsed = DateTime.tryParse(text);
+      if (parsed != null) {
+        initialDate = parsed;
+      }
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.deepLeafGreen,
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF0F172A),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.deepLeafGreen,
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        final year = picked.year;
+        final month = picked.month.toString().padLeft(2, '0');
+        final day = picked.day.toString().padLeft(2, '0');
+        controller.text = '$year-$month-$day';
+      });
+    }
+  }
+
   Widget _buildTextField(
     TextEditingController controller,
     String label,
@@ -2629,6 +4614,8 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
     int maxLines = 1,
     String? hintText,
     TextInputType? keyboardType,
+    VoidCallback? onTap,
+    bool readOnly = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -2636,6 +4623,8 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
         controller: controller,
         keyboardType: keyboardType,
         maxLines: maxLines,
+        readOnly: readOnly,
+        onTap: onTap,
         validator: required
             ? (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -2646,8 +4635,103 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
             : null,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.bold),
           hintText: hintText,
-          prefixIcon: Icon(icon, color: AppTheme.deepLeafGreen),
+          hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+          prefixIcon: Icon(icon, color: AppTheme.deepLeafGreen, size: 20),
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: AppTheme.freshGreen, width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Colors.red, width: 1),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Colors.red, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required IconData icon,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    bool required = false,
+  }) {
+    final List<String> safeItems = List<String>.from(items);
+    if (value.isNotEmpty && !safeItems.contains(value)) {
+      safeItems.insert(0, value);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        value: value.isEmpty ? null : (safeItems.contains(value) ? value : null),
+        dropdownColor: Colors.white,
+        items: safeItems
+            .map(
+              (item) => DropdownMenuItem(
+                value: item,
+                child: Text(
+                  item,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
+        validator: required
+            ? (val) {
+                if (val == null || val.trim().isEmpty) {
+                  return '$label is required.';
+                }
+                return null;
+              }
+            : null,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.bold),
+          prefixIcon: Icon(icon, color: AppTheme.deepLeafGreen, size: 20),
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: AppTheme.freshGreen, width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Colors.red, width: 1),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Colors.red, width: 1.5),
+          ),
         ),
       ),
     );
@@ -2702,6 +4786,28 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
       final certificate = _otherCertificateEdits.removeAt(index);
       certificate.dispose();
     });
+  }
+
+  Future<void> _pickProfilePicture() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: false,
+    );
+
+    final path = result?.files.single.path;
+    if (path == null || path.isEmpty) return;
+
+    setState(() {
+      _profilePicturePath = path;
+    });
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return 'F';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   Future<void> _openDocument(dynamic pathOrUrl) async {
@@ -2841,12 +4947,23 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
         )
         .toList();
 
+    String docType = 'national_id';
+    if (_selectedDocType == 'Driving License') {
+      docType = 'driving_license';
+    }
+
     final result = await ApiService.updateFarmerProfile(
-      data,
+      {
+        ...data,
+        if (_frontImagePath != null) 'document_type': docType,
+      },
       files: {
         'farming_license_file': _licenseFilePath,
         'organic_certificate_file': _organicFilePath,
         'gap_certificate_file': _gapFilePath,
+        'profile_picture': _profilePicturePath,
+        'front_image': _frontImagePath,
+        'back_image': _backImagePath,
       },
       otherCertificates: otherCertificates,
     );

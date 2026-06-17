@@ -697,6 +697,51 @@ class AuthController extends Controller
     }
 
     /**
+     * Change authenticated user's password.
+     */
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:6|different:current_password',
+            'confirm_password' => 'required|string|same:new_password',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors occurred.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The provided current password does not match our records.'
+            ], 400);
+        }
+
+        $user->update([
+            'password' => $request->new_password
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password changed successfully.'
+        ], 200);
+    }
+
+    /**
      * Authenticate login OTP code and return access token.
      */
     public function loginVerifyOtp(Request $request)
@@ -928,6 +973,10 @@ class AuthController extends Controller
             'other_certificates.*.existing_path' => 'nullable|string|max:500',
             'other_certificate_files' => 'nullable|array',
             'other_certificate_files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+            'profile_picture' => 'nullable|file|image|max:10240',
+            'document_type' => 'nullable|string|in:national_id,driving_license',
+            'front_image' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+            'back_image' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
         ]);
 
         if ($validator->fails()) {
@@ -954,6 +1003,11 @@ class AuthController extends Controller
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
             ]);
+
+            if ($request->hasFile('profile_picture')) {
+                $picPath = $request->file('profile_picture')->store('profile-pictures/' . $user->id, 'public');
+                $user->update(['profile_picture_path' => $picPath]);
+            }
 
             $existingVerification = DB::table('farmer_verification_data')
                 ->where('user_id', $user->id)
@@ -996,6 +1050,26 @@ class AuthController extends Controller
                     'created_at' => now(),
                 ]
             );
+
+            // Save verification documents if uploaded
+            if ($request->hasFile('front_image') && $request->document_type) {
+                $frontPath = $request->file('front_image')->store('farmer-verifications/' . $user->id, 'public');
+                $backPath = $request->hasFile('back_image') 
+                    ? $request->file('back_image')->store('farmer-verifications/' . $user->id, 'public') 
+                    : null;
+
+                DB::table('user_verification_documents')->insert([
+                    'user_id' => $user->id,
+                    'document_type' => $request->document_type,
+                    'front_image_path' => $frontPath,
+                    'back_image_path' => $backPath,
+                    'verification_status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $user->update(['is_verified' => false]);
+            }
 
             DB::commit();
 

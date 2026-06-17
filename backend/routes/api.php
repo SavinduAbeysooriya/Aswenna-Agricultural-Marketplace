@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->post('/retail-seller/profile', [AuthControlle
 Route::middleware('auth:sanctum')->get('/delivery/profile', [AuthController::class, 'deliveryPartnerProfile']);
 Route::middleware('auth:sanctum')->post('/delivery/profile', [AuthController::class, 'updateDeliveryPartnerProfile']);
 Route::middleware('auth:sanctum')->post('/user/add-role', [AuthController::class, 'addRole']);
+Route::middleware('auth:sanctum')->post('/user/change-password', [AuthController::class, 'changePassword']);
 
 Route::middleware('auth:sanctum')->group(function () {
 

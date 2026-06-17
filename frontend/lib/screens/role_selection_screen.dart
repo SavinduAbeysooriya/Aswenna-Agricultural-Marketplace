@@ -1,13 +1,6 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/screens/registration_screen.dart';
-import 'package:aswenna/screens/password_setup_screen.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-
-const String _googleServerClientId =
-    '365861807638-qouuf7mif5qa6j64jnpvm09c1ikbp4hr.apps.googleusercontent.com';
-const String _googleIosClientId = _googleServerClientId;
 
 class RoleSelectionScreen extends StatefulWidget {
   final Map<String, String>? registrationData;
@@ -65,345 +58,445 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     },
   ];
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.softGray,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text('Account Setup'),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildRoleCard(Map<String, dynamic> role, {bool isFullWidth = false}) {
+    final isSelected = _selectedRole == role['id'];
+    
+    if (isFullWidth) {
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedRole = role['id'];
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppTheme.pureWhite,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? AppTheme.freshGreen
+                  : AppTheme.deepLeafGreen.withOpacity(0.08),
+              width: isSelected ? 2.0 : 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? AppTheme.freshGreen.withOpacity(0.08)
+                    : Colors.black.withOpacity(0.02),
+                blurRadius: isSelected ? 12 : 6,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
             children: [
-              const Text(
-                'Step 1 of 3',
-                style: TextStyle(
-                  color: AppTheme.freshGreen,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: role['bgColor'],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  role['icon'],
+                  color: role['color'],
+                  size: 22,
                 ),
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Who are you?',
-                style: TextStyle(
-                  color: AppTheme.darkGreen,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Select your active workspace profile to continue. This configuration customizes your workflow dashboards.',
-                style: TextStyle(
-                  color: Color(0xFF64748B), // Slate-500 equivalent
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Role List Cards Builder
+              const SizedBox(width: 14),
               Expanded(
-                child: ListView.separated(
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: _roles.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final role = _roles[index];
-                    final isSelected = _selectedRole == role['id'];
-
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedRole = role['id'];
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeInOut,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: AppTheme.pureWhite,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.freshGreen
-                                : Colors.transparent,
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isSelected
-                                  ? AppTheme.freshGreen.withOpacity(0.12)
-                                  : AppTheme.deepLeafGreen.withOpacity(0.04),
-                              blurRadius: isSelected ? 20 : 10,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            // Beautiful Role Icon circle
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: role['bgColor'],
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                role['icon'],
-                                color: role['color'],
-                                size: 26,
-                              ),
-                            ),
-                            const SizedBox(width: 18),
-                            // Details
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    role['title'],
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? AppTheme.deepLeafGreen
-                                          : const Color(0xFF0F172A),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    role['description'],
-                                    style: const TextStyle(
-                                      color: Color(0xFF64748B),
-                                      fontSize: 12,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Selected Checkmark status indicator
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isSelected
-                                    ? AppTheme.freshGreen
-                                    : Colors.transparent,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? AppTheme.freshGreen
-                                      : const Color(0xFFCBD5E1),
-                                  width: 2.0,
-                                ),
-                              ),
-                              child: isSelected
-                                  ? const Icon(
-                                      Icons.check,
-                                      size: 14,
-                                      color: AppTheme.pureWhite,
-                                    )
-                                  : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Continue button
-              ElevatedButton(
-                onPressed: _selectedRole == null
-                    ? null
-                    : () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => RegistrationScreen(
-                              role: _selectedRole!,
-                              registrationData: widget.registrationData,
-                            ),
-                          ),
-                        );
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _selectedRole == null
-                      ? const Color(0xFFCBD5E1)
-                      : AppTheme.deepLeafGreen,
-                  foregroundColor: _selectedRole == null
-                      ? const Color(0xFF94A3B8)
-                      : AppTheme.pureWhite,
-                  disabledBackgroundColor: const Color(0xFFCBD5E1),
-                  disabledForegroundColor: const Color(0xFF94A3B8),
-                  elevation: _selectedRole == null ? 0 : 6,
-                  shadowColor: AppTheme.deepLeafGreen.withOpacity(0.3),
-                ),
-                child: const Text('Continue'),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Expanded(child: Divider()),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'or',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
-                    ),
-                  ),
-                  const Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _handleGoogleSignUp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black87,
-                  shadowColor: Colors.black12,
-                  elevation: 2,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'G',
+                      role['title'],
                       style: TextStyle(
-                        color: Colors.blue[700],
+                        color: isSelected
+                            ? AppTheme.deepLeafGreen
+                            : const Color(0xFF0F172A),
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'Continue with Google',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                    const SizedBox(height: 2),
+                    Text(
+                      role['description'],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 11,
+                        height: 1.25,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? AppTheme.freshGreen
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: isSelected
+                        ? AppTheme.freshGreen
+                        : const Color(0xFFCBD5E1),
+                    width: 2.0,
+                  ),
+                ),
+                child: isSelected
+                    ? const Icon(
+                        Icons.check,
+                        size: 12,
+                        color: AppTheme.pureWhite,
+                      )
+                    : null,
+              ),
             ],
           ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedRole = role['id'];
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppTheme.pureWhite,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.freshGreen
+                : AppTheme.deepLeafGreen.withOpacity(0.08),
+            width: isSelected ? 2.0 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? AppTheme.freshGreen.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.02),
+              blurRadius: isSelected ? 12 : 6,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: role['bgColor'],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    role['icon'],
+                    color: role['color'],
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  role['title'],
+                  style: TextStyle(
+                    color: isSelected
+                        ? AppTheme.deepLeafGreen
+                        : const Color(0xFF0F172A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  role['description'],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? AppTheme.freshGreen
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: isSelected
+                        ? AppTheme.freshGreen
+                        : const Color(0xFFCBD5E1),
+                    width: 2.0,
+                  ),
+                ),
+                child: isSelected
+                    ? const Icon(
+                        Icons.check,
+                        size: 12,
+                        color: AppTheme.pureWhite,
+                      )
+                    : null,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  void _handleGoogleSignUp() async {
-    bool loaderShown = false;
-    try {
-      final googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.initialize(
-        clientId: Platform.isIOS ? _googleIosClientId : null,
-        serverClientId: _googleServerClientId,
-      );
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final headerHeight = size.height * 0.30;
 
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
-          ),
-        ),
-      );
-      loaderShown = true;
-
-      final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
-
-      if (mounted && loaderShown) {
-        Navigator.of(context).pop();
-        loaderShown = false;
-      }
-
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => PasswordSetupScreen(
-              email: googleUser.email,
-              googleName: googleUser.displayName ?? '',
-            ),
-          ),
-        );
-      }
-    } on GoogleSignInException catch (error) {
-      if (mounted && loaderShown) {
-        Navigator.of(context).pop();
-        loaderShown = false;
-      }
-      debugPrint('Google Sign-Up failed: $error');
-      if (error.code == GoogleSignInExceptionCode.canceled) {
-        if (mounted && _looksLikeAndroidReauthFailure(error)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Google Sign-In is not configured correctly for this Android app. Check the SHA fingerprint and google-services.json.',
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          // 1. Wavy Header Background Image
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: headerHeight,
+            child: ClipPath(
+              clipper: WavyHeaderClipper(),
+              child: Image.asset(
+                'assets/images/role_selection_bg.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: AppTheme.darkGreen,
+                  );
+                },
               ),
-              backgroundColor: Colors.red,
             ),
-          );
-        }
-        return;
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_googleSignInMessage(error)),
-            backgroundColor: Colors.red,
           ),
-        );
-      }
-    } catch (error) {
-      if (mounted && loaderShown) {
-        Navigator.of(context).pop();
-        loaderShown = false;
-      }
-      debugPrint('Google Sign-Up failed: $error');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Google Sign-In failed: ${error.toString()}'),
-            backgroundColor: Colors.red,
+
+          // Back button circular overlay
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 16,
+            child: ClipOval(
+              child: Material(
+                color: Colors.white.withOpacity(0.85),
+                child: InkWell(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppTheme.darkGreen,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        );
-      }
-    }
+
+          // 2. Main content form
+          Positioned(
+            top: headerHeight - 15,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 32.0,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 8),
+                              // Title section with right logo badge
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Step 1 of 2',
+                                        style: TextStyle(
+                                          color: AppTheme.freshGreen,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      const Text(
+                                        'Who are you?',
+                                        style: TextStyle(
+                                          color: AppTheme.darkGreen,
+                                          fontSize: 30,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.lightMint,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: ClipOval(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Image.asset(
+                                          'assets/images/logo.png',
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Select your active workspace profile to continue. This configuration customizes your workflow dashboards.',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              
+                              // Redesigned Grid Layout
+                              Row(
+                                children: [
+                                  Expanded(child: _buildRoleCard(_roles[0])),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: _buildRoleCard(_roles[1])),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(child: _buildRoleCard(_roles[2])),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: _buildRoleCard(_roles[3])),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildRoleCard(_roles[4], isFullWidth: true),
+                              
+                              const SizedBox(height: 24),
+                              
+                              // Continue button
+                              ElevatedButton(
+                                onPressed: _selectedRole == null
+                                    ? null
+                                    : () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) => RegistrationScreen(
+                                              role: _selectedRole!,
+                                              registrationData: widget.registrationData,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _selectedRole == null
+                                      ? const Color(0xFFCBD5E1)
+                                      : AppTheme.deepLeafGreen,
+                                  foregroundColor: _selectedRole == null
+                                      ? const Color(0xFF94A3B8)
+                                      : AppTheme.pureWhite,
+                                  disabledBackgroundColor: const Color(0xFFCBD5E1),
+                                  disabledForegroundColor: const Color(0xFF94A3B8),
+                                  elevation: _selectedRole == null ? 0 : 4,
+                                  shadowColor: AppTheme.deepLeafGreen.withOpacity(0.3),
+                                  minimumSize: const Size(double.infinity, 54),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: const Text('Continue'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class WavyHeaderClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    var path = Path();
+    path.lineTo(0, size.height - 40);
+    
+    var firstControlPoint = Offset(size.width / 4, size.height);
+    var firstEndPoint = Offset(size.width / 2.25, size.height - 30);
+    path.quadraticBezierTo(firstControlPoint.dx, firstControlPoint.dy,
+        firstEndPoint.dx, firstEndPoint.dy);
+        
+    var secondControlPoint = Offset(size.width - (size.width / 3.25), size.height - 65);
+    var secondEndPoint = Offset(size.width, size.height - 20);
+    path.quadraticBezierTo(secondControlPoint.dx, secondControlPoint.dy,
+        secondEndPoint.dx, secondEndPoint.dy);
+        
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
   }
 
-  String _googleSignInMessage(GoogleSignInException error) {
-    if (error.code == GoogleSignInExceptionCode.clientConfigurationError) {
-      return 'Google Sign-In is not configured for this device yet.';
-    }
-    return 'Google Sign-In failed. Please try again.';
-  }
-
-  bool _looksLikeAndroidReauthFailure(GoogleSignInException error) {
-    return Platform.isAndroid &&
-        (error.description?.contains('Account reauth failed') ?? false);
-  }
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

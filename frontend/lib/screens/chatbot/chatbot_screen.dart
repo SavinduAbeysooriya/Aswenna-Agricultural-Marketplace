@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 
@@ -6,11 +8,13 @@ class ChatMessage {
   final String role;
   final String message;
   final DateTime dateAndTime;
+  final String? imagePath;
 
   const ChatMessage({
     required this.role,
     required this.message,
     required this.dateAndTime,
+    this.imagePath,
   });
 }
 
@@ -28,6 +32,25 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   
   String? _sessionId;
   bool _isWaiting = false;
+  String? _selectedImagePath;
+
+  Future<void> _pickImage() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _selectedImagePath = result.files.single.path;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick image: $e')),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -70,6 +93,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             role: m['role'] ?? 'user',
             message: m['message'] ?? '',
             dateAndTime: DateTime.now(),
+            imagePath: m['image_path'] != null && m['image_path'].toString().isNotEmpty
+                ? '${ApiService.appUrl}/storage/${m['image_path']}'
+                : null,
           ));
         }
         _isWaiting = false;
@@ -89,10 +115,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       role: 'user',
       message: text,
       dateAndTime: DateTime.now(),
+      imagePath: _selectedImagePath,
     );
+
+    final imageToSend = _selectedImagePath;
 
     setState(() {
       _messages.add(userMsg);
+      _selectedImagePath = null;
       _isWaiting = true;
     });
 
@@ -100,7 +130,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _scrollToBottom();
 
     // Call API
-    final res = await ApiService.sendChatMessage(_sessionId!, text);
+    final res = await ApiService.sendChatMessage(_sessionId!, text, imagePath: imageToSend);
     if (!mounted) return;
 
     if (res['success'] == true) {
@@ -112,6 +142,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             role: m['role'] ?? 'user',
             message: m['message'] ?? '',
             dateAndTime: DateTime.now(),
+            imagePath: m['image_path'] != null && m['image_path'].toString().isNotEmpty
+                ? '${ApiService.appUrl}/storage/${m['image_path']}'
+                : null,
           ));
         }
         _isWaiting = false;
@@ -123,6 +156,36 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         SnackBar(content: Text(res['message'] ?? 'Failed to communicate with AI agent.')),
       );
     }
+  }
+
+  Future<void> _startNewSession() async {
+    setState(() {
+      _messages.clear();
+      _isWaiting = true;
+      _sessionId = null;
+    });
+    final res = await ApiService.createChatSession();
+    if (!mounted) return;
+    if (res['success'] == true) {
+      setState(() {
+        _sessionId = res['session_id'];
+      });
+      await _loadMessages();
+    } else {
+      setState(() => _isWaiting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to initialize session.')),
+      );
+    }
+  }
+
+  Future<void> _switchSession(String sessionId) async {
+    setState(() {
+      _messages.clear();
+      _isWaiting = true;
+      _sessionId = sessionId;
+    });
+    await _loadMessages();
   }
 
   void _scrollToBottom() {
@@ -197,6 +260,21 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             ),
           ],
         ),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.history_rounded, color: AppTheme.darkGreen),
+              onPressed: () {
+                Scaffold.of(context).openEndDrawer();
+              },
+            ),
+          ),
+        ],
+      ),
+      endDrawer: _ChatSessionsDrawer(
+        currentSessionId: _sessionId,
+        onSessionSelected: _switchSession,
+        onStartNewChat: _startNewSession,
       ),
       body: Column(
         children: [
@@ -359,6 +437,34 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (message.imagePath != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: message.imagePath!.startsWith('http')
+                              ? Image.network(
+                                  message.imagePath!,
+                                  height: 200,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 200,
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Image.file(
+                                  File(message.imagePath!),
+                                  height: 200,
+                                  fit: BoxFit.cover,
+                                ),
+                        ),
+                      ),
+                    ],
                     _buildFormattedMessage(message.message, isUser),
                     const SizedBox(height: 4),
                     Text(
@@ -430,49 +536,93 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _inputController,
-              minLines: 1,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                hintText: 'Ask the Aswenna AI...',
-                hintStyle: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 14,
-                ),
-                filled: true,
-                fillColor: AppTheme.softGray,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
+          if (_selectedImagePath != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.softGray,
+                borderRadius: BorderRadius.circular(16),
               ),
-              onSubmitted: (_) => _sendMessage(),
-            ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: _sendMessage,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                color: AppTheme.deepLeafGreen,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.send_rounded,
-                color: Colors.white,
-                size: 20,
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(
+                      File(_selectedImagePath!),
+                      height: 50,
+                      width: 50,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Image attached',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.cancel_rounded, color: Colors.grey),
+                    onPressed: () => setState(() => _selectedImagePath = null),
+                  ),
+                ],
               ),
             ),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add_photo_alternate_rounded, color: AppTheme.deepLeafGreen, size: 28),
+                onPressed: _pickImage,
+                tooltip: 'Attach Image',
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _inputController,
+                  minLines: 1,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: 'Ask the Aswenna AI...',
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 14,
+                    ),
+                    filled: true,
+                    fillColor: AppTheme.softGray,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: _sendMessage,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.deepLeafGreen,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.send_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -689,5 +839,235 @@ class _TypingDotsState extends State<_TypingDots>
         );
       },
     );
+  }
+}
+
+class _ChatSessionsDrawer extends StatefulWidget {
+  final String? currentSessionId;
+  final Function(String sessionId) onSessionSelected;
+  final VoidCallback onStartNewChat;
+
+  const _ChatSessionsDrawer({
+    required this.currentSessionId,
+    required this.onSessionSelected,
+    required this.onStartNewChat,
+  });
+
+  @override
+  State<_ChatSessionsDrawer> createState() => _ChatSessionsDrawerState();
+}
+
+class _ChatSessionsDrawerState extends State<_ChatSessionsDrawer> {
+  List<dynamic> _sessions = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSessions();
+  }
+
+  Future<void> _fetchSessions() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    final res = await ApiService.getChatSessions();
+    if (!mounted) return;
+    if (res['success'] == true) {
+      setState(() {
+        _sessions = res['sessions'] ?? [];
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _error = res['message'] ?? 'Failed to load sessions';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: AppTheme.softGray,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Drawer Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: AppTheme.pureWhite,
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.deepLeafGreen),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Chat Sessions',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.darkGreen,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Start New Chat Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.onStartNewChat();
+                },
+                icon: const Icon(Icons.add, color: Colors.white, size: 18),
+                label: const Text(
+                  'Start New Chat',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.deepLeafGreen,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Sessions List
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
+                      ),
+                    )
+                  : _error != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(color: Colors.red, fontSize: 13),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : _sessions.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No previous conversations.',
+                                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: _sessions.length,
+                              itemBuilder: (context, index) {
+                                final session = _sessions[index];
+                                final isSelected = session['session_id'] == widget.currentSessionId;
+                                final title = session['title'] ?? 'Conversation';
+                                final timeStr = session['updated_at'] != null
+                                    ? _formatSessionTime(session['updated_at'])
+                                    : '';
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      widget.onSessionSelected(session['session_id']);
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? AppTheme.lightMint
+                                            : AppTheme.pureWhite,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? AppTheme.deepLeafGreen
+                                              : const Color(0xFFE2E8F0),
+                                          width: isSelected ? 1.5 : 1.0,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.chat_bubble_rounded,
+                                            color: isSelected
+                                                ? AppTheme.deepLeafGreen
+                                                : const Color(0xFF94A3B8),
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  title,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontWeight: isSelected
+                                                        ? FontWeight.bold
+                                                        : FontWeight.w600,
+                                                    fontSize: 13,
+                                                    color: isSelected
+                                                        ? AppTheme.darkGreen
+                                                        : const Color(0xFF334155),
+                                                  ),
+                                                ),
+                                                if (timeStr.isNotEmpty) ...[
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    timeStr,
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      color: Color(0xFF64748B),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatSessionTime(String rawTime) {
+    try {
+      final parsed = DateTime.parse(rawTime).toLocal();
+      final now = DateTime.now();
+      if (parsed.year == now.year && parsed.month == now.month && parsed.day == now.day) {
+        return 'Today at ${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
+      }
+      return '${parsed.day}/${parsed.month}/${parsed.year}';
+    } catch (_) {
+      return '';
+    }
   }
 }

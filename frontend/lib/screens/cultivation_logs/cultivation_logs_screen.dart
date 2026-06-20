@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 
@@ -15,6 +16,14 @@ class _CultivationLogsScreenState extends State<CultivationLogsScreen> {
   bool _isLoading = true;
   String _error = '';
   List<dynamic> _logs = [];
+
+  // Lands & AI prediction state
+  bool _isLoadingLands = false;
+  List<dynamic> _lands = [];
+  int? _selectedLandId; // null means 'All Lands'
+  bool _isLoadingAi = false;
+  String _aiPrediction = '';
+  String _aiError = '';
 
   // Big Data Handling & Pagination State
   final ScrollController _scrollController = ScrollController();
@@ -53,20 +62,129 @@ class _CultivationLogsScreenState extends State<CultivationLogsScreen> {
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
+      _isLoadingLands = true;
       _error = '';
     });
-    final result = await ApiService.getCultivationLogs();
+    final logsResult = await ApiService.getCultivationLogs();
+    final landsResult = await ApiService.getFarmerLands();
     if (!mounted) return;
     setState(() {
-      _logs = result['success'] == true ? List<dynamic>.from(result['logs'] ?? []) : [];
-      _error = result['success'] == true ? '' : (result['message'] ?? 'Failed to load logs.');
+      _logs = logsResult['success'] == true ? List<dynamic>.from(logsResult['logs'] ?? []) : [];
+      _error = logsResult['success'] == true ? '' : (logsResult['message'] ?? 'Failed to load logs.');
       _isLoading = false;
       _visibleCount = _pageSize; // Reset visible count on reload
+      
+      _lands = landsResult['success'] == true ? List<dynamic>.from(landsResult['lands'] ?? []) : [];
+      _isLoadingLands = false;
     });
+
+    if (_selectedLandId != null) {
+      _fetchAiPrediction();
+    }
+  }
+
+  Future<void> _fetchAiPrediction() async {
+    if (_selectedLandId == null) {
+      setState(() {
+        _aiPrediction = '';
+        _aiError = '';
+      });
+      return;
+    }
+    
+    setState(() {
+      _isLoadingAi = true;
+      _aiPrediction = '';
+      _aiError = '';
+    });
+
+    final landLogs = _logs.where((l) => int.tryParse(l['land_id']?.toString() ?? '') == _selectedLandId).toList();
+    if (landLogs.isEmpty) {
+      setState(() {
+        _aiPrediction = 'No logs available for this land yet. Please add a cultivation log to generate predictions.';
+        _isLoadingAi = false;
+      });
+      return;
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln("Land Logs History:");
+    for (final log in landLogs) {
+      buffer.writeln("- Date: ${log['log_date']}");
+      buffer.writeln("  Stage: ${log['growth_stage_name']}");
+      if (log['leaf_appearance'] != null) buffer.writeln("  Leaf: ${log['leaf_appearance']}");
+      if (log['disease_detected'] == true) {
+        buffer.writeln("  Disease: ${log['disease_name_and_damage']}");
+      }
+      if (log['pest_detected'] == true) {
+        buffer.writeln("  Pest: ${log['pest_name_and_damage']}");
+      }
+      if (log['pesticide_applied'] == true) {
+        buffer.writeln("  Pesticide: ${log['pesticide_name']} (${log['pesticide_type']})");
+      }
+      if (log['notes'] != null) buffer.writeln("  Notes: ${log['notes']}");
+    }
+
+    final prompt = """
+You are an expert Agricultural AI assistant specializing in Sri Lankan paddy and crop cultivation. 
+Analyze the following logsheet history for a specific piece of land and provide:
+1. **Predicted Growth & Harvest**: Estimated growth progression, timeline for next stages, and harvest prediction window.
+2. **Current Health Status & Disease/Pest Analysis**: Assessment of current issues, threats, or treatments applied.
+3. **Recommended Immediate Action & Treatment Plan**: Specific recommendations (organic or standard fertilizers/pesticides) based on issues logged.
+
+Logs Data:
+${buffer.toString()}
+
+Keep the response practical, direct, and structured with bullet points. Limit to 3 short paragraphs max.
+""";
+
+    try {
+      final response = await http.post(
+        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer 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',
+        },
+        body: jsonEncode({
+          'model': 'llama-3.3-70b-versatile',
+          'messages': [
+            {'role': 'user', 'content': prompt}
+          ],
+          'temperature': 0.7,
+        }),
+      );
+      
+      if (!mounted) return;
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final content = data['choices'][0]['message']['content'];
+        setState(() {
+          _aiPrediction = content ?? 'No prediction generated.';
+          _isLoadingAi = false;
+        });
+      } else {
+        setState(() {
+          _aiError = 'Failed to load AI advice. Status: ${response.statusCode}';
+          _isLoadingAi = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _aiError = 'Network error: Could not contact advisor.';
+        _isLoadingAi = false;
+      });
+    }
   }
 
   List<dynamic> _getFilteredLogs() {
     var list = List<dynamic>.from(_logs);
+    
+    // Land selector Filter
+    if (_selectedLandId != null) {
+      list = list.where((log) => int.tryParse(log['land_id']?.toString() ?? '') == _selectedLandId).toList();
+    }
     
     // 1. Search Query Filter
     if (_searchQuery.isNotEmpty) {
@@ -317,21 +435,22 @@ class _CultivationLogsScreenState extends State<CultivationLogsScreen> {
         title: const Text('Cultivation Logs'),
         actions: [
           IconButton(
+            tooltip: 'Add Log',
+            onPressed: () => _openEditor(),
+            icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.deepLeafGreen),
+          ),
+          IconButton(
             tooltip: 'Refresh',
             onPressed: _load,
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.deepLeafGreen,
-        onPressed: () => _openEditor(),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Log'),
-      ),
       body: Column(
         children: [
           _buildSearchAndFilters(),
+          _buildLandSelector(),
+          _buildAiPredictionsCard(),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -530,6 +649,202 @@ class _CultivationLogsScreenState extends State<CultivationLogsScreen> {
                           ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLandSelector() {
+    if (_isLoadingLands) {
+      return const SizedBox(
+        height: 90,
+        child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+    return Container(
+      height: 90,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _lands.length + 1,
+        itemBuilder: (context, index) {
+          final isAll = index == 0;
+          final isSelected = isAll
+              ? _selectedLandId == null
+              : _selectedLandId == int.tryParse(_lands[index - 1]['id']?.toString() ?? '');
+          
+          final String label = isAll
+              ? 'All Lands'
+              : (_lands[index - 1]['registration_number']?.toString().isNotEmpty == true &&
+                      _lands[index - 1]['registration_number']?.toString() != 'null')
+                  ? 'Reg: ${_lands[index - 1]['registration_number']}'
+                  : 'Size: ${_lands[index - 1]['size']} Perches';
+                  
+          return GestureDetector(
+             onTap: () {
+               setState(() {
+                 _selectedLandId = isAll ? null : int.tryParse(_lands[index - 1]['id']?.toString() ?? '');
+               });
+               _fetchAiPrediction();
+             },
+             child: Container(
+               margin: const EdgeInsets.only(right: 12),
+               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+               decoration: BoxDecoration(
+                 color: isSelected ? AppTheme.deepLeafGreen : Colors.white,
+                 borderRadius: BorderRadius.circular(20),
+                 border: Border.all(
+                   color: isSelected ? AppTheme.deepLeafGreen : Colors.grey[200]!,
+                   width: 1.5,
+                 ),
+                 boxShadow: [
+                   BoxShadow(
+                     color: isSelected ? AppTheme.deepLeafGreen.withOpacity(0.15) : Colors.black.withOpacity(0.02),
+                     blurRadius: 10,
+                     offset: const Offset(0, 4),
+                   ),
+                 ],
+               ),
+               child: Row(
+                 children: [
+                   Icon(
+                     isAll ? Icons.grid_view_rounded : Icons.landscape_rounded,
+                     color: isSelected ? Colors.white : AppTheme.deepLeafGreen,
+                     size: 20,
+                   ),
+                   const SizedBox(width: 8),
+                   Column(
+                     mainAxisAlignment: MainAxisAlignment.center,
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+                       Text(
+                         label,
+                         style: TextStyle(
+                           color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                           fontWeight: FontWeight.bold,
+                           fontSize: 13,
+                         ),
+                       ),
+                       if (!isAll)
+                         Text(
+                           'Land Logsheet',
+                           style: TextStyle(
+                             color: isSelected ? Colors.white70 : Colors.grey,
+                             fontSize: 10,
+                           ),
+                         ),
+                     ],
+                   ),
+                 ],
+               ),
+             ),
+           );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAiPredictionsCard() {
+    if (_selectedLandId == null) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.deepLeafGreen.withOpacity(0.15), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.deepLeafGreen.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              color: AppTheme.deepLeafGreen.withOpacity(0.05),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.smart_toy_rounded, color: AppTheme.deepLeafGreen, size: 22),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Grok AI Land Advisor',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.darkGreen,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (!_isLoadingAi)
+                    IconButton(
+                      icon: const Icon(Icons.psychology_outlined, size: 18, color: AppTheme.deepLeafGreen),
+                      onPressed: _fetchAiPrediction,
+                      tooltip: 'Re-analyze Logs',
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: _isLoadingAi
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Column(
+                          children: [
+                            CircularProgressIndicator(strokeWidth: 2, color: AppTheme.deepLeafGreen),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Grok is analyzing logsheets...',
+                              style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _aiError.isNotEmpty
+                      ? Center(
+                          child: Column(
+                            children: [
+                              Text(_aiError, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: _fetchAiPrediction,
+                                icon: const Icon(Icons.refresh_rounded, size: 14),
+                                label: const Text('Try Again', style: TextStyle(fontSize: 11)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.deepLeafGreen,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Container(
+                          constraints: const BoxConstraints(maxHeight: 180),
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Text(
+                              _aiPrediction,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                height: 1.5,
+                                color: Color(0xFF334155),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+            ),
+          ],
+        ),
       ),
     );
   }

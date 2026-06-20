@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\RetailerProductController;
 use App\Http\Controllers\Api\CustomerProductController;
 use App\Http\Controllers\Api\CustomerOrderController;
 use App\Http\Controllers\Api\DeliveryPartnerController;
+use App\Http\Controllers\Api\NotificationController;
 
 // ─── Public Auth Routes ────────────────────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
@@ -67,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'destroy']);
 
     // AI Chatbot
+    Route::get('/chat/sessions', [ChatbotController::class, 'getSessions']);
     Route::post('/chat/send', [ChatbotController::class, 'sendMessage']);
     Route::get('/chat/session/{session_id}', [ChatbotController::class, 'getSessionMessages']);
     Route::post('/chat/session', [ChatbotController::class, 'createSession']);
@@ -151,6 +153,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/delivery/withdrawals', [DeliveryPartnerController::class, 'getMyWithdrawals']);
     // 🧪 DEBUG: Create a test delivery request (for testing the delivery dashboard)
     Route::post('/delivery/debug-create-test-request', [DeliveryPartnerController::class, 'debugCreateTestRequest']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/register-token', [NotificationController::class, 'registerFcmToken']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

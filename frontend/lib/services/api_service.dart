@@ -2235,6 +2235,58 @@ class ApiService {
 
 
 
+  static Future<Map<String, dynamic>> getChatSessions() async {
+
+    final token = await getToken();
+
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+
+    final url = Uri.parse('$baseUrl/chat/sessions');
+
+    try {
+
+      final response = await http.get(
+
+        url,
+
+        headers: {
+
+          'Content-Type': 'application/json',
+
+          'Accept': 'application/json',
+
+          'Authorization': 'Bearer $token',
+
+        },
+
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200) {
+
+        return {
+
+          'success': true,
+
+          'sessions': data['sessions'],
+
+        };
+
+      }
+
+      return {'success': false, 'message': data['message'] ?? 'Failed to fetch chatbot sessions.'};
+
+    } catch (e) {
+
+      return {'success': false, 'message': 'Network error: $e'};
+
+    }
+
+  }
+
+
+
   static Future<Map<String, dynamic>> getChatSessionMessages(String sessionId) async {
 
     final token = await getToken();
@@ -2289,7 +2341,7 @@ class ApiService {
 
 
 
-  static Future<Map<String, dynamic>> sendChatMessage(String sessionId, String message) async {
+  static Future<Map<String, dynamic>> sendChatMessage(String sessionId, String message, {String? imagePath}) async {
 
     final token = await getToken();
 
@@ -2299,47 +2351,95 @@ class ApiService {
 
     try {
 
-      final response = await http.post(
+      if (imagePath != null && imagePath.isNotEmpty) {
 
-        url,
+        final request = http.MultipartRequest('POST', url)
 
-        headers: {
+          ..headers.addAll({
 
-          'Content-Type': 'application/json',
+            'Accept': 'application/json',
 
-          'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
 
-          'Authorization': 'Bearer $token',
+          })
 
-        },
+          ..fields['session_id'] = sessionId
 
-        body: jsonEncode({
+          ..fields['message'] = message;
 
-          'session_id': sessionId,
+        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
 
-          'message': message,
 
-        }),
 
-      );
+        final streamedResponse = await request.send();
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final response = await http.Response.fromStream(streamedResponse);
 
-      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
 
-        return {
 
-          'success': true,
 
-          'session_id': data['session_id'],
+        if (response.statusCode == 200) {
 
-          'messages': data['messages'],
+          return {
 
-        };
+            'success': true,
+
+            'session_id': data['session_id'],
+
+            'messages': data['messages'],
+
+          };
+
+        }
+
+        return {'success': false, 'message': data['message'] ?? 'Failed to send message.'};
+
+      } else {
+
+        final response = await http.post(
+
+          url,
+
+          headers: {
+
+            'Content-Type': 'application/json',
+
+            'Accept': 'application/json',
+
+            'Authorization': 'Bearer $token',
+
+          },
+
+          body: jsonEncode({
+
+            'session_id': sessionId,
+
+            'message': message,
+
+          }),
+
+        );
+
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+        if (response.statusCode == 200) {
+
+          return {
+
+            'success': true,
+
+            'session_id': data['session_id'],
+
+            'messages': data['messages'],
+
+          };
+
+        }
+
+        return {'success': false, 'message': data['message'] ?? 'Failed to send message.'};
 
       }
-
-      return {'success': false, 'message': data['message'] ?? 'Failed to send message.'};
 
     } catch (e) {
 
@@ -3957,6 +4057,70 @@ class ApiService {
       });
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // ===================================================================
+  // Notifications API Endpoints
+  // ===================================================================
+
+  static Future<Map<String, dynamic>> getNotifications() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/notifications');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> markNotificationsRead({int? id}) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/notifications/read');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          if (id != null) 'id': id,
+        }),
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> registerFcmToken(String fcmToken) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/notifications/register-token');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'fcm_token': fcmToken,
+        }),
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
     }

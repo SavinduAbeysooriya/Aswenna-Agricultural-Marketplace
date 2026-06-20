@@ -13,6 +13,7 @@ class ChatbotSession extends Model
         'response',
         'role',
         'metadata',
+        'image_path',
     ];
 
     protected $casts = [

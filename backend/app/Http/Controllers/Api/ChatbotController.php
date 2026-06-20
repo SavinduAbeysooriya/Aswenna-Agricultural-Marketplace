@@ -44,15 +44,23 @@ class ChatbotController extends Controller
         $validated = $request->validate([
             'session_id' => 'required|string',
             'message' => 'required|string',
+            'image' => 'nullable|image|max:10240',
         ]);
 
         $userId = $request->user()?->id;
+
+        // Handle image upload if present
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('chatbot', 'public');
+        }
 
         // 1. Save user message into chatbot_sessions
         ChatbotSession::create([
             'user_id' => $userId,
             'session_id' => $validated['session_id'],
             'message' => $validated['message'],
+            'image_path' => $imagePath,
             'response' => null,
             'role' => 'user',
         ]);
@@ -93,6 +101,46 @@ class ChatbotController extends Controller
     }
 
     /**
+     * Get all chat sessions for the authenticated user.
+     */
+    public function getSessions(Request $request)
+    {
+        $userId = $request->user()?->id;
+        if (!$userId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        // Group by session_id and find first user message & last update time
+        $sessions = ChatbotSession::where('user_id', $userId)
+            ->selectRaw('session_id, min(created_at) as started_at, max(created_at) as updated_at')
+            ->groupBy('session_id')
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        $formattedSessions = [];
+        foreach ($sessions as $session) {
+            $firstMessage = ChatbotSession::where('session_id', $session->session_id)
+                ->where('role', 'user')
+                ->orderBy('id', 'asc')
+                ->first();
+
+            $title = $firstMessage ? Str::limit($firstMessage->message, 35) : 'New Agricultural Conversation';
+
+            $formattedSessions[] = [
+                'session_id' => $session->session_id,
+                'title' => $title,
+                'started_at' => $session->started_at,
+                'updated_at' => $session->updated_at,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'sessions' => $formattedSessions,
+        ]);
+    }
+
+    /**
      * Helper to retrieve and format all messages for a session.
      */
     private function formatSessionMessages($sessionId)
@@ -104,6 +152,7 @@ class ChatbotController extends Controller
                 return [
                     'role' => $row->role,
                     'message' => $row->role === 'user' ? $row->message : $row->response,
+                    'image_path' => $row->image_path,
                 ];
             })
             ->values()

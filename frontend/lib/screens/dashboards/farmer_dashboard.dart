@@ -14,6 +14,8 @@ import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/chatbot/chatbot_screen.dart';
 import 'package:aswenna/screens/harvest_listings/harvest_listing_form.dart';
 import 'package:aswenna/screens/harvest_listings/harvest_listing_detail_screen.dart';
+import 'package:aswenna/screens/notifications/notifications_screen.dart';
+import 'package:aswenna/services/notification_service.dart';
 
 class FarmerDashboard extends StatefulWidget {
   const FarmerDashboard({super.key});
@@ -32,6 +34,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   Map<String, dynamic>? _wallet;
   bool _isLoadingWallet = false;
   List<dynamic> _walletTransactions = [];
+  int _unreadNotificationsCount = 0;
 
   Map<String, dynamic> get _user =>
       Map<String, dynamic>.from(_profile?['user'] ?? {});
@@ -73,6 +76,18 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
     _loadHarvestListings();
     _loadFarmerBids();
     _loadWalletDetails();
+    _loadNotificationsCount();
+    NotificationService.initialize();
+  }
+
+  Future<void> _loadNotificationsCount() async {
+    final res = await ApiService.getNotifications();
+    if (res['success'] == true && mounted) {
+      final list = List<dynamic>.from(res['notifications'] ?? []);
+      setState(() {
+        _unreadNotificationsCount = list.where((n) => n['read_at'] == null).length;
+      });
+    }
   }
 
   Future<void> _loadLands() async {
@@ -213,14 +228,45 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
               color: Color(0xFFF1F5F9),
               shape: BoxShape.circle,
             ),
-            child: IconButton(
-              tooltip: 'Notifications',
-              icon: const Icon(
-                Icons.notifications_outlined,
-                color: Color(0xFF1E293B),
-                size: 22,
-              ),
-              onPressed: () {},
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  tooltip: 'Notifications',
+                  icon: const Icon(
+                    Icons.notifications_outlined,
+                    color: Color(0xFF1E293B),
+                    size: 22,
+                  ),
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                    );
+                    _loadNotificationsCount();
+                  },
+                ),
+                if (_unreadNotificationsCount > 0)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 10,
+                        minHeight: 10,
+                      ),
+                      child: Text(
+                        '$_unreadNotificationsCount',
+                        style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -233,6 +279,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
           await _loadHarvestListings();
           await _loadFarmerBids();
           await _loadWalletDetails();
+          await _loadNotificationsCount();
         },
         child: IndexedStack(
           index: _currentIndex,
@@ -246,37 +293,39 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
         ),
       ),
       bottomNavigationBar: _buildBottomNav(context),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppTheme.deepLeafGreen, AppTheme.darkGreen],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.deepLeafGreen.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+      floatingActionButton: _currentIndex == 4
+          ? null
+          : Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppTheme.deepLeafGreen, AppTheme.darkGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.deepLeafGreen.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                heroTag: null,
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+                ),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                highlightElevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                tooltip: 'AI Agent',
+                child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 26),
+              ),
             ),
-          ],
-        ),
-        child: FloatingActionButton(
-          heroTag: null,
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ChatbotScreen()),
-          ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          highlightElevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          tooltip: 'AI Agent',
-          child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 26),
-        ),
-      ),
     );
   }
 

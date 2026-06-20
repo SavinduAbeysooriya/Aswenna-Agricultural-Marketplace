@@ -46,6 +46,8 @@ dependencies:
   webview_flutter: ^4.10.0
   crypto: ^3.0.7
   payhere_mobilesdk_flutter: ^3.2.3
+  firebase_core: ^3.1.0
+  firebase_messaging: ^15.0.1
 
 dev_dependencies:
   flutter_test:

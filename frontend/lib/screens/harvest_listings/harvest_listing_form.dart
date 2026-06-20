@@ -29,6 +29,17 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
   String _selectedCondition = 'Fresh';
   bool _deliveryAvailable = false;
 
+  // Storage Options
+  final List<String> _storageOptions = [
+    'Room Temperature',
+    'Cold Storage',
+    'Dry & Ventilated',
+    'Deep Freeze',
+    'Silo / Airtight Storage',
+    'Other',
+  ];
+  String _selectedStorageMethod = 'Room Temperature';
+
   // Real-time market limit pricing state
   double? _marketAvg;
   double? _marketMin;
@@ -68,7 +79,19 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
       _maxOrderController.text = (listing['maximum_order_quantity'] ?? '').toString();
       _priceController.text = (listing['price_per_unit'] ?? '').toString();
       _minBidController.text = (listing['min_bid_price_per_unit'] ?? '').toString();
-      _storageController.text = (listing['storage_method'] ?? '').toString();
+      final String storage = (listing['storage_method'] ?? '').toString();
+      if (storage.isNotEmpty) {
+        if (_storageOptions.contains(storage)) {
+          _selectedStorageMethod = storage;
+          _storageController.text = '';
+        } else {
+          _selectedStorageMethod = 'Other';
+          _storageController.text = storage;
+        }
+      } else {
+        _selectedStorageMethod = 'Room Temperature';
+        _storageController.text = '';
+      }
       _deliveryFeeController.text = (listing['delivery_fee_per_km'] ?? '').toString();
       _maxDeliveryDistController.text = (listing['max_delivery_distance'] ?? '').toString();
       
@@ -334,8 +357,12 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
     if (_minBidController.text.trim().isNotEmpty) {
       data['min_bid_price_per_unit'] = _minBidController.text.trim();
     }
-    if (_storageController.text.trim().isNotEmpty) {
-      data['storage_method'] = _storageController.text.trim();
+    if (_selectedStorageMethod == 'Other') {
+      if (_storageController.text.trim().isNotEmpty) {
+        data['storage_method'] = _storageController.text.trim();
+      }
+    } else {
+      data['storage_method'] = _selectedStorageMethod;
     }
     if (_pickupLatitude != null && _pickupLongitude != null) {
       data['pickup_latitude'] = _pickupLatitude;
@@ -745,11 +772,24 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
                               ),
                             ],
                           ),
-                          _buildInputField(
-                            label: 'Storage Method (e.g. Cold storage, dry room)',
-                            controller: _storageController,
+                          _buildDropdownField(
+                            label: 'Storage Method *',
+                            value: _selectedStorageMethod,
+                            items: _storageOptions,
                             icon: Icons.warehouse_rounded,
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _selectedStorageMethod = val);
+                              }
+                            },
                           ),
+                          if (_selectedStorageMethod == 'Other')
+                            _buildInputField(
+                              label: 'Custom Storage Method *',
+                              controller: _storageController,
+                              icon: Icons.edit_note_rounded,
+                              validator: (v) => _selectedStorageMethod == 'Other' && (v == null || v.isEmpty) ? 'Required' : null,
+                            ),
                           Row(
                             children: [
                               Expanded(

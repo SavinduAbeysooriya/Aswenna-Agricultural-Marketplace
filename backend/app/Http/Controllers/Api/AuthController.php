@@ -1859,4 +1859,83 @@ class AuthController extends Controller
 
         return asset(Storage::disk('public')->url($path));
     }
+
+    public function getUserProfilePublic(Request $request, $userId)
+    {
+        $user = User::find($userId);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.'
+            ], 404);
+        }
+
+        $roles = $user->role ?? [];
+        
+        $deliveryVerification = null;
+        if (in_array('delivery_partner', $roles, true)) {
+            $deliveryVerification = DB::table('delivery_partner_verification_data')
+                ->where('user_id', $user->id)
+                ->first();
+        }
+
+        $retailerVerification = null;
+        if (in_array('retail_seller', $roles, true)) {
+            $retailerVerification = DB::table('retailer_verification_data')
+                ->where('user_id', $user->id)
+                ->first();
+        }
+
+        if (in_array('farmer', $roles, true)) {
+            $reviews = DB::table('buyer_farmer_reviews')
+                ->join('users as reviewers', 'buyer_farmer_reviews.reviewed_by', '=', 'reviewers.id')
+                ->where('buyer_farmer_reviews.farmer_id', $userId)
+                ->select(
+                    'buyer_farmer_reviews.*',
+                    'reviewers.full_name as reviewer_name',
+                    'reviewers.profile_picture_path as reviewer_photo'
+                )
+                ->orderByDesc('buyer_farmer_reviews.created_at')
+                ->get();
+        } else {
+            $reviews = DB::table('retailer_customer_delivery_partner_reviews')
+                ->join('users as reviewers', 'retailer_customer_delivery_partner_reviews.reviewed_by', '=', 'reviewers.id')
+                ->where('retailer_customer_delivery_partner_reviews.reviewed_to', $userId)
+                ->select(
+                    'retailer_customer_delivery_partner_reviews.*',
+                    'reviewers.full_name as reviewer_name',
+                    'reviewers.profile_picture_path as reviewer_photo'
+                )
+                ->orderByDesc('retailer_customer_delivery_partner_reviews.created_at')
+                ->get();
+        }
+
+        $avgRating = $reviews->avg('ratings') ?? 5.0;
+
+        return response()->json([
+            'success' => true,
+            'profile' => [
+                'user' => [
+                    'id' => $user->id,
+                    'full_name' => $user->full_name,
+                    'email' => $user->email,
+                    'phone_number' => $user->phone_number,
+                    'phone_number_2' => $user->phone_number_2,
+                    'profile_picture_path' => $user->profile_picture_path,
+                    'address' => $user->address,
+                    'city' => $user->city,
+                    'district' => $user->district,
+                    'province' => $user->province,
+                    'latitude' => $user->latitude,
+                    'longitude' => $user->longitude,
+                    'roles' => $roles,
+                ],
+                'delivery_verification' => $deliveryVerification,
+                'retailer_verification' => $retailerVerification,
+                'reviews' => $reviews,
+                'avg_rating' => round($avgRating, 1),
+                'total_count' => $reviews->count(),
+            ]
+        ]);
+    }
 }

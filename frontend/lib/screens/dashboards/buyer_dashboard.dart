@@ -178,11 +178,6 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               : (_currentNavIndex == 1 ? 'Bidding Marketplace' : 'My Purchases'),
         ),
         actions: [
-          if (_currentNavIndex == 0)
-            IconButton(
-              icon: const Icon(Icons.shopping_cart_outlined, color: AppTheme.deepLeafGreen),
-              onPressed: () {},
-            ),
           GestureDetector(
             onTap: () async {
               await Navigator.push(

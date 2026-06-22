@@ -832,8 +832,42 @@ class ApiService {
     } catch (e) {
       return {
         'success': false,
-        'message': 'Network connection error. Failed to load farmer profile.',
-        'error': e.toString(),
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserProfilePublic(int userId) async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+    final url = Uri.parse('$baseUrl/users/$userId/profile');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to load profile.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: $e',
       };
     }
   }

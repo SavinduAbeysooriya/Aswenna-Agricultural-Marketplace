@@ -3,6 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'dart:async';
+import 'package:aswenna/screens/market_rates/buyer_profile_screen.dart';
+import 'package:aswenna/screens/market_rates/retailer_profile_screen.dart';
+import 'package:aswenna/screens/dashboards/farmer_dashboard.dart';
+import 'package:aswenna/screens/login_screen.dart';
 
 class MarketRatesScreen extends StatefulWidget {
   const MarketRatesScreen({super.key});
@@ -23,6 +27,16 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
+  // Profile-related state variables
+  String? _userRole;
+  bool _isVerified = false;
+  bool _hasPendingDoc = false;
+  bool _hasRejectedDoc = false;
+  String? _profilePic;
+  Map<String, dynamic>? _profileData;
+  bool _isProfileLoading = false;
+  String? _profileError;
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +49,7 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
       curve: Curves.easeOut,
     );
     _loadCropRates();
+    _loadProfileStatus();
   }
 
   @override
@@ -63,6 +78,110 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
           _errorMessage = result['message'] ?? 'Failed to load rates.';
         }
       });
+    }
+  }
+
+  Future<void> _loadProfileStatus() async {
+    try {
+      final role = await ApiService.getUserRole();
+      if (!mounted) return;
+      setState(() {
+        _userRole = role;
+      });
+
+      Map<String, dynamic> result = {};
+      setState(() => _isProfileLoading = true);
+
+      if (role == 'buyer') {
+        result = await ApiService.getBuyerProfile();
+      } else if (role == 'farmer') {
+        result = await ApiService.getFarmerProfile();
+      } else if (role == 'retail_seller') {
+        result = await ApiService.getRetailSellerProfile();
+      }
+
+      if (mounted) {
+        setState(() {
+          _isProfileLoading = false;
+          if (result['success'] == true) {
+            _profileData = result['profile'] ?? {};
+            _profileError = null;
+            final user = _profileData?['user'];
+            final Map<dynamic, dynamic> userMap = user is Map ? user : {};
+            
+            final docsVal = _profileData?['documents'] ?? _profileData?['verification_documents'];
+            final List<dynamic> documents = docsVal is List ? docsVal : [];
+            
+            _isVerified = userMap['is_verified'] == true || userMap['is_verified'] == 1;
+            _hasPendingDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'pending');
+            _hasRejectedDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'rejected');
+            final pic = userMap['profile_picture_path'];
+            _profilePic = (pic != null && pic != '-') ? pic : null;
+          } else {
+            _profileError = result['message'] ?? 'Failed to load profile details.';
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading profile status: $e');
+      if (mounted) {
+        setState(() => _isProfileLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadFarmerProfile() async {
+    await _loadProfileStatus();
+  }
+
+  void _navigateToProfile() async {
+    if (_userRole == 'buyer') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const BuyerProfileScreen()),
+      );
+      _loadProfileStatus();
+    } else if (_userRole == 'retail_seller') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const RetailerProfileScreen()),
+      );
+      _loadProfileStatus();
+    } else if (_userRole == 'farmer') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FarmerProfileScreen(
+            profile: _profileData,
+            isLoading: _isProfileLoading,
+            errorMessage: _profileError ?? '',
+            onRefresh: _loadFarmerProfile,
+            onLogout: () async {
+              await ApiService.logout();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            onProfileUpdated: (updated) {
+              setState(() {
+                _profileData = updated;
+                final user = updated['user'];
+                final Map<dynamic, dynamic> userMap = user is Map ? user : {};
+                _isVerified = userMap['is_verified'] == true || userMap['is_verified'] == 1;
+                final pic = userMap['profile_picture_path'];
+                _profilePic = (pic != null && pic != '-') ? pic : null;
+              });
+            },
+            onViewTransactions: () {
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      );
+      _loadProfileStatus();
     }
   }
 
@@ -139,7 +258,7 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
         slivers: [
           // Premium SliverAppBar
           SliverAppBar(
-            expandedHeight: 140,
+            expandedHeight: 200,
             floating: false,
             pinned: true,
             elevation: 0,
@@ -152,63 +271,104 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF1B5E20),
-                      Color(0xFF2E7D32),
-                      Color(0xFF388E3C),
-                    ],
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/rate_engine_bg.jpg'),
+                    fit: BoxFit.cover,
                   ),
                 ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.35),
+                        Colors.black.withOpacity(0.75),
+                      ],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 50, 20, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.18),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(Icons.trending_up_rounded,
+                                    color: Colors.white, size: 24),
                               ),
-                              child: const Icon(Icons.trending_up_rounded,
-                                  color: Colors.white, size: 24),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    "Today's Market Rates",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.3,
-                                    ),
-                                  ),
-                                  if (_todayDate.isNotEmpty)
-                                    Text(
-                                      _formatDate(_todayDate),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Today's Market Rates",
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.3,
                                       ),
                                     ),
-                                ],
+                                    if (_todayDate.isNotEmpty)
+                                      Text(
+                                        _formatDate(_todayDate),
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.8),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.12),
+                                width: 1,
                               ),
                             ),
-                          ],
-                        ),
-                      ],
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  color: Colors.amber[300],
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    "It is your duty to include effective pricing to protect our farmers.",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -220,6 +380,69 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
                     color: Colors.white, size: 24),
                 onPressed: _loadCropRates,
               ),
+              if (_userRole != null)
+                GestureDetector(
+                  onTap: _navigateToProfile,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16, left: 8),
+                    child: Center(
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _isVerified
+                                    ? AppTheme.freshGreen
+                                    : (_hasPendingDoc
+                                        ? AppTheme.accentGold
+                                        : (_hasRejectedDoc ? Colors.red : Colors.white.withOpacity(0.4))),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(19),
+                              child: _profilePic != null
+                                  ? Image.network(
+                                      ApiService.fileUrl(_profilePic) ?? '',
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.person, color: Colors.white),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(1.5),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                _isVerified
+                                    ? Icons.verified_rounded
+                                    : (_hasPendingDoc
+                                        ? Icons.hourglass_bottom_rounded
+                                        : (_hasRejectedDoc ? Icons.cancel_rounded : Icons.info_outline_rounded)),
+                                color: _isVerified
+                                    ? AppTheme.deepLeafGreen
+                                    : (_hasPendingDoc
+                                        ? AppTheme.accentGold
+                                        : (_hasRejectedDoc ? Colors.red : Colors.grey[500])),
+                                size: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
 
@@ -231,7 +454,7 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
                 child: Container(
                   margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFFE8F5E9), Color(0xFFC8E6C9)],
@@ -250,7 +473,7 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
                       Container(
                         width: 1,
                         height: 32,
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
                         color: AppTheme.deepLeafGreen.withOpacity(0.2),
                       ),
                       _buildStatChip(
@@ -261,7 +484,7 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
                       Container(
                         width: 1,
                         height: 32,
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
                         color: AppTheme.deepLeafGreen.withOpacity(0.2),
                       ),
                       _buildStatChip(
@@ -386,26 +609,31 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
         children: [
           Icon(icon, color: AppTheme.deepLeafGreen, size: 18),
           const SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1B5E20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1B5E20),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.deepLeafGreen.withOpacity(0.7),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.deepLeafGreen.withOpacity(0.7),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

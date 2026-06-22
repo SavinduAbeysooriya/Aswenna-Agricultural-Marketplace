@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
 import 'package:aswenna/screens/dashboards/retailer_dashboard.dart';
+import 'package:aswenna/screens/login_screen.dart';
 import 'dart:io';
 
 class BuyerProfileScreen extends StatefulWidget {
@@ -595,6 +596,35 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await ApiService.logout();
+                            if (!mounted) return;
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          },
+                          icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                          label: const Text(
+                            'Logout Account',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.redAccent,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -1217,6 +1247,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                               ),
                       ),
                     ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -1403,6 +1434,8 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
               onPressed: () async {
                 if (hasRetailRole) {
                   // Switch directly
+                  await ApiService.setUserRole('retail_seller');
+                  if (!mounted) return;
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (context) => const RetailerDashboard()),
                     (route) => false,
@@ -1418,6 +1451,8 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                   });
 
                   if (res['success'] == true) {
+                    await ApiService.setUserRole('retail_seller');
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Retail Seller role enabled successfully!'),
@@ -1837,6 +1872,57 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              if (verificationDoc['front_image_path'] != null)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Front Image',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          ApiService.fileUrl(verificationDoc['front_image_path']) ?? '',
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderDocPreview(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (verificationDoc['back_image_path'] != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Back Image',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          ApiService.fileUrl(verificationDoc['back_image_path']) ?? '',
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderDocPreview(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ],
     );

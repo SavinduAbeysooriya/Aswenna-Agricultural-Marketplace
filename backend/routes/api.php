@@ -102,6 +102,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chats/{otherUserId}', [ChatMessageController::class, 'getConversation']);
     Route::post('/chats/send', [ChatMessageController::class, 'sendMessage']);
     Route::get('/chats', [ChatMessageController::class, 'getConversations']);
+    Route::get('/farmers/{farmerId}/profile', [AuthController::class, 'getFarmerProfilePublic']);
+    Route::get('/users/{userId}/profile', [AuthController::class, 'getUserProfilePublic']);
 
     // ── Payments ──────────────────────────────────────────────────────────────
     Route::post('/buyer/confirmed-bids/{confirmedBidId}/initiate-payment', [PaymentController::class, 'initiatePayment']);

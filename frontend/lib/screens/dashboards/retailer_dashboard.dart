@@ -19,11 +19,50 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
   List<dynamic> _products = [];
   List<dynamic> _orders = [];
   bool _isLoading = true;
+  bool _isVerified = false;
+  bool _hasPendingDoc = false;
+  bool _hasRejectedDoc = false;
+  String? _rejectionReason;
+  String? _profilePic;
 
   @override
   void initState() {
     super.initState();
+    _loadProfileStatus();
     _fetchDashboardData();
+  }
+
+  Future<void> _loadProfileStatus() async {
+    try {
+      final result = await ApiService.getRetailSellerProfile();
+      if (mounted && result['success'] == true) {
+        final profile = result['profile'] ?? {};
+        
+        final user = profile['user'];
+        final Map<dynamic, dynamic> userMap = user is Map ? user : {};
+        
+        final docsVal = profile['documents'];
+        final List<dynamic> documents = docsVal is List ? docsVal : [];
+        
+        setState(() {
+          _isVerified = userMap['is_verified'] == true;
+          _hasPendingDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'pending');
+          _hasRejectedDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'rejected');
+          if (_hasRejectedDoc) {
+            final rejectedDoc = documents.firstWhere(
+              (doc) => doc is Map && doc['verification_status'] == 'rejected',
+              orElse: () => null,
+            );
+            _rejectionReason = rejectedDoc is Map ? rejectedDoc['rejection_reason'] : null;
+          } else {
+            _rejectionReason = null;
+          }
+          _profilePic = userMap['profile_picture_path'];
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('Error loading dashboard profile status: $e\n$stack');
+    }
   }
 
   Future<void> _fetchDashboardData() async {
@@ -31,6 +70,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
     await Future.wait([
       _fetchProducts(),
       _fetchOrders(),
+      _loadProfileStatus(),
     ]);
     if (mounted) {
       setState(() => _isLoading = false);
@@ -72,29 +112,96 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    double totalEarnings = 0.0;
+    int completedOrdersCount = 0;
+    int pendingOrdersCount = 0;
+
+    for (var order in _orders) {
+      final status = order['order_status'] ?? 'pending';
+      final items = order['retailer_items'] as List? ?? [];
+      final double orderTotal = items.fold(0.0, (sum, item) => sum + double.parse(item['final_price'].toString()));
+
+      if (status == 'completed' || status == 'delivered') {
+        totalEarnings += orderTotal;
+        completedOrdersCount++;
+      } else if (status != 'cancelled') {
+        pendingOrdersCount++;
+      }
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.softGray,
       appBar: AppBar(
         title: const Text('Retailer Center'),
         actions: [
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const BuyerDashboard()),
-                (route) => false,
-              );
-            },
-            icon: const Icon(Icons.swap_horiz_rounded, color: AppTheme.deepLeafGreen),
-            label: const Text('Buyer Mode', style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppTheme.deepLeafGreen),
-            onPressed: () {
-              Navigator.push(
+          GestureDetector(
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const RetailerProfileScreen()),
               );
+              _loadProfileStatus();
             },
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16, left: 8),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[300] ?? Colors.grey)),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(19),
+                      child: _profilePic != null
+                          ? Image.network(
+                              ApiService.fileUrl(_profilePic) ?? '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                            )
+                          : const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)
+                        ],
+                      ),
+                      child: Icon(
+                        _isVerified
+                            ? Icons.verified_rounded
+                            : (_hasPendingDoc
+                                ? Icons.hourglass_bottom_rounded
+                                : (_hasRejectedDoc ? Icons.cancel_rounded : Icons.info_outline_rounded)),
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[500] ?? Colors.grey)),
+                        size: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -107,7 +214,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Store Status Overview
+              // Store Status Overview Card (Stunning Header)
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -121,51 +228,97 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                     )
                   ],
                 ),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Agro Retail Mart',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.lightMint,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text('ONLINE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen)),
+                        SizedBox(height: 2),
+                        Text(
+                          'Retail seller dashboard console',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                         ),
                       ],
                     ),
-                    const Divider(height: 30, color: AppTheme.softGray),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildMiniMetric('Total Sales', 'LKR 45K'),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const RetailerOrdersScreen()),
-                            ).then((_) => _fetchDashboardData());
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppTheme.lightMint,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: _buildMiniMetric('Orders', '${_orders.length} Sales'),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.lightMint,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(color: AppTheme.deepLeafGreen, shape: BoxShape.circle),
                           ),
-                        ),
-                        _buildMiniMetric('Inventory', '${_products.length} Items'),
-                      ],
+                          const SizedBox(width: 6),
+                          const Text('ONLINE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 20),
+
+              // Stunning Stats Grid
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'Total Earnings',
+                      value: 'LKR ${totalEarnings >= 1000 ? "${(totalEarnings / 1000).toStringAsFixed(1)}K" : totalEarnings.toStringAsFixed(0)}',
+                      subtitle: 'From completed orders',
+                      icon: Icons.monetization_on_rounded,
+                      color: const Color(0xFF2E7D32),
+                      bgColor: const Color(0xFFE8F5E9),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'Total Orders',
+                      value: '${_orders.length}',
+                      subtitle: 'All order status history',
+                      icon: Icons.receipt_long_rounded,
+                      color: const Color(0xFF1565C0),
+                      bgColor: const Color(0xFFE3F2FD),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'Active Orders',
+                      value: '$pendingOrdersCount',
+                      subtitle: 'Awaiting fulfillment',
+                      icon: Icons.hourglass_top_rounded,
+                      color: const Color(0xFFE65100),
+                      bgColor: const Color(0xFFFFF3E0),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'Products in Shop',
+                      value: '${_products.length}',
+                      subtitle: 'Active inventory items',
+                      icon: Icons.inventory_2_rounded,
+                      color: const Color(0xFF7B1FA2),
+                      bgColor: const Color(0xFFF3E5F5),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               
@@ -182,6 +335,13 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.deepLeafGreen.withOpacity(0.15),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      )
+                    ],
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -318,18 +478,16 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Console'),
           BottomNavigationBarItem(icon: Icon(Icons.inventory_rounded), label: 'Inventory'),
-          BottomNavigationBarItem(icon: Icon(Icons.logout_rounded), label: 'Logout'),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Orders'),
         ],
         onTap: (index) {
           if (index == 1) {
             _navigateToInventory();
           } else if (index == 2) {
-            ApiService.logout().then((_) {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
-            });
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RetailerOrdersScreen()),
+            ).then((_) => _fetchDashboardData());
           }
         },
       ),
@@ -513,6 +671,76 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
             ),
           ),
           Text(price, style: const TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+        border: Border.all(color: color.withOpacity(0.05), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );

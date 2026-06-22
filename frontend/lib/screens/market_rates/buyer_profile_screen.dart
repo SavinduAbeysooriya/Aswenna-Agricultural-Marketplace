@@ -19,6 +19,7 @@ class BuyerProfileScreen extends StatefulWidget {
 class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isEditing = false;
   String? _errorMessage;
   String? _successMessage;
 
@@ -279,6 +280,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
           _isSaving = false;
           if (result['success'] == true) {
             _successMessage = 'Profile updated successfully!';
+            _isEditing = false;
             _frontImagePath = null;
             _backImagePath = null;
             _profilePicPath = null;
@@ -406,16 +408,214 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
 
       final bool showUploadForm = !isVerified && (verificationDoc == null || docStatus == 'rejected');
 
+      if (!_isEditing) {
+        return Scaffold(
+          backgroundColor: AppTheme.softGray,
+          appBar: AppBar(
+            title: const Text(
+              'Buyer Profile Settings',
+              style: TextStyle(
+                color: AppTheme.darkGreen,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.darkGreen, size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_rounded, color: AppTheme.darkGreen),
+                onPressed: () => setState(() => _isEditing = true),
+              ),
+            ],
+          ),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
+              : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 4),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 16,
+                                  )
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(50),
+                                child: _userData['profile_picture_path'] != null
+                                    ? Image.network(
+                                        ApiService.fileUrl(_userData['profile_picture_path']) ?? '',
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
+                                      )
+                                    : _buildDefaultAvatar(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _nameController.text.isNotEmpty ? _nameController.text : 'Buyer Account',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_phoneController.text} | ${_emailController.text.isNotEmpty ? _emailController.text : "No Email"}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(statusIcon, color: statusColor, size: 14),
+                            const SizedBox(width: 6),
+                            Text(
+                              statusText,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (_errorMessage != null) _buildAlertCard(_errorMessage!, Colors.red),
+                      if (_successMessage != null) _buildAlertCard(_successMessage!, AppTheme.deepLeafGreen),
+                      if (uncompletedCount > 0 && !isVerified)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3E0),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_rounded, color: Color(0xFFE65100), size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Complete the remaining $uncompletedCount profile details to enable account verification.',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFE65100),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      _buildMenuTile(
+                        icon: Icons.badge_outlined,
+                        iconColor: const Color(0xFF2E7D32),
+                        iconBgColor: const Color(0xFFE8F5E9),
+                        title: 'Personal Details',
+                        subtitle: 'Name, email, phone numbers & national ID',
+                        onTap: _showPersonalDetailsSheet,
+                      ),
+                      _buildMenuTile(
+                        icon: Icons.map_rounded,
+                        iconColor: const Color(0xFF1565C0),
+                        iconBgColor: const Color(0xFFE3F2FD),
+                        title: 'Address & Coordinates Map',
+                        subtitle: 'Manage home/business address & location coordinate settings',
+                        onTap: _showAddressLocationSheet,
+                      ),
+                      _buildMenuTile(
+                        icon: Icons.assignment_turned_in_rounded,
+                        iconColor: const Color(0xFF7B1FA2),
+                        iconBgColor: const Color(0xFFF3E5F5),
+                        title: 'Verification Documents',
+                        subtitle: 'Manage driving license, passport or national ID uploads',
+                        onTap: _showDocumentsSheet,
+                      ),
+                      _buildMenuTile(
+                        icon: Icons.storefront_rounded,
+                        iconColor: const Color(0xFFF57F17),
+                        iconBgColor: const Color(0xFFFFF8E1),
+                        title: 'Role & Dashboard Selector',
+                        subtitle: 'Enable Retail Seller features & switch dashboard views',
+                        onTap: _showRoleSelectorSheet,
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: () => setState(() => _isEditing = true),
+                          icon: const Icon(Icons.edit_rounded, color: Colors.white, size: 20),
+                          label: const Text(
+                            'Edit Profile Details',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.deepLeafGreen,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        );
+      }
+
       return Scaffold(
-        backgroundColor: const Color(0xFFF4F6F4),
+        backgroundColor: AppTheme.softGray,
         appBar: AppBar(
-          title: const Text('Buyer Profile Settings'),
+          title: const Text(
+            'Edit Profile Settings',
+            style: TextStyle(
+              color: AppTheme.darkGreen,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
           elevation: 0,
-          backgroundColor: Colors.white,
-          foregroundColor: const Color(0xFF0F172A),
+          backgroundColor: Colors.transparent,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, color: AppTheme.darkGreen, size: 20),
+            onPressed: () => setState(() => _isEditing = false),
           ),
         ),
         body: _isLoading
@@ -1316,6 +1516,14 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
     );
   }
 
+  String _formatDropdownValue(String value) {
+    if (value.isEmpty) return '';
+    return value
+        .split('_')
+        .map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
+
   Widget _buildDropdownField({
     required String label,
     required String? value,
@@ -1350,7 +1558,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
             borderSide: const BorderSide(color: AppTheme.deepLeafGreen, width: 2),
           ),
         ),
-        items: items.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+        items: items.map((t) => DropdownMenuItem(value: t, child: Text(_formatDropdownValue(t)))).toList(),
         onChanged: onChanged,
       ),
     );
@@ -1490,5 +1698,301 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
 
     if (!mounted || picked == null || picked['latitude'] == null || picked['longitude'] == null) return;
     _setLocation(LatLng(picked['latitude']!, picked['longitude']!));
+  }
+
+  void _showPersonalDetailsSheet() {
+    _showModalSheet(
+      title: 'Personal Details',
+      children: [
+        _buildSheetDetailRow(Icons.person_rounded, 'Full Name', _nameController.text.isNotEmpty ? _nameController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.email_rounded, 'Email Address', _emailController.text.isNotEmpty ? _emailController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.phone_android_rounded, 'Primary Phone', _phoneController.text.isNotEmpty ? _phoneController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.phone_rounded, 'Secondary Phone', _phone2Controller.text.isNotEmpty ? _phone2Controller.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.credit_card_rounded, 'National ID (NIC)', _nicController.text.isNotEmpty ? _nicController.text : '-'),
+      ],
+    );
+  }
+
+  void _showAddressLocationSheet() {
+    final LatLng pinTarget = _latitude != null && _longitude != null
+        ? LatLng(_latitude!, _longitude!)
+        : const LatLng(6.9271, 79.8612);
+
+    _showModalSheet(
+      title: 'Address & Pinned Map',
+      children: [
+        _buildSheetDetailRow(Icons.home_rounded, 'Street Address', _addressController.text.isNotEmpty ? _addressController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.location_city_rounded, 'City', _cityController.text.isNotEmpty ? _cityController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.explore_rounded, 'Province', _selectedProvince ?? '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.map_rounded, 'District', _selectedDistrict ?? '-'),
+        const SizedBox(height: 16),
+        const Text(
+          'Pinned Location Coordinates',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 160,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: pinTarget, zoom: _latitude != null ? 15 : 7),
+              markers: _latitude != null && _longitude != null
+                  ? {Marker(markerId: const MarkerId('buyer_loc_read'), position: pinTarget)}
+                  : {},
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+            ),
+          ),
+        ),
+        if (_latitude != null && _longitude != null) ...[
+          const SizedBox(height: 6),
+          Center(
+            child: Text(
+              'Pinned: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+              style: const TextStyle(fontSize: 11, color: AppTheme.deepLeafGreen, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showDocumentsSheet() {
+    final verificationDoc = (_documents.isNotEmpty && _documents.first is Map) ? _documents.first : null;
+    final String? docStatus = verificationDoc is Map ? verificationDoc['verification_status'] : null;
+
+    _showModalSheet(
+      title: 'Verification Documents',
+      children: [
+        if (verificationDoc == null) ...[
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'No verification documents submitted yet.',
+                style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
+        ] else ...[
+          _buildSheetDetailRow(
+            Icons.assignment_ind_rounded,
+            'Document Type',
+            (verificationDoc['document_type'] ?? '').toString().toUpperCase().replaceAll('_', ' '),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Verification Status', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (docStatus == 'verified' ? AppTheme.deepLeafGreen : (docStatus == 'pending' ? AppTheme.accentGold : Colors.red)).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  (verificationDoc['verification_status'] ?? '').toString().toUpperCase(),
+                  style: TextStyle(
+                    color: docStatus == 'verified' ? AppTheme.deepLeafGreen : (docStatus == 'pending' ? AppTheme.accentGold : Colors.red),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (docStatus == 'rejected' && verificationDoc['rejection_reason'] != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withOpacity(0.15)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Rejection Reason:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${verificationDoc['rejection_reason']}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFFC62828), fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  void _showRoleSelectorSheet() {
+    _showModalSheet(
+      title: 'Role & Dashboard Selector',
+      children: [
+        _buildSwitchRoleCard(),
+      ],
+    );
+  }
+
+  Widget _buildSheetDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF64748B)),
+        const SizedBox(width: 10),
+        Text(
+          '$label: ',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.01),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF94A3B8),
+          size: 20,
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _showModalSheet({
+    required String title,
+    required List<Widget> children,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ...children,
+            ],
+          ),
+        );
+      },
+    );
   }
 }

@@ -13,9 +13,9 @@ class ApiService {
 
   // Use http://127.0.0.1:8000/api for iOS Simulator / Web / Desktop
 
-  static const String baseUrl = 'http://10.0.2.2:8001/api';
+  static const String baseUrl = 'http://localhost:8001/api';
 
-  static const String appUrl = 'http://10.0.2.2:8001';
+  static const String appUrl = 'http://localhost:8001';
 
 
 
@@ -1342,6 +1342,8 @@ class ApiService {
     String? brImagePath,
     List<String>? shopPhotosPaths,
     String? profilePicturePath,
+    String? frontImagePath,
+    String? backImagePath,
   }) async {
     final token = await getToken();
     if (token == null) {
@@ -1371,6 +1373,14 @@ class ApiService {
 
       if (profilePicturePath != null && profilePicturePath.trim().isNotEmpty) {
         request.files.add(await http.MultipartFile.fromPath('profile_picture', profilePicturePath));
+      }
+
+      if (frontImagePath != null && frontImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('front_image', frontImagePath));
+      }
+
+      if (backImagePath != null && backImagePath.trim().isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('back_image', backImagePath));
       }
 
       if (shopPhotosPaths != null) {

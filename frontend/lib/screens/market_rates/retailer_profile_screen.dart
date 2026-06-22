@@ -19,6 +19,7 @@ class RetailerProfileScreen extends StatefulWidget {
 class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isEditing = false;
   String? _errorMessage;
   String? _successMessage;
 
@@ -76,6 +77,12 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
   List<String> _shopPhotoPaths = [];
   String? _profilePicPath;
 
+  // Verification document state
+  List<dynamic> _documents = [];
+  String _selectedDocType = 'National ID';
+  String? _frontImagePath;
+  String? _backImagePath;
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +129,9 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
 
             final verificationVal = profile['verification_data'];
             _verificationData = verificationVal is Map ? Map<String, dynamic>.from(verificationVal) : {};
+
+            final docsVal = profile['documents'];
+            _documents = docsVal is List ? docsVal : [];
 
             // Initialize controllers
             _nameController.text = _userData['full_name']?.toString() ?? '';
@@ -249,6 +259,29 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
     }
   }
 
+  Future<void> _pickFile(bool isFront) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          if (isFront) {
+            _frontImagePath = result.files.single.path;
+          } else {
+            _backImagePath = result.files.single.path;
+          }
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick document file: $e')),
+      );
+    }
+  }
+
   Future<void> _selectDate(TextEditingController controller) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -311,11 +344,17 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
         'ownership_type': _selectedOwnershipType,
       };
 
+      if (_frontImagePath != null) {
+        data['document_type'] = _selectedDocType == 'National ID' ? 'national_id' : 'driving_license';
+      }
+
       final result = await ApiService.updateRetailSellerProfile(
         data,
         brImagePath: _brImagePath,
         shopPhotosPaths: _shopPhotoPaths,
         profilePicturePath: _profilePicPath,
+        frontImagePath: _frontImagePath,
+        backImagePath: _backImagePath,
       );
 
       if (mounted) {
@@ -323,9 +362,12 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
           _isSaving = false;
           if (result['success'] == true) {
             _successMessage = 'Retail profile updated successfully!';
+            _isEditing = false;
             _brImagePath = null;
             _shopPhotoPaths = [];
             _profilePicPath = null;
+            _frontImagePath = null;
+            _backImagePath = null;
 
             final profile = result['profile'] ?? {};
             final userVal = profile['user'];
@@ -333,6 +375,9 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
 
             final verificationVal = profile['verification_data'];
             _verificationData = verificationVal is Map ? Map<String, dynamic>.from(verificationVal) : {};
+
+            final docsVal = profile['documents'];
+            _documents = docsVal is List ? docsVal : [];
           } else {
             if (result['errors'] != null && result['errors'] is Map) {
               final errorsMap = result['errors'] as Map<String, dynamic>;
@@ -362,444 +407,935 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
     }
   }
 
+  int _countUncompletedFields() {
+    int count = 0;
+    if (_nameController.text.trim().isEmpty) count++;
+    if (_emailController.text.trim().isEmpty) count++;
+    if (_phoneController.text.trim().isEmpty) count++;
+    if (_phone2Controller.text.trim().isEmpty) count++;
+    if (_nicController.text.trim().isEmpty) count++;
+    if (_addressController.text.trim().isEmpty) count++;
+    if (_cityController.text.trim().isEmpty) count++;
+    if (_districtController.text.trim().isEmpty) count++;
+    if (_provinceController.text.trim().isEmpty) count++;
+    if (_brNumberController.text.trim().isEmpty) count++;
+    if (_shopAddressController.text.trim().isEmpty) count++;
+    if (_postalCodeController.text.trim().isEmpty) count++;
+    if (_brIssueDateController.text.trim().isEmpty) count++;
+    if (_brExpiryDateController.text.trim().isEmpty) count++;
+    if (_selectedBusinessType == null) count++;
+    if (_selectedOwnershipType == null) count++;
+    return count;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final status = _verificationData['status']?.toString().toLowerCase() ?? 'pending';
-    
-    String statusText = 'Verification Pending';
-    Color statusColor = AppTheme.accentGold;
-    IconData statusIcon = Icons.hourglass_empty_rounded;
-    String statusDesc = 'Your verification document details are undergoing admin review.';
+    try {
+      final isVerified = _userData is Map ? _userData['is_verified'] == true : false;
+      final hasPendingDoc = _documents.any((doc) => doc is Map && doc['verification_status'] == 'pending');
+      final hasRejectedDoc = _documents.any((doc) => doc is Map && doc['verification_status'] == 'rejected');
+      final verificationDoc = (_documents.isNotEmpty && _documents.first is Map) ? _documents.first : null;
+      final String? docStatus = verificationDoc is Map ? verificationDoc['verification_status'] : null;
 
-    if (status == 'verified') {
-      statusText = 'Verified Retailer';
-      statusColor = AppTheme.deepLeafGreen;
-      statusIcon = Icons.verified_rounded;
-      statusDesc = 'Your store has been verified by Aswenna Admin! You have direct selling rights.';
-    } else if (status == 'rejected') {
-      statusText = 'Verification Rejected';
-      statusColor = Colors.red;
-      statusIcon = Icons.cancel_rounded;
-      statusDesc = _verificationData['rejected_reason'] != null 
-          ? "Reason: ${_verificationData['rejected_reason']}"
-          : 'Your shop document verification was rejected. Please review details and update.';
-    }
+      final status = _verificationData['status']?.toString().toLowerCase() ?? 'pending';
+      final uncompletedCount = _countUncompletedFields();
+      
+      String statusText = 'Not Verified';
+      Color statusColor = const Color(0xFF757575);
+      IconData statusIcon = Icons.error_outline_rounded;
+      String statusDesc = 'Submit details and verification documents below to authenticate your account.';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F4),
-      appBar: AppBar(
-        title: const Text('Retailer Profile Settings'),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
-          : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Verification Banner
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: statusColor.withOpacity(0.2), width: 1.5),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(statusIcon, color: statusColor, size: 28),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    statusText,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: statusColor,
-                                    ),
-                                  ),
-                                  if (status == 'verified') ...[
-                                    const SizedBox(width: 6),
-                                    const Icon(Icons.verified_rounded, color: AppTheme.deepLeafGreen, size: 16),
-                                  ],
+      if (isVerified || status == 'verified') {
+        statusText = 'Verified Retailer';
+        statusColor = AppTheme.deepLeafGreen;
+        statusIcon = Icons.verified_rounded;
+        statusDesc = 'Your store has been verified by Aswenna Admin! You have direct selling rights.';
+      } else if (hasPendingDoc || status == 'pending') {
+        statusText = 'Verification Pending';
+        statusColor = AppTheme.accentGold;
+        statusIcon = Icons.hourglass_empty_rounded;
+        statusDesc = 'Your verification document details are undergoing admin review.';
+      } else if (hasRejectedDoc || status == 'rejected') {
+        statusText = 'Verification Rejected';
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel_rounded;
+        statusDesc = _verificationData['rejected_reason'] != null 
+            ? "Reason: ${_verificationData['rejected_reason']}"
+            : (verificationDoc != null && verificationDoc['rejection_reason'] != null
+                ? "Reason: ${verificationDoc['rejection_reason']}"
+                : 'Your shop document verification was rejected. Please review details and update.');
+      }
+
+      final bool showUploadForm = !(isVerified || status == 'verified') && (verificationDoc == null || docStatus == 'rejected');
+
+      if (!_isEditing) {
+        return Scaffold(
+          backgroundColor: AppTheme.softGray,
+          appBar: AppBar(
+            title: const Text(
+              'Retailer Profile Settings',
+              style: TextStyle(
+                color: AppTheme.darkGreen,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.darkGreen, size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_rounded, color: AppTheme.darkGreen),
+                onPressed: () => setState(() => _isEditing = true),
+              ),
+            ],
+          ),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
+              : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 4),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 16,
+                                  )
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                statusDesc,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
-                                  height: 1.4,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Profile Picture Upload
-                  Center(
-                    child: Stack(
-                      alignment: Alignment.bottomRight,
-                      children: [
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 16,
-                              )
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(50),
-                            child: _profilePicPath != null
-                                ? Image.file(File(_profilePicPath!), fit: BoxFit.cover)
-                                : _userData['profile_picture_path'] != null
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(50),
+                                child: _userData['profile_picture_path'] != null
                                     ? Image.network(
                                         ApiService.fileUrl(_userData['profile_picture_path']) ?? '',
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
                                       )
                                     : _buildDefaultAvatar(),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _pickProfilePicture,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
-                              color: AppTheme.deepLeafGreen,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Error & Success Alert cards
-                  if (_errorMessage != null) _buildAlertCard(_errorMessage!, Colors.red),
-                  if (_successMessage != null) _buildAlertCard(_successMessage!, AppTheme.deepLeafGreen),
-
-                  // Personal details card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF1B5E20).withOpacity(0.03),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        )
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Owner Details',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildInputField('Full Name *', _nameController, Icons.person_rounded),
-                        _buildInputField('Email Address', _emailController, Icons.email_rounded, keyboardType: TextInputType.emailAddress),
-                        _buildInputField('Primary Phone *', _phoneController, Icons.phone_android_rounded, keyboardType: TextInputType.phone),
-                        _buildInputField('Secondary Phone', _phone2Controller, Icons.phone_rounded, keyboardType: TextInputType.phone),
-                        _buildInputField('National ID (NIC) / Driving License', _nicController, Icons.credit_card_rounded),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Retail details card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF1B5E20).withOpacity(0.03),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        )
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Business & Shop Verification Details',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildInputField('BR Number (Business Registration)', _brNumberController, Icons.text_snippet_rounded),
-                        
-                        // BR image picker
-                        const Text('Business Registration Certificate Copy (BR)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: _pickBRImage,
-                          child: Container(
-                            height: 120,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFAFAFA),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey[300]!, width: 1.5),
-                            ),
-                            child: _brImagePath != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: Image.file(File(_brImagePath!), fit: BoxFit.cover),
-                                  )
-                                : (_verificationData['br_image_path'] != null
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(14),
-                                        child: Image.network(
-                                          ApiService.fileUrl(_verificationData['br_image_path']) ?? '',
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.file_present_rounded, color: AppTheme.deepLeafGreen, size: 36)),
-                                        ),
-                                      )
-                                    : const Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.add_photo_alternate_rounded, color: AppTheme.deepLeafGreen, size: 32),
-                                          SizedBox(height: 8),
-                                          Text('Upload Certificate Copy (PDF/JPEG)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                                        ],
-                                      )),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // BR Dates
-                        Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => _selectDate(_brIssueDateController),
-                                child: AbsorbPointer(
-                                  child: _buildInputField('BR Issue Date', _brIssueDateController, Icons.calendar_month_rounded),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => _selectDate(_brExpiryDateController),
-                                child: AbsorbPointer(
-                                  child: _buildInputField('BR Expiry Date', _brExpiryDateController, Icons.calendar_today_rounded),
-                                ),
                               ),
                             ),
                           ],
                         ),
-
-                        _buildDropdownField(
-                          label: 'Business Type',
-                          value: _selectedBusinessType,
-                          items: ['sole_proprietorship', 'partnership', 'private_limited', 'cooperative'],
-                          icon: Icons.business_center_rounded,
-                          hint: 'Select Business Type',
-                          onChanged: (val) => setState(() => _selectedBusinessType = val),
-                        ),
-
-                        _buildDropdownField(
-                          label: 'Ownership Type',
-                          value: _selectedOwnershipType,
-                          items: ['owned', 'rental', 'leased'],
-                          icon: Icons.real_estate_agent_rounded,
-                          hint: 'Select Ownership Type',
-                          onChanged: (val) => setState(() => _selectedOwnershipType = val),
-                        ),
-
-                        _buildInputField('Shop Physical Address', _shopAddressController, Icons.store_mall_directory_rounded),
-                        _buildInputField('Postal Code', _postalCodeController, Icons.local_post_office_rounded),
-
-                        // Google Map Picker
-                        const Text('Shop Coordinates Location', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            TextButton.icon(
-                              onPressed: _openLocationPicker,
-                              icon: const Icon(Icons.search_rounded, size: 16, color: AppTheme.deepLeafGreen),
-                              label: const Text('Search Picker', style: TextStyle(color: AppTheme.deepLeafGreen, fontSize: 12, fontWeight: FontWeight.bold)),
-                            ),
-                            TextButton.icon(
-                              onPressed: _isLocating ? null : _useCurrentLocation,
-                              icon: _isLocating
-                                  ? const SizedBox(
-                                      height: 12,
-                                      width: 12,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.deepLeafGreen),
-                                    )
-                                  : const Icon(Icons.my_location_rounded, size: 16, color: AppTheme.deepLeafGreen),
-                              label: const Text('Current Location', style: TextStyle(color: AppTheme.deepLeafGreen, fontSize: 12, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            height: 180,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey[200]!),
-                            ),
-                            child: GoogleMap(
-                              initialCameraPosition: CameraPosition(
-                                target: _latitude != null && _longitude != null
-                                    ? LatLng(_latitude!, _longitude!)
-                                    : const LatLng(7.8731, 80.7718),
-                                zoom: _latitude != null && _longitude != null ? 15 : 7,
-                              ),
-                              markers: _latitude != null && _longitude != null
-                                  ? {
-                                      Marker(
-                                        markerId: const MarkerId('retail_loc'),
-                                        position: LatLng(_latitude!, _longitude!),
-                                      )
-                                    }
-                                  : {},
-                              onMapCreated: (controller) {
-                                _mapController = controller;
-                                if (_latitude != null && _longitude != null) {
-                                  _mapController?.animateCamera(
-                                    CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
-                                  );
-                                }
-                              },
-                              onTap: _setLocation,
-                              myLocationButtonEnabled: false,
-                              zoomControlsEnabled: false,
-                            ),
-                          ),
-                        ),
-                        if (_latitude != null && _longitude != null) ...[
-                          const SizedBox(height: 6),
-                          Center(
-                            child: Text(
-                              'Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
-                              style: const TextStyle(fontSize: 11, color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-
-                        // Shop Photos Upload
-                        const Text('Shop Front & Interior Photos', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: _pickShopPhoto,
-                          child: Container(
-                            height: 64,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: AppTheme.lightMint,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add_a_photo_rounded, color: AppTheme.deepLeafGreen),
-                                SizedBox(width: 8),
-                                Text('Add Shop Photos', style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (_shopPhotoPaths.isNotEmpty) ...[
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _shopPhotoPaths.map((p) => Stack(
-                              alignment: Alignment.topRight,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(File(p), width: 72, height: 72, fit: BoxFit.cover),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.cancel, color: Colors.red, size: 18),
-                                  onPressed: () => setState(() => _shopPhotoPaths.remove(p)),
-                                ),
-                              ],
-                            )).toList(),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.deepLeafGreen,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: AppTheme.deepLeafGreen.withOpacity(0.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
                       ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                      const SizedBox(height: 12),
+                      Text(
+                        _nameController.text.isNotEmpty ? _nameController.text : 'Retailer Account',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_phoneController.text} | ${_emailController.text.isNotEmpty ? _emailController.text : "No Email"}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(statusIcon, color: statusColor, size: 14),
+                            const SizedBox(width: 6),
+                            Text(
+                              statusText,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (_errorMessage != null) _buildAlertCard(_errorMessage!, Colors.red),
+                      if (_successMessage != null) _buildAlertCard(_successMessage!, AppTheme.deepLeafGreen),
+                      if (uncompletedCount > 0 && status != 'verified')
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3E0),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_rounded, color: Color(0xFFE65100), size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Complete the remaining $uncompletedCount profile details to enable account verification.',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFE65100),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      _buildMenuTile(
+                        icon: Icons.badge_outlined,
+                        iconColor: const Color(0xFF2E7D32),
+                        iconBgColor: const Color(0xFFE8F5E9),
+                        title: 'Owner Details',
+                        subtitle: 'Name, email, phone numbers & national ID',
+                        onTap: _showOwnerDetailsSheet,
+                      ),
+                      _buildMenuTile(
+                        icon: Icons.business_center_rounded,
+                        iconColor: const Color(0xFF7B1FA2),
+                        iconBgColor: const Color(0xFFF3E5F5),
+                        title: 'Business Details',
+                        subtitle: 'BR number, business type, ownership type & document uploads',
+                        onTap: _showBusinessDetailsSheet,
+                      ),
+                      _buildMenuTile(
+                        icon: Icons.storefront_rounded,
+                        iconColor: const Color(0xFF1565C0),
+                        iconBgColor: const Color(0xFFE3F2FD),
+                        title: 'Shop Location & Coordinates',
+                        subtitle: 'Manage shop address, province/district & map coordinate settings',
+                        onTap: _showShopLocationSheet,
+                      ),
+                      _buildMenuTile(
+                        icon: Icons.assignment_turned_in_rounded,
+                        iconColor: const Color(0xFFE65100),
+                        iconBgColor: const Color(0xFFFFF3E0),
+                        title: 'Verification Documents',
+                        subtitle: 'Manage driving license or national ID uploads',
+                        onTap: _showDocumentsSheet,
+                      ),
+                      _buildMenuTile(
+                        icon: Icons.swap_horiz_rounded,
+                        iconColor: const Color(0xFFF57F17),
+                        iconBgColor: const Color(0xFFFFF8E1),
+                        title: 'Switch Dashboard',
+                        subtitle: 'Switch back to the regular Buyer Dashboard view',
+                        onTap: _showSwitchDashboardSheet,
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: () => setState(() => _isEditing = true),
+                          icon: const Icon(Icons.edit_rounded, color: Colors.white, size: 20),
+                          label: const Text(
+                            'Edit Profile Details',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.deepLeafGreen,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        );
+      }
+
+      // EDITING MODE
+      return Scaffold(
+        backgroundColor: AppTheme.softGray,
+        appBar: AppBar(
+          title: const Text(
+            'Edit Profile Settings',
+            style: TextStyle(
+              color: AppTheme.darkGreen,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded, color: AppTheme.darkGreen, size: 20),
+            onPressed: () => setState(() => _isEditing = false),
+          ),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
+            : SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Verification Banner
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: statusColor.withOpacity(0.2), width: 1.5),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(statusIcon, color: statusColor, size: 28),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      statusText,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: statusColor,
+                                      ),
+                                    ),
+                                    if (status == 'verified') ...[
+                                      const SizedBox(width: 6),
+                                      const Icon(Icons.verified_rounded, color: AppTheme.deepLeafGreen, size: 16),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  statusDesc,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Profile Picture Upload
+                    Center(
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 4),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 16,
+                                )
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(50),
+                              child: _profilePicPath != null
+                                  ? Image.file(File(_profilePicPath!), fit: BoxFit.cover)
+                                  : _userData['profile_picture_path'] != null
+                                      ? Image.network(
+                                          ApiService.fileUrl(_userData['profile_picture_path']) ?? '',
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
+                                        )
+                                      : _buildDefaultAvatar(),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _pickProfilePicture,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: AppTheme.deepLeafGreen,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    if (uncompletedCount > 0 && status != 'verified')
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3E0),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_rounded, color: Color(0xFFE65100), size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'You have $uncompletedCount uncompleted profile details. Fill them in to get verified!',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFE65100),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Error & Success Alert cards
+                    if (_errorMessage != null) _buildAlertCard(_errorMessage!, Colors.red),
+                    if (_successMessage != null) _buildAlertCard(_successMessage!, AppTheme.deepLeafGreen),
+
+                    // Personal details card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF1B5E20).withOpacity(0.03),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Owner Details',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildInputField('Full Name *', _nameController, Icons.person_rounded),
+                          _buildInputField('Email Address', _emailController, Icons.email_rounded, keyboardType: TextInputType.emailAddress),
+                          _buildInputField('Primary Phone *', _phoneController, Icons.phone_android_rounded, keyboardType: TextInputType.phone),
+                          _buildInputField('Secondary Phone', _phone2Controller, Icons.phone_rounded, keyboardType: TextInputType.phone),
+                          _buildInputField('National ID (NIC) / Driving License', _nicController, Icons.credit_card_rounded),
+                          _buildInputField('Personal Address', _addressController, Icons.home_rounded),
+                          _buildInputField('City', _cityController, Icons.location_city_rounded),
+                          
+                          _buildDropdownField(
+                            label: 'Province',
+                            value: _selectedProvince,
+                            items: _provinceDistricts.keys.toList(),
+                            icon: Icons.explore_rounded,
+                            hint: 'Select Province',
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedProvince = val;
+                                _provinceController.text = val ?? '';
+                                _selectedDistrict = null;
+                                _districtController.text = '';
+                              });
+                            },
+                          ),
+                          if (_selectedProvince != null)
+                            _buildDropdownField(
+                              label: 'District',
+                              value: _selectedDistrict,
+                              items: _provinceDistricts[_selectedProvince] ?? [],
+                              icon: Icons.map_rounded,
+                              hint: 'Select District',
+                              onChanged: (val) {
+                                setState(() {
+                                  _selectedDistrict = val;
+                                  _districtController.text = val ?? '';
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Retail details card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF1B5E20).withOpacity(0.03),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Business & Shop Verification Details',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildInputField('BR Number (Business Registration)', _brNumberController, Icons.text_snippet_rounded),
+                          
+                          // BR image picker
+                          const Text('Business Registration Certificate Copy (BR)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: _pickBRImage,
+                            child: Container(
+                              height: 120,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFAFAFA),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey[300]!, width: 1.5),
+                              ),
+                              child: _brImagePath != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Image.file(File(_brImagePath!), fit: BoxFit.cover)
+                                    )
+                                  : (_verificationData['br_image_path'] != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(14),
+                                          child: Image.network(
+                                            ApiService.fileUrl(_verificationData['br_image_path']) ?? '',
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.file_present_rounded, color: AppTheme.deepLeafGreen, size: 36)),
+                                          ),
+                                        )
+                                      : const Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.add_photo_alternate_rounded, color: AppTheme.deepLeafGreen, size: 32),
+                                            SizedBox(height: 8),
+                                            Text('Upload Certificate Copy (PDF/JPEG)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                          ],
+                                        )),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // BR Dates
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _selectDate(_brIssueDateController),
+                                  child: AbsorbPointer(
+                                    child: _buildInputField('BR Issue Date', _brIssueDateController, Icons.calendar_month_rounded),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _selectDate(_brExpiryDateController),
+                                  child: AbsorbPointer(
+                                    child: _buildInputField('BR Expiry Date', _brExpiryDateController, Icons.calendar_today_rounded),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          _buildDropdownField(
+                            label: 'Business Type',
+                            value: _selectedBusinessType,
+                            items: ['sole_proprietorship', 'partnership', 'private_limited', 'cooperative'],
+                            icon: Icons.business_center_rounded,
+                            hint: 'Select Business Type',
+                            onChanged: (val) => setState(() => _selectedBusinessType = val),
+                          ),
+
+                          _buildDropdownField(
+                            label: 'Ownership Type',
+                            value: _selectedOwnershipType,
+                            items: ['owned', 'rental', 'leased'],
+                            icon: Icons.real_estate_agent_rounded,
+                            hint: 'Select Ownership Type',
+                            onChanged: (val) => setState(() => _selectedOwnershipType = val),
+                          ),
+
+                          _buildInputField('Shop Physical Address', _shopAddressController, Icons.store_mall_directory_rounded),
+                          _buildInputField('Postal Code', _postalCodeController, Icons.local_post_office_rounded),
+
+                          // Google Map Picker
+                          const Text('Shop Coordinates Location', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed: _openLocationPicker,
+                                icon: const Icon(Icons.search_rounded, size: 16, color: AppTheme.deepLeafGreen),
+                                label: const Text('Search Picker', style: TextStyle(color: AppTheme.deepLeafGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                              TextButton.icon(
+                                onPressed: _isLocating ? null : _useCurrentLocation,
+                                icon: _isLocating
+                                    ? const SizedBox(
+                                        height: 12,
+                                        width: 12,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.deepLeafGreen),
+                                      )
+                                    : const Icon(Icons.my_location_rounded, size: 16, color: AppTheme.deepLeafGreen),
+                                label: const Text('Current Location', style: TextStyle(color: AppTheme.deepLeafGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              height: 180,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey[200]!),
+                              ),
+                              child: GoogleMap(
+                                initialCameraPosition: CameraPosition(
+                                  target: _latitude != null && _longitude != null
+                                      ? LatLng(_latitude!, _longitude!)
+                                      : const LatLng(7.8731, 80.7718),
+                                  zoom: _latitude != null && _longitude != null ? 15 : 7,
+                                ),
+                                markers: _latitude != null && _longitude != null
+                                    ? {
+                                        Marker(
+                                          markerId: const MarkerId('retail_loc'),
+                                          position: LatLng(_latitude!, _longitude!),
+                                        )
+                                      }
+                                    : {},
+                                onMapCreated: (controller) {
+                                  _mapController = controller;
+                                  if (_latitude != null && _longitude != null) {
+                                    _mapController?.animateCamera(
+                                      CameraUpdate.newLatLngZoom(LatLng(_latitude!, _longitude!), 15),
+                                    );
+                                  }
+                                },
+                                onTap: _setLocation,
+                                myLocationButtonEnabled: false,
+                                zoomControlsEnabled: false,
+                              ),
+                            ),
+                          ),
+                          if (_latitude != null && _longitude != null) ...[
+                            const SizedBox(height: 6),
+                            Center(
+                              child: Text(
+                                'Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+                                style: const TextStyle(fontSize: 11, color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+
+                          // Shop Photos Upload
+                          const Text('Shop Front & Interior Photos', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: _pickShopPhoto,
+                            child: Container(
+                              height: 64,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: AppTheme.lightMint,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_a_photo_rounded, color: AppTheme.deepLeafGreen),
+                                  SizedBox(width: 8),
+                                  Text('Add Shop Photos', style: TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_shopPhotoPaths.isNotEmpty) ...[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _shopPhotoPaths.map((p) => Stack(
+                                alignment: Alignment.topRight,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(File(p), width: 72, height: 72, fit: BoxFit.cover),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.cancel, color: Colors.red, size: 18),
+                                    onPressed: () => setState(() => _shopPhotoPaths.remove(p)),
+                                  ),
+                                ],
+                              )).toList(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Upload Verification Document Input Section
+                    if (showUploadForm) ...[
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1B5E20).withOpacity(0.03),
+                              blurRadius: 20,
+                              offset: const Offset(0, 4),
                             )
-                          : const Text('Save Details & Submit for Verification', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              docStatus == 'rejected' ? 'Resubmit Verification Document' : 'Upload Verification Document',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              docStatus == 'rejected'
+                                  ? 'Upload fresh document images to replace the rejected document.'
+                                  : 'Provide document images to start authentication process.',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Doc Type Dropdown
+                            DropdownButtonFormField<String>(
+                              value: ['National ID', 'Driving License'].contains(_selectedDocType)
+                                  ? _selectedDocType
+                                  : 'National ID',
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: 'Document Type',
+                                filled: true,
+                                fillColor: const Color(0xFFFAFAFA),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              items: ['National ID', 'Driving License']
+                                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val != null) setState(() => _selectedDocType = val);
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Front Image picker
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildDocPickerCard(
+                                    'Front Page Image',
+                                    _frontImagePath,
+                                    () => _pickFile(true),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildDocPickerCard(
+                                    'Back Page Image (Optional)',
+                                    _backImagePath,
+                                    () => _pickFile(false),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // Submit Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _saveProfile,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.deepLeafGreen,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: AppTheme.deepLeafGreen.withOpacity(0.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                              )
+                            : const Text('Save Details & Submit for Verification', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      );
+    } catch (e, stack) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF4F6F4),
+        appBar: AppBar(
+          title: const Text('Retailer Profile Settings'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF0F172A),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.red.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.error_outline_rounded, color: Colors.red, size: 36),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Rendering Diagnostic Panel',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'A layout or runtime exception was caught during rendering:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withOpacity(0.15)),
+                  ),
+                  child: Text(
+                    '$e',
+                    style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w700, fontFamily: 'monospace'),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Stack Trace:',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAFAFA),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Text(
+                    '$stack',
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontFamily: 'monospace'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _loadProfile();
+                    },
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Try Reloading Profile'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.deepLeafGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-    );
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildDefaultAvatar() {
@@ -825,7 +1361,14 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
           Icon(color == Colors.red ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, color: color, size: 20),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(msg, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+            child: Text(
+              msg,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
           ),
         ],
       ),
@@ -862,6 +1405,14 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
     );
   }
 
+  String _formatDropdownValue(String value) {
+    if (value.isEmpty) return '';
+    return value
+        .split('_')
+        .map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
+
   Widget _buildDropdownField({
     required String label,
     required String? value,
@@ -896,7 +1447,7 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
             borderSide: const BorderSide(color: AppTheme.deepLeafGreen, width: 2),
           ),
         ),
-        items: items.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+        items: items.map((t) => DropdownMenuItem(value: t, child: Text(_formatDropdownValue(t)))).toList(),
         onChanged: onChanged,
       ),
     );
@@ -955,5 +1506,576 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
 
     if (!mounted || picked == null || picked['latitude'] == null || picked['longitude'] == null) return;
     _setLocation(LatLng(picked['latitude']!, picked['longitude']!));
+  }
+
+  void _showOwnerDetailsSheet() {
+    _showModalSheet(
+      title: 'Owner Details',
+      children: [
+        _buildSheetDetailRow(Icons.person_rounded, 'Full Name', _nameController.text.isNotEmpty ? _nameController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.email_rounded, 'Email Address', _emailController.text.isNotEmpty ? _emailController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.phone_android_rounded, 'Primary Phone', _phoneController.text.isNotEmpty ? _phoneController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.phone_rounded, 'Secondary Phone', _phone2Controller.text.isNotEmpty ? _phone2Controller.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.credit_card_rounded, 'National ID (NIC)', _nicController.text.isNotEmpty ? _nicController.text : '-'),
+      ],
+    );
+  }
+
+  void _showBusinessDetailsSheet() {
+    _showModalSheet(
+      title: 'Business & Shop Details',
+      children: [
+        _buildSheetDetailRow(Icons.text_snippet_rounded, 'BR Number', _brNumberController.text.isNotEmpty ? _brNumberController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.calendar_month_rounded, 'BR Issue Date', _brIssueDateController.text.isNotEmpty ? _brIssueDateController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.calendar_today_rounded, 'BR Expiry Date', _brExpiryDateController.text.isNotEmpty ? _brExpiryDateController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.business_center_rounded, 'Business Type', _selectedBusinessType?.toUpperCase().replaceAll('_', ' ') ?? '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.real_estate_agent_rounded, 'Ownership Type', _selectedOwnershipType?.toUpperCase() ?? '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.local_post_office_rounded, 'Postal Code', _postalCodeController.text.isNotEmpty ? _postalCodeController.text : '-'),
+        const SizedBox(height: 16),
+        if (_verificationData['br_image_path'] != null) ...[
+          const Text(
+            'Business Registration Certificate (BR)',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              ApiService.fileUrl(_verificationData['br_image_path']) ?? '',
+              height: 140,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 140,
+                color: Colors.grey[200],
+                child: const Icon(Icons.file_present_rounded, color: AppTheme.deepLeafGreen, size: 48),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (_verificationData['shop_photos'] != null && _verificationData['shop_photos'] is List && (_verificationData['shop_photos'] as List).isNotEmpty) ...[
+          const Text(
+            'Shop Photos',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 100,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: (_verificationData['shop_photos'] as List).length,
+              itemBuilder: (context, index) {
+                final photoPath = (_verificationData['shop_photos'] as List)[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      ApiService.fileUrl(photoPath) ?? '',
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 100,
+                        height: 100,
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showShopLocationSheet() {
+    final LatLng pinTarget = _latitude != null && _longitude != null
+        ? LatLng(_latitude!, _longitude!)
+        : const LatLng(6.9271, 79.8612);
+
+    _showModalSheet(
+      title: 'Shop Location & Map',
+      children: [
+        _buildSheetDetailRow(Icons.store_mall_directory_rounded, 'Shop Address', _shopAddressController.text.isNotEmpty ? _shopAddressController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.home_rounded, 'Personal Address', _addressController.text.isNotEmpty ? _addressController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.location_city_rounded, 'City', _cityController.text.isNotEmpty ? _cityController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.explore_rounded, 'Province', _selectedProvince ?? '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.map_rounded, 'District', _selectedDistrict ?? '-'),
+        const SizedBox(height: 16),
+        const Text(
+          'Shop Google Map Coordinates',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 160,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: pinTarget, zoom: _latitude != null ? 15 : 7),
+              markers: _latitude != null && _longitude != null
+                  ? {Marker(markerId: const MarkerId('retail_loc_read'), position: pinTarget)}
+                  : {},
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+            ),
+          ),
+        ),
+        if (_latitude != null && _longitude != null) ...[
+          const SizedBox(height: 6),
+          Center(
+            child: Text(
+              'Pinned: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+              style: const TextStyle(fontSize: 11, color: AppTheme.deepLeafGreen, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showSwitchDashboardSheet() {
+    _showModalSheet(
+      title: 'Switch Dashboard',
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1B5E20).withOpacity(0.03),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightMint,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.swap_horiz_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Switch to Buyer Dashboard',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'You possess the Retail Seller status. You can switch to the Buyer Dashboard at any time to view items as a regular customer/buyer.',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600], height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => const BuyerDashboard()),
+                      (route) => false,
+                    );
+                  },
+                  icon: const Icon(Icons.swap_horiz_rounded, color: Colors.white),
+                  label: const Text(
+                    'Switch to Buyer Dashboard',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.deepLeafGreen,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSheetDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF64748B)),
+        const SizedBox(width: 10),
+        Text(
+          '$label: ',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.01),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF94A3B8),
+          size: 20,
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _showDocumentsSheet() {
+    final verificationDoc = (_documents.isNotEmpty && _documents.first is Map) ? _documents.first : null;
+    final String? docStatus = verificationDoc is Map ? verificationDoc['verification_status'] : null;
+
+    _showModalSheet(
+      title: 'Verification Documents',
+      children: [
+        if (verificationDoc == null) ...[
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'No verification documents submitted yet.',
+                style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
+        ] else ...[
+          _buildSheetDetailRow(
+            Icons.assignment_ind_rounded,
+            'Document Type',
+            (verificationDoc['document_type'] ?? '').toString().toUpperCase().replaceAll('_', ' '),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Verification Status', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500)),
+              _buildStatusChip(docStatus ?? 'pending'),
+            ],
+          ),
+          if (docStatus == 'rejected' && verificationDoc['rejection_reason'] != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'Rejection Reason:',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFE65100)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${verificationDoc['rejection_reason']}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFFBF360C), fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              if (verificationDoc['front_image_path'] != null)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Front Image',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          ApiService.fileUrl(verificationDoc['front_image_path']) ?? '',
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderDocPreview(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (verificationDoc['back_image_path'] != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Back Image',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          ApiService.fileUrl(verificationDoc['back_image_path']) ?? '',
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderDocPreview(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDocPickerCard(String title, String? path, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 120,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAFA),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[300]!, width: 1.5, style: BorderStyle.solid),
+        ),
+        child: path != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.file(File(path), fit: BoxFit.cover),
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.add_photo_alternate_rounded, color: AppTheme.deepLeafGreen, size: 32),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey[600]),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color;
+    String label;
+    
+    switch (status.toLowerCase()) {
+      case 'approved':
+        color = AppTheme.deepLeafGreen;
+        label = 'Approved';
+        break;
+      case 'rejected':
+        color = Colors.red;
+        label = 'Rejected';
+        break;
+      case 'pending':
+      default:
+        color = AppTheme.accentGold;
+        label = 'Pending';
+        break;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderDocPreview() {
+    return Container(
+      height: 100,
+      color: Colors.grey[200],
+      alignment: Alignment.center,
+      child: Icon(Icons.description_rounded, color: Colors.grey[400], size: 36),
+    );
+  }
+
+  void _showModalSheet({
+    required String title,
+    required List<Widget> children,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ...children,
+            ],
+          ),
+        );
+      },
+    );
   }
 }

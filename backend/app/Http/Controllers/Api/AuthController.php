@@ -1099,6 +1099,9 @@ class AuthController extends Controller
         }
 
         $roles = $user->role ?? [];
+        if (empty($roles)) {
+            $roles = ['buyer'];
+        }
         if (!in_array('buyer', $roles, true) && !in_array('customer', $roles, true)) {
             return response()->json([
                 'success' => false,
@@ -1140,6 +1143,9 @@ class AuthController extends Controller
         }
 
         $roles = $user->role ?? [];
+        if (empty($roles)) {
+            $roles = ['buyer'];
+        }
         if (!in_array('buyer', $roles, true) && !in_array('customer', $roles, true)) {
             return response()->json([
                 'success' => false,
@@ -1263,11 +1269,22 @@ class AuthController extends Controller
                 ->all();
         }
 
+        $documents = DB::table('user_verification_documents')
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($document) {
+                $document->front_image_url = $this->publicFileUrl($document->front_image_path);
+                $document->back_image_url = $this->publicFileUrl($document->back_image_path);
+                return $document;
+            });
+
         return response()->json([
             'success' => true,
             'profile' => [
                 'user' => $user,
                 'verification_data' => $verificationData,
+                'documents' => $documents,
             ],
         ], 200);
     }
@@ -1321,6 +1338,11 @@ class AuthController extends Controller
             'shop_photos' => 'nullable|array',
             'shop_photos.*' => 'nullable|file|image|max:20480',
             'profile_picture' => 'nullable|file|image|max:10240',
+            
+            // Document Verification
+            'document_type' => 'nullable|string|in:national_id,driving_license',
+            'front_image' => 'nullable|file|image|max:20480',
+            'back_image' => 'nullable|file|image|max:20480',
         ]);
 
         if ($validator->fails()) {
@@ -1391,6 +1413,26 @@ class AuthController extends Controller
                     'created_at' => $existing->created_at ?? now(),
                 ]
             );
+
+            // Save verification documents if uploaded
+            if ($request->hasFile('front_image') && $request->document_type) {
+                $frontPath = $request->file('front_image')->store('retail-seller-verifications/' . $user->id, 'public');
+                $backPath = $request->hasFile('back_image') 
+                    ? $request->file('back_image')->store('retail-seller-verifications/' . $user->id, 'public') 
+                    : null;
+
+                DB::table('user_verification_documents')->insert([
+                    'user_id' => $user->id,
+                    'document_type' => $request->document_type,
+                    'front_image_path' => $frontPath,
+                    'back_image_path' => $backPath,
+                    'verification_status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $user->update(['is_verified' => false]);
+            }
 
             DB::commit();
 
@@ -1663,6 +1705,9 @@ class AuthController extends Controller
         }
 
         $roles = $user->role ?? [];
+        if (empty($roles)) {
+            $roles = ['buyer'];
+        }
         if (!in_array($newRole, $roles, true)) {
             $roles[] = $newRole;
             $user->role = $roles;

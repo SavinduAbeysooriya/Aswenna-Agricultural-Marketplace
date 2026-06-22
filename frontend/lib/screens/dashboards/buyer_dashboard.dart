@@ -8,6 +8,7 @@ import 'package:aswenna/screens/harvest_listings/harvest_listing_detail_screen.d
 import 'package:aswenna/screens/chat/chat_screen.dart';
 import 'package:aswenna/screens/payment/payment_screen.dart';
 import 'package:aswenna/screens/review/review_screen.dart';
+import 'package:aswenna/screens/dashboards/buyer_bidding_marketplace.dart';
 
 class BuyerDashboard extends StatefulWidget {
   const BuyerDashboard({super.key});
@@ -170,12 +171,17 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     return Scaffold(
       backgroundColor: AppTheme.softGray,
       appBar: AppBar(
-        title: const Text('Buyer Marketplace'),
+        title: Text(
+          _currentNavIndex == 0
+              ? 'Buyer Marketplace'
+              : (_currentNavIndex == 1 ? 'Bidding Marketplace' : 'My Purchases'),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined, color: AppTheme.deepLeafGreen),
-            onPressed: () {},
-          ),
+          if (_currentNavIndex == 0)
+            IconButton(
+              icon: const Icon(Icons.shopping_cart_outlined, color: AppTheme.deepLeafGreen),
+              onPressed: () {},
+            ),
           GestureDetector(
             onTap: () async {
               await Navigator.push(
@@ -247,9 +253,11 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           ),
         ],
       ),
-      body: _currentNavIndex == 2
-          ? _buildPurchasesView()
-          : SingleChildScrollView(
+      body: _currentNavIndex == 1
+          ? const BuyerBiddingMarketplace()
+          : _currentNavIndex == 3
+              ? _buildPurchasesView()
+              : SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.all(20),
         child: Column(
@@ -428,6 +436,8 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               ),
             ),
             const SizedBox(height: 24),
+            _buildStatsSection(),
+            const SizedBox(height: 24),
 
             // Search Yields Bar
             TextField(
@@ -524,24 +534,25 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.storefront_rounded), label: 'Market'),
+          BottomNavigationBarItem(icon: Icon(Icons.gavel_rounded), label: 'Bids'),
           BottomNavigationBarItem(icon: Icon(Icons.trending_up_rounded), label: 'Rates'),
           BottomNavigationBarItem(icon: Icon(Icons.assignment_turned_in_rounded), label: 'Purchases'),
           BottomNavigationBarItem(icon: Icon(Icons.logout_rounded), label: 'Logout'),
         ],
         onTap: (index) {
-          if (index == 1) {
+          if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MarketRatesScreen()),
             );
-          } else if (index == 3) {
+          } else if (index == 4) {
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (context) => const LoginScreen()),
               (route) => false,
             );
           } else {
             setState(() => _currentNavIndex = index);
-            if (index == 2) {
+            if (index == 3) {
               _loadConfirmedBids();
             }
           }
@@ -727,6 +738,202 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     );
   }
 
+  double get _totalSpent {
+    double sum = 0.0;
+    for (var bid in _confirmedBids) {
+      if (bid is Map && bid['payment_status']?.toString().toLowerCase() == 'paid') {
+        sum += double.tryParse(bid['total_amount']?.toString() ?? '0') ?? 0.0;
+      }
+    }
+    return sum;
+  }
+
+  double get _pendingPayment {
+    double sum = 0.0;
+    for (var bid in _confirmedBids) {
+      if (bid is Map && bid['payment_status']?.toString().toLowerCase() == 'unpaid') {
+        sum += double.tryParse(bid['total_amount']?.toString() ?? '0') ?? 0.0;
+      }
+    }
+    return sum;
+  }
+
+  int get _totalPurchasesCount => _confirmedBids.length;
+
+  int get _directListingsCount => _harvestListings.where((l) => l is Map && l['min_bid_price_per_unit'] == null).length;
+
+  Widget _buildStatsSection() {
+    final spentStr = _totalSpent.toStringAsFixed(2);
+    final pendingStr = _pendingPayment.toStringAsFixed(2);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricCard(
+                title: 'TOTAL SPENT',
+                value: 'LKR $spentStr',
+                icon: Icons.account_balance_wallet_rounded,
+                gradientColors: [const Color(0xFF1B5E20), const Color(0xFF2E7D32)],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMetricCard(
+                title: 'PENDING ESCROW',
+                value: 'LKR $pendingStr',
+                icon: Icons.hourglass_empty_rounded,
+                gradientColors: [const Color(0xFFC2410C), const Color(0xFFEA580C)],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildMiniMetricCard(
+                title: 'My Purchases',
+                value: '$_totalPurchasesCount Orders',
+                icon: Icons.shopping_bag_rounded,
+                iconColor: const Color(0xFF0284C7),
+                bgColor: const Color(0xFFE0F2FE),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMiniMetricCard(
+                title: 'Direct Listings',
+                value: '$_directListingsCount Available',
+                icon: Icons.eco_rounded,
+                iconColor: const Color(0xFF15803D),
+                bgColor: const Color(0xFFDCFCE7),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required List<Color> gradientColors,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors[0].withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Icon(icon, color: Colors.white70, size: 16),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniMetricCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: bgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPurchasesView() {
     if (_isLoadingPurchases) {
       return const Center(
@@ -824,33 +1031,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          // Purchases Header
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'My Purchases',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.darkGreen,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Track and manage your confirmed crop orders',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 12),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadConfirmedBids,

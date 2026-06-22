@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
 import 'package:aswenna/screens/dashboards/retailer_dashboard.dart';
+import 'package:aswenna/screens/login_screen.dart';
 import 'dart:io';
 
 class BuyerProfileScreen extends StatefulWidget {
@@ -595,6 +596,35 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await ApiService.logout();
+                            if (!mounted) return;
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          },
+                          icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                          label: const Text(
+                            'Logout Account',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.redAccent,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -1217,6 +1247,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                               ),
                       ),
                     ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),

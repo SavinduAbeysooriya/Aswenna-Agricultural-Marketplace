@@ -538,18 +538,12 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           BottomNavigationBarItem(icon: Icon(Icons.gavel_rounded), label: 'Bids'),
           BottomNavigationBarItem(icon: Icon(Icons.trending_up_rounded), label: 'Rates'),
           BottomNavigationBarItem(icon: Icon(Icons.assignment_turned_in_rounded), label: 'Purchases'),
-          BottomNavigationBarItem(icon: Icon(Icons.logout_rounded), label: 'Logout'),
         ],
         onTap: (index) {
           if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MarketRatesScreen()),
-            );
-          } else if (index == 4) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (route) => false,
             );
           } else {
             setState(() => _currentNavIndex = index);

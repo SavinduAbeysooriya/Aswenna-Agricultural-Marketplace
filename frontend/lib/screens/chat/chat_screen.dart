@@ -8,11 +8,13 @@ import 'package:url_launcher/url_launcher.dart';
 class ChatScreen extends StatefulWidget {
   final int otherUserId;
   final String otherUserName;
+  final String? otherUserProfilePicture;
 
   const ChatScreen({
     super.key,
     required this.otherUserId,
     required this.otherUserName,
+    this.otherUserProfilePicture,
   });
 
   @override
@@ -224,10 +226,17 @@ class _ChatScreenState extends State<ChatScreen> {
             CircleAvatar(
               radius: 18,
               backgroundColor: Colors.white.withOpacity(0.2),
-              child: Text(
-                widget.otherUserName.isNotEmpty ? widget.otherUserName[0].toUpperCase() : 'U',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-              ),
+              backgroundImage: widget.otherUserProfilePicture != null && widget.otherUserProfilePicture!.isNotEmpty
+                  ? NetworkImage(widget.otherUserProfilePicture!.startsWith('http')
+                      ? widget.otherUserProfilePicture!
+                      : '${ApiService.appUrl}/storage/${widget.otherUserProfilePicture}')
+                  : null,
+              child: widget.otherUserProfilePicture == null || widget.otherUserProfilePicture!.isEmpty
+                  ? Text(
+                      widget.otherUserName.isNotEmpty ? widget.otherUserName[0].toUpperCase() : 'U',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    )
+                  : null,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -308,10 +317,17 @@ class _ChatScreenState extends State<ChatScreen> {
             CircleAvatar(
               radius: 14,
               backgroundColor: AppTheme.lightMint,
-              child: Text(
-                widget.otherUserName.isNotEmpty ? widget.otherUserName[0].toUpperCase() : 'U',
-                style: const TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold, fontSize: 11),
-              ),
+              backgroundImage: widget.otherUserProfilePicture != null && widget.otherUserProfilePicture!.isNotEmpty
+                  ? NetworkImage(widget.otherUserProfilePicture!.startsWith('http')
+                      ? widget.otherUserProfilePicture!
+                      : '${ApiService.appUrl}/storage/${widget.otherUserProfilePicture}')
+                  : null,
+              child: widget.otherUserProfilePicture == null || widget.otherUserProfilePicture!.isEmpty
+                  ? Text(
+                      widget.otherUserName.isNotEmpty ? widget.otherUserName[0].toUpperCase() : 'U',
+                      style: const TextStyle(color: AppTheme.deepLeafGreen, fontWeight: FontWeight.bold, fontSize: 11),
+                    )
+                  : null,
             ),
             const SizedBox(width: 8),
           ],
@@ -446,7 +462,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessageInput() {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -457,62 +472,67 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 26),
-            onPressed: _isSending ? null : _pickAndSendMedia,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              maxLines: null,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                hintText: 'Type a message...',
-                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                filled: true,
-                fillColor: const Color(0xFFF4F6F4),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 26),
+                onPressed: _isSending ? null : _pickAndSendMedia,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  maxLines: null,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: 'Type a message...',
+                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    filled: true,
+                    fillColor: const Color(0xFFF4F6F4),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
                 ),
               ),
-              onSubmitted: (_) => _sendMessage(),
-            ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: _isSending ? null : _sendMessage,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: AppTheme.deepLeafGreen,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.deepLeafGreen.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: _isSending ? null : _sendMessage,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppTheme.deepLeafGreen,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.deepLeafGreen.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                ],
+                  child: _isSending
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                ),
               ),
-              child: _isSending
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

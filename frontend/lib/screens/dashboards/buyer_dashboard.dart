@@ -9,6 +9,7 @@ import 'package:aswenna/screens/chat/chat_screen.dart';
 import 'package:aswenna/screens/payment/payment_screen.dart';
 import 'package:aswenna/screens/review/review_screen.dart';
 import 'package:aswenna/screens/dashboards/buyer_bidding_marketplace.dart';
+import 'package:aswenna/screens/market_rates/buyer_farmer_profile_view_screen.dart';
 
 class BuyerDashboard extends StatefulWidget {
   const BuyerDashboard({super.key});
@@ -1387,6 +1388,35 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         builder: (_) => ChatScreen(
                           otherUserId: farmerId,
                           otherUserName: farmerName,
+                          otherUserProfilePicture: bid['farmer_photo'],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightMint,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.person_outline_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                  ),
+                  title: const Text(
+                    'View Farmer Profile',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BuyerFarmerProfileViewScreen(
+                          farmerId: farmerId,
+                          farmerName: farmerName,
                         ),
                       ),
                     );

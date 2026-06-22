@@ -128,7 +128,8 @@ class ConfirmedBidController extends Controller
                 'crops.cropname',
                 'crops.image_path as crop_image',
                 'farmers.full_name as farmer_name',
-                'farmers.phone_number as farmer_phone'
+                'farmers.phone_number as farmer_phone',
+                'farmers.profile_picture_path as farmer_photo'
             )
             ->orderByDesc('confirmed_bids.created_at')
             ->get();

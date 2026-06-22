@@ -4,6 +4,7 @@ import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/harvest_listings/harvest_listing_form.dart';
 import 'package:aswenna/screens/chat/chat_screen.dart';
+import 'package:aswenna/screens/market_rates/buyer_farmer_profile_view_screen.dart';
 
 class HarvestListingDetailScreen extends StatefulWidget {
   final int listingId;
@@ -601,9 +602,30 @@ class _HarvestListingDetailScreenState extends State<HarvestListingDetailScreen>
                 fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), letterSpacing: -0.5),
           ),
           const SizedBox(height: 4),
-          Text(
-            'Published by: ${_listing['farmer_name'] ?? 'Aswenna Farmer'}',
-            style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500),
+          GestureDetector(
+            onTap: () {
+              final fId = _listing['farmer_id'];
+              if (fId != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BuyerFarmerProfileViewScreen(
+                      farmerId: int.parse(fId.toString()),
+                      farmerName: _listing['farmer_name'] ?? 'Farmer',
+                    ),
+                  ),
+                );
+              }
+            },
+            child: Text(
+              'Published by: ${_listing['farmer_name'] ?? 'Aswenna Farmer'} (View Profile)',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.deepLeafGreen,
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),

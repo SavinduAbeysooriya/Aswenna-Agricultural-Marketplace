@@ -78,7 +78,9 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
         title: const Text('Retailer Center'),
         actions: [
           TextButton.icon(
-            onPressed: () {
+            onPressed: () async {
+              await ApiService.setUserRole('buyer');
+              if (!mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const BuyerDashboard()),
                 (route) => false,

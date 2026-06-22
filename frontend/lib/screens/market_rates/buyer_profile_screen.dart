@@ -1403,6 +1403,8 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
               onPressed: () async {
                 if (hasRetailRole) {
                   // Switch directly
+                  await ApiService.setUserRole('retail_seller');
+                  if (!mounted) return;
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (context) => const RetailerDashboard()),
                     (route) => false,
@@ -1418,6 +1420,8 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                   });
 
                   if (res['success'] == true) {
+                    await ApiService.setUserRole('retail_seller');
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Retail Seller role enabled successfully!'),

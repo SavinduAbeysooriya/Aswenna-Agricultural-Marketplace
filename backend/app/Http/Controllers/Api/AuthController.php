@@ -926,6 +926,76 @@ class AuthController extends Controller
     }
 
     /**
+     * GET /api/farmers/{farmerId}/profile
+     * Fetch any farmer's public profile details (for buyers).
+     */
+    public function getFarmerProfilePublic(Request $request, $farmerId)
+    {
+        $user = User::find($farmerId);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Farmer not found.'
+            ], 404);
+        }
+
+        $roles = $user->role ?? [];
+        if (!in_array('farmer', $roles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This user is not a farmer.'
+            ], 400);
+        }
+
+        $farmerVerification = DB::table('farmer_verification_data')
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($farmerVerification) {
+            $farmerVerification->farming_license_url = $this->publicFileUrl($farmerVerification->farming_license_path);
+            $farmerVerification->organic_certificate_url = $this->publicFileUrl($farmerVerification->organic_certificate_path);
+            $farmerVerification->gap_certificate_url = $this->publicFileUrl($farmerVerification->gap_certificate_path);
+        }
+
+        $reviews = DB::table('buyer_farmer_reviews')
+            ->join('users as reviewers', 'buyer_farmer_reviews.reviewed_by', '=', 'reviewers.id')
+            ->where('buyer_farmer_reviews.farmer_id', $farmerId)
+            ->select(
+                'buyer_farmer_reviews.*',
+                'reviewers.full_name as reviewer_name',
+                'reviewers.profile_picture_path as reviewer_photo'
+            )
+            ->orderByDesc('buyer_farmer_reviews.created_at')
+            ->get();
+
+        $avgRating = $reviews->avg('ratings');
+
+        return response()->json([
+            'success' => true,
+            'profile' => [
+                'user' => [
+                    'id' => $user->id,
+                    'full_name' => $user->full_name,
+                    'email' => $user->email,
+                    'phone_number' => $user->phone_number,
+                    'phone_number_2' => $user->phone_number_2,
+                    'profile_picture_path' => $user->profile_picture_path,
+                    'address' => $user->address,
+                    'city' => $user->city,
+                    'district' => $user->district,
+                    'province' => $user->province,
+                    'latitude' => $user->latitude,
+                    'longitude' => $user->longitude,
+                ],
+                'farmer_verification' => $farmerVerification,
+                'reviews' => $reviews,
+                'avg_rating' => round($avgRating ?? 0.0, 1),
+                'total_count' => $reviews->count(),
+            ],
+        ], 200);
+    }
+
+    /**
      * Update the authenticated farmer's editable profile details.
      */
     public function updateFarmerProfile(Request $request)

@@ -48,11 +48,14 @@ class ChatMessageController extends Controller
     {
         $user = $request->user();
 
+        // Ensure type defaults to 'text' if not specified
+        $request->merge(['type' => $request->input('type', 'text')]);
+
         $validator = Validator::make($request->all(), [
             'receiver_id'  => 'required|integer|exists:users,id',
             'type'         => 'sometimes|string|in:text,image,video,voice,file',
             'message_text' => 'required_if:type,text|nullable|string|max:2000',
-            'media_file'   => 'required_unless:type,text|nullable|file|max:20480', // limit to 20MB
+            'media_file'   => 'required_if:type,image,video,voice,file|nullable|file|max:20480', // limit to 20MB
         ]);
 
         if ($validator->fails()) {

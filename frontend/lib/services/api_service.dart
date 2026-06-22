@@ -798,11 +798,44 @@ class ApiService {
         'message': 'Network connection error. Failed to load farmer profile.',
 
         'error': e.toString(),
-
       };
-
     }
+  }
 
+  static Future<Map<String, dynamic>> getFarmerProfilePublic(int farmerId) async {
+    final token = await getToken();
+    if (token == null) {
+      return {
+        'success': false,
+        'message': 'Your session has expired. Please sign in again.',
+      };
+    }
+    final url = Uri.parse('$baseUrl/farmers/$farmerId/profile');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData;
+      }
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Failed to load farmer profile.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network connection error. Failed to load farmer profile.',
+        'error': e.toString(),
+      };
+    }
   }
 
 
@@ -2089,6 +2122,14 @@ class ApiService {
 
   }
 
+  static Future<void> setUserRole(String role) async {
+
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('aswenna_user_role', role);
+
+  }
+
 
 
   static Future<void> logout() async {
@@ -3190,7 +3231,7 @@ class ApiService {
           'Accept': 'application/json',
           'Authorization': 'Bearer ' + (token ?? ''),
         },
-        body: jsonEncode({'receiver_id': receiverId, 'message_text': message}),
+        body: jsonEncode({'receiver_id': receiverId, 'message_text': message, 'type': 'text'}),
       );
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode == 201 && data['success'] == true) return data;

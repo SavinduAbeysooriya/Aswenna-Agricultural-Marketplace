@@ -1102,7 +1102,7 @@ class AuthController extends Controller
         if (empty($roles)) {
             $roles = ['buyer'];
         }
-        if (!in_array('buyer', $roles, true) && !in_array('customer', $roles, true)) {
+        if (!in_array('buyer', $roles, true) && !in_array('customer', $roles, true) && !in_array('retail_seller', $roles, true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'This profile is only available for buyer/customer accounts.'
@@ -1146,7 +1146,7 @@ class AuthController extends Controller
         if (empty($roles)) {
             $roles = ['buyer'];
         }
-        if (!in_array('buyer', $roles, true) && !in_array('customer', $roles, true)) {
+        if (!in_array('buyer', $roles, true) && !in_array('customer', $roles, true) && !in_array('retail_seller', $roles, true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'This profile is only available for buyer/customer accounts.'

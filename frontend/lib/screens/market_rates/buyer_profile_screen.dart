@@ -1837,6 +1837,57 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              if (verificationDoc['front_image_path'] != null)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Front Image',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          ApiService.fileUrl(verificationDoc['front_image_path']) ?? '',
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderDocPreview(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (verificationDoc['back_image_path'] != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Back Image',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          ApiService.fileUrl(verificationDoc['back_image_path']) ?? '',
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildPlaceholderDocPreview(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ],
     );

@@ -1197,24 +1197,57 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                                          ),
                                        ),
                                        const SizedBox(height: 8),
+                                       Divider(color: Colors.grey[100], height: 1),
+                                       const SizedBox(height: 8),
                                        Row(
-                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                         crossAxisAlignment: CrossAxisAlignment.end,
                                          children: [
-                                           Text(
-                                             '$qty $unit @ LKR ${rate.toStringAsFixed(0)}/$unit',
-                                             style: const TextStyle(
-                                               fontSize: 12,
-                                               color: Color(0xFF64748B),
-                                               fontWeight: FontWeight.w500,
+                                           Expanded(
+                                             child: Column(
+                                               crossAxisAlignment: CrossAxisAlignment.start,
+                                               children: [
+                                                 Text(
+                                                   'Qty: $qty $unit',
+                                                   style: const TextStyle(
+                                                     fontSize: 11,
+                                                     color: Color(0xFF64748B),
+                                                     fontWeight: FontWeight.bold,
+                                                   ),
+                                                 ),
+                                                 const SizedBox(height: 2),
+                                                 Text(
+                                                   'Rate: LKR ${rate.toStringAsFixed(0)}/$unit',
+                                                   style: const TextStyle(
+                                                     fontSize: 11,
+                                                     color: Color(0xFF64748B),
+                                                     fontWeight: FontWeight.w500,
+                                                   ),
+                                                 ),
+                                               ],
                                              ),
                                            ),
-                                           Text(
-                                             'Total: LKR ${total.toStringAsFixed(0)}',
-                                             style: const TextStyle(
-                                               fontSize: 13,
-                                               fontWeight: FontWeight.w800,
-                                               color: AppTheme.deepLeafGreen,
-                                             ),
+                                           Column(
+                                             crossAxisAlignment: CrossAxisAlignment.end,
+                                             children: [
+                                               const Text(
+                                                 'TOTAL AMOUNT',
+                                                 style: TextStyle(
+                                                   fontSize: 8,
+                                                   fontWeight: FontWeight.bold,
+                                                   color: Color(0xFF94A3B8),
+                                                   letterSpacing: 0.5,
+                                                 ),
+                                               ),
+                                               const SizedBox(height: 2),
+                                               Text(
+                                                 'LKR ${total.toStringAsFixed(0)}',
+                                                 style: const TextStyle(
+                                                   fontSize: 14,
+                                                   fontWeight: FontWeight.w900,
+                                                   color: AppTheme.deepLeafGreen,
+                                                 ),
+                                               ),
+                                             ],
                                            ),
                                          ],
                                        ),
@@ -1223,7 +1256,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                                  ),
                                ],
                              ),
-                                                    /* Buttons commented out and moved to premium Bottom Sheet actions */
+                             /* Buttons commented out and moved to premium Bottom Sheet actions */
                             ],
                           ),
                        ),

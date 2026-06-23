@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/crop_picker_screen.dart';
+import 'package:aswenna/screens/market_rates/retailer_profile_screen.dart';
 
 class RetailerProductsScreen extends StatefulWidget {
   const RetailerProductsScreen({super.key});
@@ -16,11 +17,37 @@ class _RetailerProductsScreenState extends State<RetailerProductsScreen> {
   List<dynamic> _products = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isVerified = false;
+  bool _hasPendingDoc = false;
+  bool _hasRejectedDoc = false;
+  String? _profilePic;
 
   @override
   void initState() {
     super.initState();
     _loadProducts();
+    _loadProfileStatus();
+  }
+
+  Future<void> _loadProfileStatus() async {
+    try {
+      final result = await ApiService.getRetailSellerProfile();
+      if (mounted && result['success'] == true) {
+        final profile = result['profile'] ?? {};
+        final user = profile['user'];
+        final Map<dynamic, dynamic> userMap = user is Map ? user : {};
+        final docsVal = profile['documents'];
+        final List<dynamic> documents = docsVal is List ? docsVal : [];
+        setState(() {
+          _isVerified = userMap['is_verified'] == true;
+          _hasPendingDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'pending');
+          _hasRejectedDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'rejected');
+          _profilePic = userMap['profile_picture_path'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading products profile status: $e');
+    }
   }
 
   Future<void> _loadProducts() async {
@@ -128,8 +155,80 @@ class _RetailerProductsScreenState extends State<RetailerProductsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppTheme.darkGreen),
-            onPressed: _loadProducts,
-          )
+            onPressed: () {
+              _loadProducts();
+              _loadProfileStatus();
+            },
+          ),
+          GestureDetector(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RetailerProfileScreen()),
+              );
+              _loadProfileStatus();
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16, left: 8),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[300] ?? Colors.grey)),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(19),
+                      child: _profilePic != null && _profilePic!.isNotEmpty
+                          ? Image.network(
+                              ApiService.fileUrl(_profilePic) ?? '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                            )
+                          : const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)
+                        ],
+                      ),
+                      child: Icon(
+                        _isVerified
+                            ? Icons.verified_rounded
+                            : (_hasPendingDoc
+                                ? Icons.hourglass_bottom_rounded
+                                : (_hasRejectedDoc ? Icons.cancel_rounded : Icons.info_outline_rounded)),
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[500] ?? Colors.grey)),
+                        size: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
       body: _isLoading

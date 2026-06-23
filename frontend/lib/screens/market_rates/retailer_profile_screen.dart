@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
 import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
+import 'package:aswenna/screens/login_screen.dart';
 import 'dart:io';
 
 class RetailerProfileScreen extends StatefulWidget {
@@ -663,6 +664,30 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _confirmLogout(context),
+                          icon: const Icon(Icons.logout_rounded, color: Colors.red, size: 20),
+                          label: const Text(
+                            'Logout',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.red,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red, width: 1.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -1228,6 +1253,7 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
                             : const Text('Save Details & Submit for Verification', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -1336,6 +1362,50 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
         ),
       );
     }
+  }
+
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.logout_rounded, color: Colors.red, size: 24),
+            SizedBox(width: 10),
+            Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to log out of your account?',
+          style: TextStyle(color: Color(0xFF64748B)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ApiService.logout();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              minimumSize: const Size(90, 40),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDefaultAvatar() {

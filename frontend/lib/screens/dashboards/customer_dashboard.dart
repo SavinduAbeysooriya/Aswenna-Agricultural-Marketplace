@@ -24,6 +24,12 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
   double? _longitude;
   String? _cityName;
 
+  // Profile Verification State
+  bool _isVerified = false;
+  bool _hasPendingDoc = false;
+  bool _hasRejectedDoc = false;
+  String? _profilePic;
+
   // Search & Filter State
   final _searchController = TextEditingController();
   int? _selectedCropId;
@@ -67,10 +73,20 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
       // 1. Load user profile details for coordinates
       final profileRes = await ApiService.getBuyerProfile();
       if (profileRes['success'] == true && profileRes['profile'] != null) {
-        final u = profileRes['profile']['user'];
+        final profile = profileRes['profile'] ?? {};
+        final u = profile['user'] ?? {};
         _latitude = u['latitude'] != null ? double.tryParse(u['latitude'].toString()) : null;
         _longitude = u['longitude'] != null ? double.tryParse(u['longitude'].toString()) : null;
         _cityName = u['city'] ?? u['district'];
+
+        final docsVal = profile['documents'];
+        final List<dynamic> documents = docsVal is List ? docsVal : [];
+        setState(() {
+          _isVerified = u['is_verified'] == true;
+          _hasPendingDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'pending');
+          _hasRejectedDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'rejected');
+          _profilePic = u['profile_picture_path'];
+        });
       } else if (profileRes['success'] == false &&
                  (profileRes['message']?.toString().toLowerCase().contains('expired') == true ||
                   profileRes['message']?.toString().toLowerCase().contains('sign in') == true ||
@@ -204,6 +220,69 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
                   ),
                 )
             ],
+          ),
+          GestureDetector(
+            onTap: _navigateToProfile,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16, left: 8),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[300] ?? Colors.grey)),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(19),
+                      child: _profilePic != null && _profilePic!.isNotEmpty
+                          ? Image.network(
+                              ApiService.fileUrl(_profilePic) ?? '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                            )
+                          : const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)
+                        ],
+                      ),
+                      child: Icon(
+                        _isVerified
+                            ? Icons.verified_rounded
+                            : (_hasPendingDoc
+                                ? Icons.hourglass_bottom_rounded
+                                : (_hasRejectedDoc ? Icons.cancel_rounded : Icons.info_outline_rounded)),
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[500] ?? Colors.grey)),
+                        size: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

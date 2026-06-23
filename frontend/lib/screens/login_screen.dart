@@ -1218,9 +1218,11 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
           color: AppTheme.pureWhite,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Handle bar
             Container(
               width: 48,
@@ -1480,7 +1482,8 @@ class _LoginOtpSheetState extends State<_LoginOtpSheet> {
               ],
             ),
             const SizedBox(height: 12),
-          ],
+            ],
+          ),
         ),
       ),
     );

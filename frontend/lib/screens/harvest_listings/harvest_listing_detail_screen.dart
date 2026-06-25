@@ -580,7 +580,7 @@ class _HarvestListingDetailScreenState extends State<HarvestListingDetailScreen>
                 decoration: BoxDecoration(
                   color: const Color(0xFFFAFAFA),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[200]!),
+                  border: Border.all(color: Colors.grey[200] ?? Colors.grey),
                 ),
                 child: Row(
                   children: [

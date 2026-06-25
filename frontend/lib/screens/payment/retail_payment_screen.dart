@@ -127,73 +127,7 @@ class _RetailPaymentScreenState extends State<RetailPaymentScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
 
-          // Developer Sandbox Test Card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.bug_report_rounded, color: Colors.blue, size: 20),
-                    SizedBox(width: 8),
-                    Text('Sandbox Payment Simulator',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Bypass actual payment process and trigger local sandbox simulation for this retail checkout order.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF), height: 1.4),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      setState(() => _isInitiating = true);
-                      final recordResult = await ApiService.confirmRetailOrderPaymentSuccess(widget.orderId, 'SIMULATED-${DateTime.now().millisecondsSinceEpoch}');
-                      setState(() => _isInitiating = false);
-                      
-                      if (recordResult['success'] == true) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Sandbox payment simulation success!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                        _handlePaymentCallback(true);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Simulation failed: ' + (recordResult['message'] ?? '')),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[600],
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Simulate Sandbox Checkout Pay'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
 
           // PayHere Info Card
           Container(
@@ -294,7 +228,7 @@ class _RetailPaymentScreenState extends State<RetailPaymentScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: Colors.grey[300] ?? Colors.grey),
         borderRadius: BorderRadius.circular(6),
         color: const Color(0xFFF8F8F8),
       ),

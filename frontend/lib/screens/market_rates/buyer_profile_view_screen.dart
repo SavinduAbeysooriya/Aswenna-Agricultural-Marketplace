@@ -74,6 +74,7 @@ class _BuyerProfileViewScreenState extends State<BuyerProfileViewScreen> {
     final List<dynamic> reviews = _profileData['reviews'] ?? [];
     final avgRating = _profileData['avg_rating'] ?? 5.0;
     final totalCount = _profileData['total_count'] ?? 0;
+    final List<dynamic> roles = user['roles'] is List ? user['roles'] : [];
 
     final profilePic = user['profile_picture_path']?.toString();
     final profilePicUrl = profilePic != null && profilePic.isNotEmpty
@@ -181,7 +182,12 @@ class _BuyerProfileViewScreenState extends State<BuyerProfileViewScreen> {
                                 color: AppTheme.lightMint,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Text('BUYER ACCOUNT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen)),
+                              child: Text(
+                                roles.contains('customer')
+                                    ? 'CUSTOMER ACCOUNT'
+                                    : (roles.contains('buyer') ? 'BUYER ACCOUNT' : 'USER ACCOUNT'),
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
+                              ),
                             ),
                             if (user['phone_number'] != null) ...[
                               const SizedBox(height: 20),
@@ -228,7 +234,7 @@ class _BuyerProfileViewScreenState extends State<BuyerProfileViewScreen> {
                             _buildInfoRow(Icons.email_rounded, 'Email', user['email'] ?? 'Not Provided'),
                             _buildInfoRow(Icons.phone_rounded, 'Primary Contact', user['phone_number'] ?? 'Not Provided'),
                             _buildInfoRow(Icons.phone_android_rounded, 'Alternative Contact', user['phone_number_2'] ?? 'None'),
-                            _buildInfoRow(Icons.map_rounded, 'Shipping/Billing Address', user['address'] ?? 'Not Specified'),
+                            _buildInfoRow(Icons.map_rounded, 'Registered Address', user['address'] ?? 'Not Specified'),
                           ],
                         ),
                       ),

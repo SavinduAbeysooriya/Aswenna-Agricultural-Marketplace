@@ -895,7 +895,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                                     height: 180,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: Colors.grey[200]!),
+                                      border: Border.all(color: Colors.grey[200] ?? Colors.grey),
                                     ),
                                     child: GoogleMap(
                                       initialCameraPosition: CameraPosition(
@@ -1536,11 +1536,11 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1582,11 +1582,11 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1779,7 +1779,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
             height: 160,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey[200]!),
+              border: Border.all(color: Colors.grey[200] ?? Colors.grey),
             ),
             child: GoogleMap(
               initialCameraPosition: CameraPosition(target: pinTarget, zoom: _latitude != null ? 15 : 7),

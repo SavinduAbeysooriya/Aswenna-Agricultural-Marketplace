@@ -227,7 +227,7 @@ class _BuyerBiddingMarketplaceState extends State<BuyerBiddingMarketplace> {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
+                        border: Border.all(color: Colors.grey[300] ?? Colors.grey),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(

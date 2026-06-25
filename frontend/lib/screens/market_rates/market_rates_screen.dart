@@ -1528,12 +1528,12 @@ class _RateUpdateSheetState extends State<_RateUpdateSheet>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!),
+                            BorderSide(color: Colors.grey[300] ?? Colors.grey),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!),
+                            BorderSide(color: Colors.grey[300] ?? Colors.grey),
                       ),
                     ),
                   ),
@@ -1571,12 +1571,12 @@ class _RateUpdateSheetState extends State<_RateUpdateSheet>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!),
+                            BorderSide(color: Colors.grey[300] ?? Colors.grey),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!),
+                            BorderSide(color: Colors.grey[300] ?? Colors.grey),
                       ),
                     ),
                   ),
@@ -1638,7 +1638,7 @@ class _RateUpdateSheetState extends State<_RateUpdateSheet>
                     border: Border.all(
                       color: isSelected
                           ? AppTheme.deepLeafGreen
-                          : Colors.grey[300]!,
+                          : Colors.grey[300] ?? Colors.grey,
                     ),
                   ),
                   child: Center(
@@ -1691,12 +1691,12 @@ class _RateUpdateSheetState extends State<_RateUpdateSheet>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!),
+                            BorderSide(color: Colors.grey[300] ?? Colors.grey),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!),
+                            BorderSide(color: Colors.grey[300] ?? Colors.grey),
                       ),
                     ),
                   ),
@@ -1732,12 +1732,12 @@ class _RateUpdateSheetState extends State<_RateUpdateSheet>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!),
+                            BorderSide(color: Colors.grey[300] ?? Colors.grey),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!),
+                            BorderSide(color: Colors.grey[300] ?? Colors.grey),
                       ),
                     ),
                   ),

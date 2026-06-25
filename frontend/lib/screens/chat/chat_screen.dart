@@ -438,7 +438,7 @@ class _ChatScreenState extends State<ChatScreen> {
         decoration: BoxDecoration(
           color: isMe ? Colors.white.withOpacity(0.15) : Colors.grey[100],
           borderRadius: BorderRadius.circular(10),
-          border: isMe ? null : Border.all(color: Colors.grey[200]!),
+          border: isMe ? null : Border.all(color: Colors.grey[200] ?? Colors.grey),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

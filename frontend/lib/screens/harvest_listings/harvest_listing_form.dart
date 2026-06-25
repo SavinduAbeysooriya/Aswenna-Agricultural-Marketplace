@@ -455,7 +455,7 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFAFAFA),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey[200]!),
+                            border: Border.all(color: Colors.grey[200] ?? Colors.grey),
                           ),
                           child: Row(
                             children: [
@@ -708,7 +708,7 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
                               height: 160,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: Colors.grey[200]!),
+                                border: Border.all(color: Colors.grey[200] ?? Colors.grey),
                               ),
                               child: GoogleMap(
                                 initialCameraPosition: CameraPosition(
@@ -938,7 +938,7 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
                           fillColor: const Color(0xFFFAFAFA),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide(color: Colors.grey[200]!),
+                            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
                           ),
                         ),
                       ),
@@ -1027,11 +1027,11 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1063,11 +1063,11 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1095,7 +1095,7 @@ class _HarvestListingFormState extends State<HarvestListingForm> {
           decoration: BoxDecoration(
             color: const Color(0xFFFAFAFA),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey[200]!),
+            border: Border.all(color: Colors.grey[200] ?? Colors.grey),
           ),
           child: Row(
             children: [

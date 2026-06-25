@@ -5,6 +5,7 @@ import 'package:aswenna/screens/dashboards/order_review_dialog.dart';
 import 'package:aswenna/screens/chat/chat_screen.dart';
 import 'package:aswenna/screens/market_rates/buyer_profile_view_screen.dart';
 import 'package:aswenna/screens/market_rates/delivery_profile_view_screen.dart';
+import 'package:aswenna/screens/market_rates/retailer_profile_screen.dart';
 
 class RetailerOrdersScreen extends StatefulWidget {
   const RetailerOrdersScreen({super.key});
@@ -17,11 +18,37 @@ class _RetailerOrdersScreenState extends State<RetailerOrdersScreen> {
   List<dynamic> _orders = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isVerified = false;
+  bool _hasPendingDoc = false;
+  bool _hasRejectedDoc = false;
+  String? _profilePic;
 
   @override
   void initState() {
     super.initState();
     _fetchOrders();
+    _loadProfileStatus();
+  }
+
+  Future<void> _loadProfileStatus() async {
+    try {
+      final result = await ApiService.getRetailSellerProfile();
+      if (mounted && result['success'] == true) {
+        final profile = result['profile'] ?? {};
+        final user = profile['user'];
+        final Map<dynamic, dynamic> userMap = user is Map ? user : {};
+        final docsVal = profile['documents'];
+        final List<dynamic> documents = docsVal is List ? docsVal : [];
+        setState(() {
+          _isVerified = userMap['is_verified'] == true;
+          _hasPendingDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'pending');
+          _hasRejectedDoc = documents.any((doc) => doc is Map && doc['verification_status'] == 'rejected');
+          _profilePic = userMap['profile_picture_path'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading orders profile status: $e');
+    }
   }
 
   Future<void> _fetchOrders() async {
@@ -215,8 +242,80 @@ class _RetailerOrdersScreenState extends State<RetailerOrdersScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppTheme.darkGreen),
-            onPressed: _fetchOrders,
-          )
+            onPressed: () {
+              _fetchOrders();
+              _loadProfileStatus();
+            },
+          ),
+          GestureDetector(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RetailerProfileScreen()),
+              );
+              _loadProfileStatus();
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16, left: 8),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[300] ?? Colors.grey)),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(19),
+                      child: _profilePic != null && _profilePic!.isNotEmpty
+                          ? Image.network(
+                              ApiService.fileUrl(_profilePic) ?? '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                            )
+                          : const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)
+                        ],
+                      ),
+                      child: Icon(
+                        _isVerified
+                            ? Icons.verified_rounded
+                            : (_hasPendingDoc
+                                ? Icons.hourglass_bottom_rounded
+                                : (_hasRejectedDoc ? Icons.cancel_rounded : Icons.info_outline_rounded)),
+                        color: _isVerified
+                            ? AppTheme.deepLeafGreen
+                            : (_hasPendingDoc
+                                ? AppTheme.accentGold
+                                : (_hasRejectedDoc ? Colors.red : Colors.grey[500] ?? Colors.grey)),
+                        size: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
       body: _isLoading
@@ -397,7 +496,7 @@ class RetailerOrderListItemCard extends StatelessWidget {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: order['customer']?['profile_picture_path'] != null
+                        child: (order['customer']?['profile_picture_path'] != null && order['customer']?['profile_picture_path'].toString().isNotEmpty == true)
                             ? Image.network(
                                 ApiService.fileUrl(order['customer']['profile_picture_path']) ?? '',
                                 fit: BoxFit.cover,
@@ -468,7 +567,7 @@ class RetailerOrderListItemCard extends StatelessWidget {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: order['deliveryPartner']?['profile_picture_path'] != null
+                          child: (order['deliveryPartner']?['profile_picture_path'] != null && order['deliveryPartner']?['profile_picture_path'].toString().isNotEmpty == true)
                               ? Image.network(
                                   ApiService.fileUrl(order['deliveryPartner']['profile_picture_path']) ?? '',
                                   fit: BoxFit.cover,
@@ -646,6 +745,10 @@ class _RetailerOrderDetailSheetState extends State<RetailerOrderDetailSheet> {
     final status = widget.order['order_status'] ?? 'pending';
     final items = widget.order['retailer_items'] as List? ?? [];
     final double salesTotal = items.fold(0.0, (sum, item) => sum + double.parse(item['final_price'].toString()));
+    final customerPic = widget.order['customer']?['profile_picture_path']?.toString();
+    final customerPicUrl = customerPic != null && customerPic.isNotEmpty
+        ? ApiService.fileUrl(customerPic)
+        : null;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -708,15 +811,22 @@ class _RetailerOrderDetailSheetState extends State<RetailerOrderDetailSheet> {
                           const SizedBox(height: 10),
                           Row(
                             children: [
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: AppTheme.lightMint,
-                                backgroundImage: widget.order['customer']['profile_picture_path'] != null
-                                    ? NetworkImage(ApiService.fileUrl(widget.order['customer']['profile_picture_path']) ?? '')
-                                    : null,
-                                child: widget.order['customer']['profile_picture_path'] == null
-                                    ? const Icon(Icons.person, color: AppTheme.deepLeafGreen)
-                                    : null,
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppTheme.lightMint,
+                                ),
+                                child: ClipOval(
+                                  child: customerPicUrl != null
+                                      ? Image.network(
+                                          customerPicUrl,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                                        )
+                                      : const Icon(Icons.person, color: AppTheme.deepLeafGreen),
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -962,21 +1072,32 @@ class _RetailerOrderDetailSheetState extends State<RetailerOrderDetailSheet> {
                             final partnerName = partner['full_name'] ?? 'Delivery Partner';
                             final reviewed = _hasReviewed(partnerId);
                             final rating = _getReviewRating(partnerId);
+                            final partnerPic = partner['profile_picture_path']?.toString();
+                            final partnerPicUrl = partnerPic != null && partnerPic.isNotEmpty
+                                ? ApiService.fileUrl(partnerPic)
+                                : null;
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
-                                    CircleAvatar(
-                                      radius: 20,
-                                      backgroundColor: AppTheme.lightMint,
-                                      backgroundImage: partner['profile_picture_path'] != null
-                                          ? NetworkImage(ApiService.fileUrl(partner['profile_picture_path']) ?? '')
-                                          : null,
-                                      child: partner['profile_picture_path'] == null
-                                          ? const Icon(Icons.local_shipping_rounded, color: AppTheme.deepLeafGreen)
-                                          : null,
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: AppTheme.lightMint,
+                                      ),
+                                      child: ClipOval(
+                                        child: partnerPicUrl != null
+                                            ? Image.network(
+                                                partnerPicUrl,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) => const Icon(Icons.local_shipping_rounded, color: AppTheme.deepLeafGreen),
+                                              )
+                                            : const Icon(Icons.local_shipping_rounded, color: AppTheme.deepLeafGreen),
+                                      ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(

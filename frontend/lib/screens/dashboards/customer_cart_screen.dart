@@ -399,21 +399,22 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                                   final imageUrl = thumb != null ? ApiService.fileUrl(thumb) : null;
 
                                   return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12.0),
+                                    padding: const EdgeInsets.only(bottom: 16.0),
                                     child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Container(
-                                          width: 44,
-                                          height: 44,
+                                          width: 52,
+                                          height: 52,
                                           decoration: BoxDecoration(
                                             color: AppTheme.softGray,
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(10),
                                             image: imageUrl != null
                                                 ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
                                                 : null,
                                           ),
                                           child: imageUrl == null
-                                              ? const Icon(Icons.eco_rounded, color: AppTheme.deepLeafGreen, size: 20)
+                                              ? const Icon(Icons.eco_rounded, color: AppTheme.deepLeafGreen, size: 24)
                                               : null,
                                         ),
                                         const SizedBox(width: 12),
@@ -423,11 +424,16 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                                             children: [
                                               Text(
                                                 item.product['product_name'] ?? 'Product',
-                                                maxLines: 1,
+                                                maxLines: 2,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                                               ),
                                               const SizedBox(height: 4),
+                                              Text(
+                                                'LKR ${price.toStringAsFixed(2)} / ${item.product['unit_type'] ?? 'kg'}',
+                                                style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                                              ),
+                                              const SizedBox(height: 6),
                                               _CartQuantitySelector(
                                                 stockQuantity: double.tryParse(item.product['stock_quantity']?.toString() ?? '0') ?? 0.0,
                                                 unitType: item.product['unit_type'] ?? 'kg',
@@ -442,18 +448,27 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                                             ],
                                           ),
                                         ),
-                                        Text(
-                                          'LKR ${(price * item.quantity).toStringAsFixed(2)}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.darkGreen),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red, size: 18),
-                                          onPressed: () {
-                                            setState(() {
-                                              Cart.remove(item.product['id']);
-                                            });
-                                            _updateDeliveryFee();
-                                          },
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                              icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red, size: 20),
+                                              onPressed: () {
+                                                setState(() {
+                                                  Cart.remove(item.product['id']);
+                                                });
+                                                _updateDeliveryFee();
+                                              },
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'LKR ${(price * item.quantity).toStringAsFixed(2)}',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.darkGreen),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -739,39 +754,34 @@ class _CartQuantitySelectorState extends State<_CartQuantitySelector> {
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
-          icon: const Icon(Icons.remove_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 18),
+          icon: const Icon(Icons.remove_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 20),
           onPressed: () {
             _updateVal(_currentVal - 1.0);
           },
         ),
         const SizedBox(width: 4),
         Container(
-          width: 38,
-          height: 24,
+          width: 44,
+          height: 26,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: const Color(0xFFFAFAFA),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: Colors.grey[300] ?? Colors.grey),
           ),
           child: Text(
             _formatValue(_currentVal),
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
           ),
         ),
         const SizedBox(width: 4),
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
-          icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 18),
+          icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.deepLeafGreen, size: 20),
           onPressed: () {
             _updateVal(_currentVal + 1.0);
           },
-        ),
-        const SizedBox(width: 4),
-        Text(
-          widget.unitType,
-          style: const TextStyle(fontSize: 10, color: Colors.grey),
         ),
       ],
     );

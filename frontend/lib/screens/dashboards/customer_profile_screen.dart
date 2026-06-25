@@ -886,7 +886,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                     height: 180,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: Colors.grey[200]!),
+                                      border: Border.all(color: Colors.grey[200] ?? Colors.grey),
                                     ),
                                     child: GoogleMap(
                                       initialCameraPosition: CameraPosition(
@@ -1403,11 +1403,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1449,11 +1449,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.grey[200]!),
+            borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1474,7 +1474,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFFFAFAFA),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey[300]!, width: 1.5, style: BorderStyle.solid),
+          border: Border.all(color: Colors.grey[300] ?? Colors.grey, width: 1.5, style: BorderStyle.solid),
         ),
         child: path != null
             ? ClipRRect(
@@ -1646,7 +1646,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             height: 160,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey[200]!),
+              border: Border.all(color: Colors.grey[200] ?? Colors.grey),
             ),
             child: GoogleMap(
               initialCameraPosition: CameraPosition(target: pinTarget, zoom: _latitude != null ? 15 : 7),
@@ -1889,6 +1889,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1934,7 +1937,16 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              ...children,
+              Flexible(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: children,
+                  ),
+                ),
+              ),
             ],
           ),
         );

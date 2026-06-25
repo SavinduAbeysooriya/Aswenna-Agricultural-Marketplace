@@ -328,10 +328,10 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double price = double.tryParse(product['price_per_unit']?.toString() ?? '0') ?? 0.0;
     final hasDiscount = product['discount_price_per_unit'] != null &&
-        double.parse(product['discount_price_per_unit'].toString()) > 0;
-    final price = double.parse(product['price_per_unit'].toString());
-    final discountPrice = hasDiscount ? double.parse(product['discount_price_per_unit'].toString()) : null;
+        (double.tryParse(product['discount_price_per_unit'].toString()) ?? 0.0) > 0;
+    final discountPrice = hasDiscount ? (double.tryParse(product['discount_price_per_unit'].toString()) ?? 0.0) : null;
 
     final String? thumbnail = product['thumbnail_path'];
     final imageUrl = thumbnail != null ? ApiService.fileUrl(thumbnail) : null;
@@ -520,7 +520,7 @@ class ProductCard extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'LKR ${discountPrice!.toStringAsFixed(2)} / ${product['unit_type']}',
+                              'LKR ${(discountPrice ?? 0.0).toStringAsFixed(2)} / ${product['unit_type']}',
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -860,7 +860,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                           decoration: BoxDecoration(
                             color: AppTheme.pureWhite,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey[200]!),
+                            border: Border.all(color: Colors.grey[200] ?? Colors.grey),
                           ),
                           child: Row(
                             children: [
@@ -1157,8 +1157,8 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
             fillColor: AppTheme.pureWhite,
             filled: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey[200]!)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey[200]!)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey[200] ?? Colors.grey)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppTheme.freshGreen)),
           ),
         ),
@@ -1182,7 +1182,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
           decoration: BoxDecoration(
             color: AppTheme.pureWhite,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey[200]!),
+            border: Border.all(color: Colors.grey[200] ?? Colors.grey),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(

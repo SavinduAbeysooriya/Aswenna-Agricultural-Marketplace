@@ -694,7 +694,7 @@ Keep the response practical, direct, and structured with bullet points. Limit to
                  color: isSelected ? AppTheme.deepLeafGreen : Colors.white,
                  borderRadius: BorderRadius.circular(20),
                  border: Border.all(
-                   color: isSelected ? AppTheme.deepLeafGreen : Colors.grey[200]!,
+                   color: isSelected ? AppTheme.deepLeafGreen : Colors.grey[200] ?? Colors.grey,
                    width: 1.5,
                  ),
                  boxShadow: [

@@ -364,7 +364,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: Colors.grey[300] ?? Colors.grey),
         borderRadius: BorderRadius.circular(6),
         color: const Color(0xFFF8F8F8),
       ),

@@ -533,7 +533,7 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                               borderRadius: BorderRadius.circular(16),
                               child: Container(
                                 height: 120,
-                                decoration: BoxDecoration(border: Border.all(color: Colors.grey[200]!)),
+                                decoration: BoxDecoration(border: Border.all(color: Colors.grey[200] ?? Colors.grey)),
                                 child: GoogleMap(
                                   initialCameraPosition: CameraPosition(target: initialTarget, zoom: _latitude != null ? 15 : 7),
                                   markers: _latitude != null && _longitude != null
@@ -752,7 +752,7 @@ class _CartQuantitySelectorState extends State<_CartQuantitySelector> {
           decoration: BoxDecoration(
             color: const Color(0xFFFAFAFA),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: Colors.grey[300] ?? Colors.grey),
           ),
           child: Text(
             _formatValue(_currentVal),

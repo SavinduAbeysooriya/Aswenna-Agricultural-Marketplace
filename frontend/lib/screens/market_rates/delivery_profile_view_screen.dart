@@ -248,12 +248,177 @@ class _DeliveryProfileViewScreenState extends State<DeliveryProfileViewScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Reviews List Section
-                      const Text(
-                        'Rider Reviews',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-                      ),
-                      const SizedBox(height: 10),
+                       // Reviews List Section
+                       Row(
+                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                         children: [
+                           const Text(
+                             'Rider Reviews',
+                             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                           ),
+                           Row(
+                             children: [
+                               const Icon(Icons.star_rounded, color: AppTheme.accentGold, size: 18),
+                               const SizedBox(width: 4),
+                               Text(
+                                 avgRating.toStringAsFixed(1),
+                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                               ),
+                               Text(
+                                 ' ($totalCount)',
+                                 style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                               ),
+                             ],
+                           ),
+                         ],
+                       ),
+                       const SizedBox(height: 10),
+                       // Quick Direct Review Form
+                       Builder(
+                         builder: (context) {
+                           final eligibleList = _profileData['eligible_orders'] as List? ?? [];
+                           final reviewedIds = _profileData['reviewed_order_ids'] as List? ?? [];
+                           // Filter orders that haven't been reviewed yet
+                           final pendingOrders = eligibleList.where((o) => !reviewedIds.contains(o['id'])).toList();
+
+                           if (pendingOrders.isEmpty) {
+                             return const Padding(
+                               padding: EdgeInsets.only(bottom: 20),
+                               child: Text(
+                                 'You can only review this rider after placing an order delivered by them.',
+                                 style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
+                               ),
+                             );
+                           }
+
+                           int localRating = 5;
+                           int? selectedOrderId = pendingOrders.first['id'] as int?;
+                           final localFeedbackController = TextEditingController();
+
+                           return StatefulBuilder(
+                             builder: (context, setReviewState) {
+                               return Container(
+                                 margin: const EdgeInsets.only(bottom: 20),
+                                 padding: const EdgeInsets.all(12),
+                                 decoration: BoxDecoration(
+                                   color: Colors.white,
+                                   borderRadius: BorderRadius.circular(16),
+                                   border: Border.all(color: const Color(0xFFE2E8F0)),
+                                 ),
+                                 child: Column(
+                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                   children: [
+                                     const Text('Write a Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                                     const SizedBox(height: 10),
+                                     const Text('Select Order:', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                     const SizedBox(height: 4),
+                                     Container(
+                                       padding: const EdgeInsets.symmetric(horizontal: 10),
+                                       decoration: BoxDecoration(
+                                         color: Colors.white,
+                                         borderRadius: BorderRadius.circular(8),
+                                         border: Border.all(color: Colors.grey[300] ?? Colors.grey),
+                                       ),
+                                       child: DropdownButtonHideUnderline(
+                                         child: DropdownButton<int>(
+                                           value: selectedOrderId,
+                                           isExpanded: true,
+                                           style: const TextStyle(fontSize: 12, color: Colors.black87),
+                                           items: pendingOrders.map((o) {
+                                             return DropdownMenuItem<int>(
+                                               value: o['id'] as int,
+                                               child: Text(o['order_number']?.toString() ?? 'Order #${o['id']}'),
+                                             );
+                                           }).toList(),
+                                           onChanged: (val) {
+                                             setReviewState(() {
+                                               selectedOrderId = val;
+                                             });
+                                           },
+                                         ),
+                                       ),
+                                     ),
+                                     const SizedBox(height: 10),
+                                     Row(
+                                       children: List.generate(5, (index) {
+                                         final star = index + 1;
+                                         return GestureDetector(
+                                           onTap: () {
+                                             setReviewState(() {
+                                               localRating = star;
+                                             });
+                                           },
+                                           child: Padding(
+                                             padding: const EdgeInsets.only(right: 4.0),
+                                             child: Icon(
+                                               Icons.star_rounded,
+                                               color: star <= localRating ? AppTheme.accentGold : Colors.grey[300],
+                                               size: 24,
+                                             ),
+                                           ),
+                                         );
+                                       }),
+                                     ),
+                                     const SizedBox(height: 8),
+                                     TextField(
+                                       controller: localFeedbackController,
+                                       decoration: const InputDecoration(
+                                         hintText: 'Share your experience with this rider...',
+                                         hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                         border: InputBorder.none,
+                                       ),
+                                       maxLines: 2,
+                                       style: const TextStyle(fontSize: 12),
+                                     ),
+                                     const SizedBox(height: 8),
+                                     Align(
+                                       alignment: Alignment.bottomRight,
+                                       child: ElevatedButton(
+                                         onPressed: () async {
+                                           if (localFeedbackController.text.trim().isEmpty) {
+                                             ScaffoldMessenger.of(context).showSnackBar(
+                                               const SnackBar(content: Text('Please enter your feedback text.')),
+                                             );
+                                             return;
+                                           }
+                                           if (selectedOrderId == null) return;
+
+                                           final res = await ApiService.submitOrderReview(
+                                             orderId: selectedOrderId!,
+                                             reviewedTo: widget.partnerId,
+                                             ratings: localRating,
+                                             feedback: localFeedbackController.text.trim(),
+                                           );
+                                           if (res['success'] == true) {
+                                             ScaffoldMessenger.of(context).showSnackBar(
+                                               const SnackBar(content: Text('Review submitted successfully!')),
+                                             );
+                                             localFeedbackController.clear();
+                                             _fetchProfile();
+                                           } else {
+                                             ScaffoldMessenger.of(context).showSnackBar(
+                                               SnackBar(content: Text(res['message'] ?? 'Failed to submit review.')),
+                                             );
+                                           }
+                                         },
+                                         style: ElevatedButton.styleFrom(
+                                           backgroundColor: AppTheme.deepLeafGreen,
+                                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                           minimumSize: const Size(0, 0),
+                                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                         ),
+                                         child: const Text('Submit', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                       ),
+                                     ),
+                                   ],
+                                 ),
+                               );
+                             },
+                           );
+                         }
+                       ),
+                       const Divider(height: 8),
 
                       if (reviews.isEmpty)
                         Container(

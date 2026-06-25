@@ -1881,7 +1881,7 @@ class AuthController extends Controller
 
         $retailerVerification = null;
         if (in_array('retail_seller', $roles, true)) {
-            $retailerVerification = DB::table('retailer_verification_data')
+            $retailerVerification = DB::table('retail_seller_verification_data')
                 ->where('user_id', $user->id)
                 ->first();
         }
@@ -1912,6 +1912,42 @@ class AuthController extends Controller
 
         $avgRating = $reviews->avg('ratings') ?? 5.0;
 
+        // Fetch completed/delivered orders involving this customer and the target user
+        $currentUser = $request->user('sanctum');
+        $eligibleOrders = [];
+        $reviewedOrderIds = [];
+
+        if ($currentUser) {
+            // Find orders where the customer has completed/delivered orders
+            // 1. If target is a retailer, find customer orders containing items from this retailer
+            if (in_array('retail_seller', $roles, true)) {
+                $eligibleOrders = DB::table('customer_orders')
+                    ->join('order_items', 'customer_orders.id', '=', 'order_items.order_id')
+                    ->where('customer_orders.customer_id', $currentUser->id)
+                    ->whereIn('customer_orders.order_status', ['delivered', 'completed'])
+                    ->where('order_items.retailer_id', $userId)
+                    ->select('customer_orders.id', 'customer_orders.order_number')
+                    ->distinct()
+                    ->get();
+            }
+            // 2. If target is a delivery partner, find customer orders assigned to this delivery partner
+            elseif (in_array('delivery_partner', $roles, true)) {
+                $eligibleOrders = DB::table('customer_orders')
+                    ->where('customer_id', $currentUser->id)
+                    ->whereIn('order_status', ['delivered', 'completed'])
+                    ->where('delivery_partner_id', $userId)
+                    ->select('id', 'order_number')
+                    ->get();
+            }
+
+            // Find order IDs already reviewed by this customer for this target user
+            $reviewedOrderIds = DB::table('retailer_customer_delivery_partner_reviews')
+                ->where('reviewed_by', $currentUser->id)
+                ->where('reviewed_to', $userId)
+                ->pluck('order_id')
+                ->toArray();
+        }
+
         return response()->json([
             'success' => true,
             'profile' => [
@@ -1935,6 +1971,8 @@ class AuthController extends Controller
                 'reviews' => $reviews,
                 'avg_rating' => round($avgRating, 1),
                 'total_count' => $reviews->count(),
+                'eligible_orders' => $eligibleOrders,
+                'reviewed_order_ids' => $reviewedOrderIds,
             ]
         ]);
     }

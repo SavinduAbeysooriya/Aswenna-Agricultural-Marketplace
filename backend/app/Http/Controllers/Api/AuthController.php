@@ -1877,6 +1877,15 @@ class AuthController extends Controller
             $deliveryVerification = DB::table('delivery_partner_verification_data')
                 ->where('user_id', $user->id)
                 ->first();
+            if ($deliveryVerification) {
+                $deliveryVerification->vehicle_front_image_url = $this->publicFileUrl($deliveryVerification->vehicle_front_image);
+                $deliveryVerification->vehicle_back_image_url = $this->publicFileUrl($deliveryVerification->vehicle_back_image);
+                $otherPhotos = json_decode($deliveryVerification->vehicle_other_images ?? '[]', true) ?: [];
+                $deliveryVerification->vehicle_other_images_urls = collect($otherPhotos)
+                    ->map(fn($path) => $this->publicFileUrl($path))
+                    ->values()
+                    ->all();
+            }
         }
 
         $retailerVerification = null;

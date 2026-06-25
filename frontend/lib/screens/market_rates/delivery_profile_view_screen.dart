@@ -248,6 +248,111 @@ class _DeliveryProfileViewScreenState extends State<DeliveryProfileViewScreen> {
                       ),
                       const SizedBox(height: 20),
 
+                      // Vehicle Photos Card
+                      if (deliveryVerification['vehicle_front_image_url'] != null ||
+                          deliveryVerification['vehicle_back_image_url'] != null ||
+                          (deliveryVerification['vehicle_other_images_urls'] != null &&
+                              (deliveryVerification['vehicle_other_images_urls'] as List).isNotEmpty))
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.02),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              )
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Vehicle Photos', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  if (deliveryVerification['vehicle_front_image_url'] != null)
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('Front View', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 6),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Image.network(
+                                              ApiService.fileUrl(deliveryVerification['vehicle_front_image_url']) ?? deliveryVerification['vehicle_front_image_url'].toString(),
+                                              height: 100,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => _buildPlaceholderPhoto(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (deliveryVerification['vehicle_front_image_url'] != null &&
+                                      deliveryVerification['vehicle_back_image_url'] != null)
+                                    const SizedBox(width: 12),
+                                  if (deliveryVerification['vehicle_back_image_url'] != null)
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('Rear View', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 6),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Image.network(
+                                              ApiService.fileUrl(deliveryVerification['vehicle_back_image_url']) ?? deliveryVerification['vehicle_back_image_url'].toString(),
+                                              height: 100,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => _buildPlaceholderPhoto(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              if (deliveryVerification['vehicle_other_images_urls'] != null &&
+                                  (deliveryVerification['vehicle_other_images_urls'] as List).isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                const Text('Other Photos', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 8),
+                                GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 10,
+                                    childAspectRatio: 1,
+                                  ),
+                                  itemCount: (deliveryVerification['vehicle_other_images_urls'] as List).length,
+                                  itemBuilder: (context, index) {
+                                    final rawUrl = (deliveryVerification['vehicle_other_images_urls'] as List)[index].toString();
+                                    final url = ApiService.fileUrl(rawUrl) ?? rawUrl;
+                                    return ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        url,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => _buildPlaceholderPhoto(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+
                        // Reviews List Section
                        Row(
                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -524,6 +629,14 @@ class _DeliveryProfileViewScreenState extends State<DeliveryProfileViewScreen> {
       color: AppTheme.lightMint,
       alignment: Alignment.center,
       child: const Icon(Icons.person_rounded, color: AppTheme.deepLeafGreen, size: 48),
+    );
+  }
+
+  Widget _buildPlaceholderPhoto() {
+    return Container(
+      color: const Color(0xFFF1F5F9),
+      alignment: Alignment.center,
+      child: Icon(Icons.image_not_supported_rounded, color: Colors.grey[400], size: 24),
     );
   }
 

@@ -334,20 +334,25 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
                     const Icon(Icons.sports_motorsports_rounded,
                         color: Colors.white, size: 28),
                     const SizedBox(width: 10),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Delivery Console',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 20)),
-                        Text('Find and accept nearby deliveries',
-                            style: TextStyle(
-                                color: AppTheme.lightMint, fontSize: 12)),
-                      ],
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Delivery Console',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 20)),
+                          Text('Find and accept nearby deliveries',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: AppTheme.lightMint, fontSize: 12)),
+                        ],
+                      ),
                     ),
-                    const Spacer(),
                     IconButton(
                       onPressed: _loadNearbyOrders,
                       icon: const Icon(Icons.refresh_rounded,

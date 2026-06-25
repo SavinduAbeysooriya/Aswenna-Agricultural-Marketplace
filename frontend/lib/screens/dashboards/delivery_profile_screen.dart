@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
@@ -20,6 +21,7 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isLocating = false;
+  bool _isEditing = false;
   String? _errorMessage;
   String? _successMessage;
 
@@ -211,8 +213,30 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
           
           // Existing other images URLs
           _existingOtherImagesUrls = [];
-          if (_verificationData['vehicle_other_images_urls'] != null && _verificationData['vehicle_other_images_urls'] is List) {
-            _existingOtherImagesUrls = List<String>.from(_verificationData['vehicle_other_images_urls'].map((u) => u.toString()));
+          var otherUrls = _verificationData['vehicle_other_images_urls'];
+          var otherRaw = _verificationData['vehicle_other_images'];
+          List<dynamic>? rawList;
+          if (otherUrls != null && otherUrls is List) {
+            rawList = otherUrls;
+          } else if (otherRaw != null) {
+            if (otherRaw is List) {
+              rawList = otherRaw;
+            } else if (otherRaw is String && otherRaw.trim().isNotEmpty) {
+              try {
+                final decoded = jsonDecode(otherRaw);
+                if (decoded is List) {
+                  rawList = decoded;
+                }
+              } catch (_) {}
+            }
+          }
+          if (rawList != null) {
+            for (final item in rawList) {
+              final resolvedUrl = ApiService.fileUrl(item.toString());
+              if (resolvedUrl != null && resolvedUrl.isNotEmpty) {
+                _existingOtherImagesUrls.add(resolvedUrl);
+              }
+            }
           }
         });
 
@@ -550,26 +574,243 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
         ? ApiService.fileUrl(_userData['profile_picture_path'])
         : null;
 
+    if (!_isEditing) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF4F6F4),
+        appBar: AppBar(
+          title: const Text('Rider Profile Settings', style: TextStyle(color: AppTheme.darkGreen, fontWeight: FontWeight.w900)),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF0F172A),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_rounded, color: AppTheme.darkGreen),
+              onPressed: () => setState(() => _isEditing = true),
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
+            : SafeArea(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  child: Column(
+                    children: [
+                    // Verification Status Banner
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: statusColor.withOpacity(0.2), width: 1.5),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(statusIcon, color: statusColor, size: 28),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  statusText,
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: statusColor),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  statusDesc,
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.4),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    if (_errorMessage != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(12)),
+                        child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                      ),
+
+                    if (_successMessage != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(12)),
+                        child: Text(_successMessage!, style: const TextStyle(color: AppTheme.deepLeafGreen, fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+
+                    // Avatar Card
+                    Center(
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 110,
+                            height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: avatarUrl != null
+                                  ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildDefaultAvatar())
+                                  : _buildDefaultAvatar(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _nameController.text.isNotEmpty ? _nameController.text : 'Rider Account',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_phoneController.text} | ${_emailController.text.isNotEmpty ? _emailController.text : "No Email"}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Option tiles
+                    _buildMenuTile(
+                      icon: Icons.badge_outlined,
+                      iconColor: const Color(0xFF2E7D32),
+                      iconBgColor: const Color(0xFFE8F5E9),
+                      title: 'Personal Details',
+                      subtitle: 'Name, email, phone numbers & national ID',
+                      onTap: _showPersonalDetailsSheet,
+                    ),
+                    _buildMenuTile(
+                      icon: Icons.map_rounded,
+                      iconColor: const Color(0xFF1565C0),
+                      iconBgColor: const Color(0xFFE3F2FD),
+                      title: 'Base Location & Map',
+                      subtitle: 'Home address, city, district & coordinate map',
+                      onTap: _showAddressLocationSheet,
+                    ),
+                    _buildMenuTile(
+                      icon: Icons.directions_car_rounded,
+                      iconColor: const Color(0xFFEF6C00),
+                      iconBgColor: const Color(0xFFFFF3E0),
+                      title: 'Vehicle Specifications',
+                      subtitle: 'Type, model, year, color, capacity & registration',
+                      onTap: _showVehicleSpecsSheet,
+                    ),
+                    _buildMenuTile(
+                      icon: Icons.folder_zip_rounded,
+                      iconColor: const Color(0xFF7B1FA2),
+                      iconBgColor: const Color(0xFFF3E5F5),
+                      title: 'Verification & Files',
+                      subtitle: 'License, insurance, revenue files and status',
+                      onTap: _showDocumentsSheet,
+                    ),
+
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: () => setState(() => _isEditing = true),
+                        icon: const Icon(Icons.edit_rounded, color: Colors.white, size: 20),
+                        label: const Text(
+                          'Edit Profile Details',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.deepLeafGreen,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await ApiService.logout();
+                          if (!mounted) return;
+                          _redirectToLogin();
+                        },
+                        icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                        label: const Text(
+                          'Logout Account',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.redAccent,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F4),
       appBar: AppBar(
-        title: const Text('Rider Profile Settings'),
+        title: const Text('Edit Rider Profile', style: TextStyle(color: AppTheme.darkGreen, fontWeight: FontWeight.w900)),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF0F172A),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.close_rounded, size: 20),
+          onPressed: () => setState(() => _isEditing = false),
         ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
           : _isSaving
               ? const Center(child: CircularProgressIndicator(color: AppTheme.deepLeafGreen))
-              : SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                  child: Form(
+              : SafeArea(
+                  child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                      child: Form(
                     key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1002,10 +1243,12 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
                 ),
+              ),
     );
   }
 
@@ -1241,6 +1484,390 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
           ),
           child: const Text('Pick Image', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
         ),
+      ],
+    );
+  }
+
+  Widget _buildMenuTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.01),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF94A3B8),
+          size: 20,
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildSheetDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF64748B)),
+        const SizedBox(width: 10),
+        Text(
+          '$label: ',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showModalSheet({
+    required String title,
+    required List<Widget> children,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Flexible(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: children,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color;
+    String label;
+    switch (status.toLowerCase()) {
+      case 'verified':
+      case 'approved':
+        color = AppTheme.deepLeafGreen;
+        label = 'Verified';
+        break;
+      case 'rejected':
+        color = Colors.red;
+        label = 'Rejected';
+        break;
+      case 'pending':
+      default:
+        color = AppTheme.accentGold;
+        label = 'Pending';
+        break;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  void _showPersonalDetailsSheet() {
+    _showModalSheet(
+      title: 'Personal Details',
+      children: [
+        _buildSheetDetailRow(Icons.person_rounded, 'Full Name', _nameController.text.isNotEmpty ? _nameController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.email_rounded, 'Email Address', _emailController.text.isNotEmpty ? _emailController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.phone_android_rounded, 'Primary Phone', _phoneController.text.isNotEmpty ? _phoneController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.phone_rounded, 'Secondary Phone', _phone2Controller.text.isNotEmpty ? _phone2Controller.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.credit_card_rounded, 'National ID (NIC)', _nicController.text.isNotEmpty ? _nicController.text : '-'),
+      ],
+    );
+  }
+
+  void _showAddressLocationSheet() {
+    final LatLng pinTarget = _latitude != null && _longitude != null
+        ? LatLng(_latitude!, _longitude!)
+        : const LatLng(6.9271, 79.8612);
+
+    _showModalSheet(
+      title: 'Base Location Area',
+      children: [
+        _buildSheetDetailRow(Icons.home_rounded, 'Street Address', _addressController.text.isNotEmpty ? _addressController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.location_city_rounded, 'City', _cityController.text.isNotEmpty ? _cityController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.explore_rounded, 'Province', _selectedProvince ?? '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.map_rounded, 'District', _selectedDistrict ?? '-'),
+        const SizedBox(height: 16),
+        const Text(
+          'Pinned Location Coordinates',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 160,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey[200] ?? Colors.grey),
+            ),
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: pinTarget, zoom: _latitude != null ? 15 : 7),
+              markers: _latitude != null && _longitude != null
+                  ? {Marker(markerId: const MarkerId('delivery_loc_read'), position: pinTarget)}
+                  : {},
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+            ),
+          ),
+        ),
+        if (_latitude != null && _longitude != null) ...[
+          const SizedBox(height: 6),
+          Center(
+            child: Text(
+              'Pinned: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+              style: const TextStyle(fontSize: 11, color: AppTheme.deepLeafGreen, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showVehicleSpecsSheet() {
+    _showModalSheet(
+      title: 'Vehicle Specifications',
+      children: [
+        _buildSheetDetailRow(Icons.directions_car_rounded, 'Vehicle Type', _selectedVehicleType != null ? _getVehicleTypeLabel(_selectedVehicleType!) : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.business_rounded, 'Manufacturer', _vehicleMakeController.text.isNotEmpty ? _vehicleMakeController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.model_training_rounded, 'Model Name', _vehicleModelController.text.isNotEmpty ? _vehicleModelController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.calendar_today_rounded, 'Mfg Year', _vehicleYearController.text.isNotEmpty ? _vehicleYearController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.palette_rounded, 'Vehicle Color', _vehicleColorController.text.isNotEmpty ? _vehicleColorController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.tag_rounded, 'Plate Number', _registrationNumberController.text.isNotEmpty ? _registrationNumberController.text : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.scale_rounded, 'Carrying Capacity', _maxWeightController.text.isNotEmpty ? '${_maxWeightController.text} kg' : '-'),
+      ],
+    );
+  }
+
+  Widget _buildDocPreviewCard(String label, String? remotePath) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey)),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: remotePath != null
+              ? Image.network(
+                  ApiService.fileUrl(remotePath) ?? '',
+                  height: 110,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 110,
+                    color: Colors.grey[200],
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 28),
+                  ),
+                )
+              : Container(
+                  height: 110,
+                  color: Colors.grey[200],
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey, size: 28),
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _showDocumentsSheet() {
+    final partnerStatus = _verificationData['status'] ?? 'pending';
+    final frontImage = _documents.isNotEmpty ? _documents.first['front_image_path']?.toString() : null;
+    final backImage = _documents.isNotEmpty ? _documents.first['back_image_path']?.toString() : null;
+
+    _showModalSheet(
+      title: 'Verification & Files',
+      children: [
+        _buildSheetDetailRow(Icons.event_busy_rounded, 'License Expiry', _licenseExpiry != null ? _formatDate(_licenseExpiry) : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.event_busy_rounded, 'Insurance Expiry', _insuranceExpiry != null ? _formatDate(_insuranceExpiry) : '-'),
+        const SizedBox(height: 12),
+        _buildSheetDetailRow(Icons.event_busy_rounded, 'Revenue Expiry', _revenueLicenseExpiry != null ? _formatDate(_revenueLicenseExpiry) : '-'),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Verification Status', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500)),
+            _buildStatusChip(partnerStatus),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Text('Document Proof Previews', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _buildDocPreviewCard('License Front', frontImage)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildDocPreviewCard('License Back', backImage)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _buildDocPreviewCard('Insurance Image', _verificationData['insurance_image_path']?.toString())),
+            const SizedBox(width: 12),
+            Expanded(child: _buildDocPreviewCard('Revenue License', _verificationData['revenue_license_image_path']?.toString())),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _buildDocPreviewCard('Vehicle Front', _verificationData['vehicle_front_image']?.toString())),
+            const SizedBox(width: 12),
+            Expanded(child: _buildDocPreviewCard('Vehicle Back', _verificationData['vehicle_back_image']?.toString())),
+          ],
+        ),
+        if (_existingOtherImagesUrls.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text('Other Vehicle Photos', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1,
+            ),
+            itemCount: _existingOtherImagesUrls.length,
+            itemBuilder: (context, index) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(_existingOtherImagesUrls[index], fit: BoxFit.cover),
+              );
+            },
+          ),
+        ],
       ],
     );
   }

@@ -2042,9 +2042,12 @@ class ApiService {
 
     if (value == null) return null;
 
-    final path = value.toString().trim();
+    var path = value.toString().trim();
 
     if (path.isEmpty) return null;
+
+    // Normalize backslashes (especially escaped ones like \/)
+    path = path.replaceAll('\\/', '/').replaceAll('\\', '/');
 
     if (path.startsWith('http://localhost:8000')) {
 

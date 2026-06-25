@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:aswenna/theme/app_theme.dart';
+import 'package:aswenna/screens/market_rates/retailer_profile_view_screen.dart';
+import 'package:aswenna/screens/market_rates/delivery_profile_view_screen.dart';
+import 'package:aswenna/screens/chat/chat_screen.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/dashboards/order_tracking_screen.dart';
@@ -635,10 +638,157 @@ class _OrderDetailSheetState extends State<OrderDetailSheet> {
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
               ),
               const SizedBox(height: 4),
-              Text(
-                'Sellers: ${items.map((item) => item['retailer']?['full_name'] ?? 'Retailer Shop').toSet().join(', ')}',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-              ),
+              // Interactive Retailers and Delivery Contact Buttons
+              () {
+                final uniqueRetailers = <int, Map<String, dynamic>>{};
+                for (var item in items) {
+                  final retailer = item['retailer'];
+                  if (retailer != null && retailer['id'] != null) {
+                    uniqueRetailers[retailer['id'] as int] = retailer as Map<String, dynamic>;
+                  }
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Order Partners & Contacts', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    const SizedBox(height: 8),
+                    ...uniqueRetailers.values.map((retailer) {
+                      final rId = retailer['id'] as int;
+                      final rName = retailer['full_name'] ?? 'Retailer';
+                      final String? rPic = retailer['profile_picture_path'];
+                      final rPicUrl = rPic != null && rPic.isNotEmpty ? ApiService.fileUrl(rPic) : null;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.pureWhite,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: AppTheme.lightMint,
+                              backgroundImage: rPicUrl != null ? NetworkImage(rPicUrl) : null,
+                              child: rPicUrl == null ? const Icon(Icons.storefront_rounded, size: 18, color: AppTheme.deepLeafGreen) : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(rName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                                  const Text('Retail Seller', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.deepLeafGreen, size: 18),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      otherUserId: rId,
+                                      otherUserName: rName,
+                                      otherUserProfilePicture: rPicUrl,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.person_outline_rounded, color: AppTheme.deepLeafGreen, size: 18),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => RetailerProfileViewScreen(
+                                      retailerId: rId,
+                                      retailerName: rName,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+
+                    // Delivery Partner Row
+                    if (widget.order['deliveryPartner'] != null) ...[
+                      () {
+                        final partner = widget.order['deliveryPartner'];
+                        final partnerId = partner['id'] as int;
+                        final partnerName = partner['full_name'] ?? 'Delivery Partner';
+                        final String? pPic = partner['profile_picture_path'];
+                        final pPicUrl = pPic != null && pPic.isNotEmpty ? ApiService.fileUrl(pPic) : null;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.pureWhite,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: AppTheme.lightMint,
+                                backgroundImage: pPicUrl != null ? NetworkImage(pPicUrl) : null,
+                                child: pPicUrl == null ? const Icon(Icons.local_shipping_rounded, size: 18, color: AppTheme.deepLeafGreen) : null,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(partnerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                                    const Text('Delivery Rider', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.deepLeafGreen, size: 18),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatScreen(
+                                        otherUserId: partnerId,
+                                        otherUserName: partnerName,
+                                        otherUserProfilePicture: pPicUrl,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.person_outline_rounded, color: AppTheme.deepLeafGreen, size: 18),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => DeliveryProfileViewScreen(
+                                        partnerId: partnerId,
+                                        partnerName: partnerName,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }(),
+                    ],
+                  ],
+                );
+              }(),
               const SizedBox(height: 20),
 
               // Order status visual bar

@@ -817,11 +817,30 @@ class _ActiveDeliveriesTabState extends State<_ActiveDeliveriesTab> {
   List<dynamic> _deliveries = [];
   bool _isLoading = true;
   String? _error;
+  String? _profileImageUrl;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final response = await ApiService.getDeliveryPartnerProfile();
+      if (response['success'] == true && response['profile'] != null) {
+        final profile = response['profile'];
+        final user = profile['user'];
+        if (user != null && user['profile_picture_path'] != null) {
+          if (mounted) {
+            setState(() {
+              _profileImageUrl = ApiService.fileUrl(user['profile_picture_path']);
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -878,15 +897,44 @@ class _ActiveDeliveriesTabState extends State<_ActiveDeliveriesTab> {
                       color: AppTheme.deepLeafGreen),
                   onPressed: _load,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.account_circle_outlined,
-                      color: AppTheme.deepLeafGreen),
-                  onPressed: () {
+                GestureDetector(
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
-                    ).then((_) => _load());
+                    ).then((_) {
+                      _load();
+                      _loadProfileImage();
+                    });
                   },
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.deepLeafGreen, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppTheme.deepLeafGreen.withOpacity(0.1),
+                      backgroundImage: _profileImageUrl != null
+                          ? NetworkImage(_profileImageUrl!)
+                          : null,
+                      child: _profileImageUrl == null
+                          ? const Icon(
+                              Icons.person_rounded,
+                              color: AppTheme.deepLeafGreen,
+                              size: 18,
+                            )
+                          : null,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -953,6 +1001,7 @@ class _ActiveDeliveryCard extends StatefulWidget {
 }
 
 class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
+  static const String _googleApiKey = 'AIzaSyAv6nCtuhwyaN7-qRCvecCh75lNQECRI9M';
   bool _isUpdating = false;
   GoogleMapController? _mapController;
 
@@ -1088,47 +1137,39 @@ class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
             ),
           ),
 
-          // Mini Google Map
+          // Mini Google Map (Rendered via Google Static Maps API to prevent BLASTBuffer crashes on budget Android devices)
           if (mapLat != null && mapLng != null)
             ClipRRect(
               borderRadius: BorderRadius.zero,
               child: SizedBox(
                 height: 180,
-                child: GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: LatLng(mapLat, mapLng),
-                    zoom: 13,
-                  ),
-                  onMapCreated: (c) => _mapController = c,
-                  liteModeEnabled: true,
-                  myLocationEnabled: false,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  markers: {
-                    Marker(
-                      markerId: const MarkerId('destination'),
-                      position: LatLng(mapLat, mapLng),
-                      infoWindow: InfoWindow(title: 'Deliver to $customerName'),
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueRed),
-                    ),
-                    ...pickupPoints
-                        .where((pp) =>
-                            pp['pickup_lat'] != null &&
-                            pp['pickup_lng'] != null)
-                        .map((pp) => Marker(
-                              markerId: MarkerId(
-                                  'pickup_${pp['retailer_id'] ?? pp['shop_name']}'),
-                              position: LatLng(
-                                  _toDouble(pp['pickup_lat']),
-                                  _toDouble(pp['pickup_lng'])),
-                              infoWindow: InfoWindow(
-                                  title: pp['retailer_name'] ??
-                                      pp['shop_name'] ??
-                                      'Shop'),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                  BitmapDescriptor.hueGreen),
-                            )),
+                width: double.infinity,
+                child: Image.network(
+                  'https://maps.googleapis.com/maps/api/staticmap'
+                  '?center=$mapLat,$mapLng'
+                  '&zoom=13'
+                  '&size=600x300'
+                  '&scale=2'
+                  '&markers=color:0xE11D48%7Clabel:D%7C$mapLat,$mapLng' // Customer Destination
+                  '${pickupPoints.where((pp) => pp['pickup_lat'] != null && pp['pickup_lng'] != null).map((pp) => '&markers=color:0x16A34A%7Clabel:P%7C${pp['pickup_lat']},${pp['pickup_lng']}').join('')}' // Pickups
+                  '&key=$_googleApiKey',
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: AppTheme.softGray,
+                      child: const Center(
+                        child: CircularProgressIndicator(color: AppTheme.deepLeafGreen),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: AppTheme.softGray,
+                      child: const Center(
+                        child: Icon(Icons.map_rounded, color: AppTheme.deepLeafGreen, size: 40),
+                      ),
+                    );
                   },
                 ),
               ),
@@ -1334,11 +1375,30 @@ class _EarningsTabState extends State<_EarningsTab> {
   List<dynamic> _completedOrders = [];
   int _completedDeliveries = 0;
   int _selectedTab = 0; // 0=overview, 1=transactions, 2=deliveries
+  String? _profileImageUrl;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final response = await ApiService.getDeliveryPartnerProfile();
+      if (response['success'] == true && response['profile'] != null) {
+        final profile = response['profile'];
+        final user = profile['user'];
+        if (user != null && user['profile_picture_path'] != null) {
+          if (mounted) {
+            setState(() {
+              _profileImageUrl = ApiService.fileUrl(user['profile_picture_path']);
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -1416,10 +1476,38 @@ class _EarningsTabState extends State<_EarningsTab> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
-                                  ).then((_) => _load());
+                                  ).then((_) {
+                                    _load();
+                                    _loadProfileImage();
+                                  });
                                 },
-                                child: const Icon(Icons.account_circle_outlined,
-                                    color: Colors.white70, size: 20),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 14,
+                                    backgroundColor: Colors.white.withOpacity(0.2),
+                                    backgroundImage: _profileImageUrl != null
+                                        ? NetworkImage(_profileImageUrl!)
+                                        : null,
+                                    child: _profileImageUrl == null
+                                        ? const Icon(
+                                            Icons.person_rounded,
+                                            color: Colors.white,
+                                            size: 14,
+                                          )
+                                        : null,
+                                  ),
+                                ),
                               ),
                             ],
                           ),

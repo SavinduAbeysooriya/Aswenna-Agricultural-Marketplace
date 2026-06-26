@@ -6,6 +6,7 @@ import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/dashboards/delivery_profile_screen.dart';
+import 'package:aswenna/screens/dashboards/active_route_map_screen.dart';
 
 /// Safely converts any API value (String/int/double/null) to double.
 double _toDouble(dynamic v, [double fallback = 0.0]) {
@@ -90,12 +91,6 @@ class _DeliveryDashboardState extends State<DeliveryDashboard>
                 _buildNavItem(0, Icons.explore_rounded, 'Nearby'),
                 _buildNavItem(1, Icons.delivery_dining_rounded, 'Active'),
                 _buildNavItem(2, Icons.account_balance_wallet_rounded, 'Earnings'),
-                _buildNavItemAction(
-                  Icons.logout_rounded,
-                  'Logout',
-                  Colors.red,
-                  _logout,
-                ),
               ],
             ),
           ),
@@ -182,6 +177,7 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
   Position? _currentPosition;
   bool _isSharingLocation = false;
   Timer? _locationTimer;
+  String? _profileImageUrl;
 
   @override
   void initState() {
@@ -198,6 +194,24 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
   Future<void> _initLocationAndLoad() async {
     await _fetchLocation();
     await _loadNearbyOrders();
+    await _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final response = await ApiService.getDeliveryPartnerProfile();
+      if (response['success'] == true && response['profile'] != null) {
+        final profile = response['profile'];
+        final user = profile['user'];
+        if (user != null && user['profile_picture_path'] != null) {
+          if (mounted) {
+            setState(() {
+              _profileImageUrl = ApiService.fileUrl(user['profile_picture_path']);
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchLocation() async {
@@ -318,75 +332,121 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.darkGreen, AppTheme.deepLeafGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: const AssetImage('assets/images/delivery_bg.jpg'),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(
+                  AppTheme.darkGreen.withOpacity(0.55),
+                  BlendMode.srcOver,
+                ),
               ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(28),
+                bottomRight: Radius.circular(28),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.darkGreen.withOpacity(0.2),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.sports_motorsports_rounded,
-                        color: Colors.white, size: 28),
-                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.sports_motorsports_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Delivery Console',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 20)),
-                          Text('Find and accept nearby deliveries',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: AppTheme.lightMint, fontSize: 12)),
+                          Text(
+                            'Delivery Console',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Find and accept nearby deliveries',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppTheme.lightMint,
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     IconButton(
                       onPressed: _loadNearbyOrders,
-                      icon: const Icon(Icons.refresh_rounded,
-                          color: Colors.white),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      tooltip: 'Refresh Orders',
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.account_circle_outlined,
-                          color: Colors.white),
-                      onPressed: () {
+                    GestureDetector(
+                      onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
                         ).then((_) => _initLocationAndLoad());
                       },
-                    ),
-                    // 🧪 Test button in header
-                    _isCreatingTest
-                        ? const SizedBox(
-                            width: 24, height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                        : Tooltip(
-                            message: 'Create test order',
-                            child: IconButton(
-                              onPressed: _createTestOrder,
-                              icon: const Icon(
-                                Icons.science_rounded,
-                                color: Colors.white70,
-                              ),
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
                             ),
-                          ),
+                          ],
+                        ),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          backgroundImage: _profileImageUrl != null
+                              ? NetworkImage(_profileImageUrl!)
+                              : null,
+                          child: _profileImageUrl == null
+                              ? const Icon(
+                                  Icons.person_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 GestureDetector(
                   onTap: _toggleLocationSharing,
                   child: AnimatedBuilder(
@@ -398,11 +458,20 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
                             horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           color: _isSharingLocation
-                              ? Colors.green.shade400
+                              ? const Color(0xFF10B981) // Emerald Green
                               : Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(40),
+                          borderRadius: BorderRadius.circular(30),
                           border: Border.all(
-                              color: Colors.white.withOpacity(0.3), width: 1),
+                              color: Colors.white.withOpacity(0.25), width: 1),
+                          boxShadow: _isSharingLocation
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF10B981).withOpacity(0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
+                              : null,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -421,7 +490,7 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
                                   : 'Tap to go ONLINE',
                               style: const TextStyle(
                                   color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w800,
                                   fontSize: 13),
                             ),
                           ],
@@ -748,11 +817,30 @@ class _ActiveDeliveriesTabState extends State<_ActiveDeliveriesTab> {
   List<dynamic> _deliveries = [];
   bool _isLoading = true;
   String? _error;
+  String? _profileImageUrl;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final response = await ApiService.getDeliveryPartnerProfile();
+      if (response['success'] == true && response['profile'] != null) {
+        final profile = response['profile'];
+        final user = profile['user'];
+        if (user != null && user['profile_picture_path'] != null) {
+          if (mounted) {
+            setState(() {
+              _profileImageUrl = ApiService.fileUrl(user['profile_picture_path']);
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -809,15 +897,44 @@ class _ActiveDeliveriesTabState extends State<_ActiveDeliveriesTab> {
                       color: AppTheme.deepLeafGreen),
                   onPressed: _load,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.account_circle_outlined,
-                      color: AppTheme.deepLeafGreen),
-                  onPressed: () {
+                GestureDetector(
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
-                    ).then((_) => _load());
+                    ).then((_) {
+                      _load();
+                      _loadProfileImage();
+                    });
                   },
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.deepLeafGreen, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppTheme.deepLeafGreen.withOpacity(0.1),
+                      backgroundImage: _profileImageUrl != null
+                          ? NetworkImage(_profileImageUrl!)
+                          : null,
+                      child: _profileImageUrl == null
+                          ? const Icon(
+                              Icons.person_rounded,
+                              color: AppTheme.deepLeafGreen,
+                              size: 18,
+                            )
+                          : null,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -884,6 +1001,7 @@ class _ActiveDeliveryCard extends StatefulWidget {
 }
 
 class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
+  static const String _googleApiKey = 'AIzaSyAv6nCtuhwyaN7-qRCvecCh75lNQECRI9M';
   bool _isUpdating = false;
   GoogleMapController? _mapController;
 
@@ -1019,46 +1137,39 @@ class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
             ),
           ),
 
-          // Mini Google Map
+          // Mini Google Map (Rendered via Google Static Maps API to prevent BLASTBuffer crashes on budget Android devices)
           if (mapLat != null && mapLng != null)
             ClipRRect(
               borderRadius: BorderRadius.zero,
               child: SizedBox(
-                height: 160,
-                child: GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: LatLng(mapLat, mapLng),
-                    zoom: 13,
-                  ),
-                  onMapCreated: (c) => _mapController = c,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  markers: {
-                    Marker(
-                      markerId: const MarkerId('destination'),
-                      position: LatLng(mapLat, mapLng),
-                      infoWindow: InfoWindow(title: 'Deliver to $customerName'),
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueRed),
-                    ),
-                    ...pickupPoints
-                        .where((pp) =>
-                            pp['pickup_lat'] != null &&
-                            pp['pickup_lng'] != null)
-                        .map((pp) => Marker(
-                              markerId: MarkerId(
-                                  'pickup_${pp['retailer_id'] ?? pp['shop_name']}'),
-                              position: LatLng(
-                                  _toDouble(pp['pickup_lat']),
-                                  _toDouble(pp['pickup_lng'])),
-                              infoWindow: InfoWindow(
-                                  title: pp['retailer_name'] ??
-                                      pp['shop_name'] ??
-                                      'Shop'),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                  BitmapDescriptor.hueGreen),
-                            )),
+                height: 180,
+                width: double.infinity,
+                child: Image.network(
+                  'https://maps.googleapis.com/maps/api/staticmap'
+                  '?center=$mapLat,$mapLng'
+                  '&zoom=13'
+                  '&size=600x300'
+                  '&scale=2'
+                  '&markers=color:0xE11D48%7Clabel:D%7C$mapLat,$mapLng' // Customer Destination
+                  '${pickupPoints.where((pp) => pp['pickup_lat'] != null && pp['pickup_lng'] != null).map((pp) => '&markers=color:0x16A34A%7Clabel:P%7C${pp['pickup_lat']},${pp['pickup_lng']}').join('')}' // Pickups
+                  '&key=$_googleApiKey',
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: AppTheme.softGray,
+                      child: const Center(
+                        child: CircularProgressIndicator(color: AppTheme.deepLeafGreen),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: AppTheme.softGray,
+                      child: const Center(
+                        child: Icon(Icons.map_rounded, color: AppTheme.deepLeafGreen, size: 40),
+                      ),
+                    );
                   },
                 ),
               ),
@@ -1069,6 +1180,37 @@ class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Start Tour Action Button
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ActiveRouteMapScreen(delivery: delivery),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.navigation_rounded, size: 18, color: Colors.white),
+                  label: const Text(
+                    'Start Tour (Interactive Route Map)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.deepLeafGreen,
+                    minimumSize: const Size(double.infinity, 46),
+                    elevation: 2,
+                    shadowColor: AppTheme.deepLeafGreen.withOpacity(0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Pickup stops
                 const Text('PICKUP STOPS',
                     style: TextStyle(
@@ -1233,11 +1375,30 @@ class _EarningsTabState extends State<_EarningsTab> {
   List<dynamic> _completedOrders = [];
   int _completedDeliveries = 0;
   int _selectedTab = 0; // 0=overview, 1=transactions, 2=deliveries
+  String? _profileImageUrl;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final response = await ApiService.getDeliveryPartnerProfile();
+      if (response['success'] == true && response['profile'] != null) {
+        final profile = response['profile'];
+        final user = profile['user'];
+        if (user != null && user['profile_picture_path'] != null) {
+          if (mounted) {
+            setState(() {
+              _profileImageUrl = ApiService.fileUrl(user['profile_picture_path']);
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -1315,10 +1476,38 @@ class _EarningsTabState extends State<_EarningsTab> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
-                                  ).then((_) => _load());
+                                  ).then((_) {
+                                    _load();
+                                    _loadProfileImage();
+                                  });
                                 },
-                                child: const Icon(Icons.account_circle_outlined,
-                                    color: Colors.white70, size: 20),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 14,
+                                    backgroundColor: Colors.white.withOpacity(0.2),
+                                    backgroundImage: _profileImageUrl != null
+                                        ? NetworkImage(_profileImageUrl!)
+                                        : null,
+                                    child: _profileImageUrl == null
+                                        ? const Icon(
+                                            Icons.person_rounded,
+                                            color: Colors.white,
+                                            size: 14,
+                                          )
+                                        : null,
+                                  ),
+                                ),
                               ),
                             ],
                           ),

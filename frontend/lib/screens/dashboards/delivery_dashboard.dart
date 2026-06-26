@@ -6,6 +6,7 @@ import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/dashboards/delivery_profile_screen.dart';
+import 'package:aswenna/screens/dashboards/active_route_map_screen.dart';
 
 /// Safely converts any API value (String/int/double/null) to double.
 double _toDouble(dynamic v, [double fallback = 0.0]) {
@@ -1092,14 +1093,15 @@ class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
             ClipRRect(
               borderRadius: BorderRadius.zero,
               child: SizedBox(
-                height: 160,
+                height: 180,
                 child: GoogleMap(
                   initialCameraPosition: CameraPosition(
                     target: LatLng(mapLat, mapLng),
                     zoom: 13,
                   ),
                   onMapCreated: (c) => _mapController = c,
-                  myLocationEnabled: true,
+                  liteModeEnabled: true,
+                  myLocationEnabled: false,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   markers: {
@@ -1137,6 +1139,37 @@ class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Start Tour Action Button
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ActiveRouteMapScreen(delivery: delivery),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.navigation_rounded, size: 18, color: Colors.white),
+                  label: const Text(
+                    'Start Tour (Interactive Route Map)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.deepLeafGreen,
+                    minimumSize: const Size(double.infinity, 46),
+                    elevation: 2,
+                    shadowColor: AppTheme.deepLeafGreen.withOpacity(0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Pickup stops
                 const Text('PICKUP STOPS',
                     style: TextStyle(

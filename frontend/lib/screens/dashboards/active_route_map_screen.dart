@@ -209,6 +209,8 @@ class _ActiveRouteMapScreenState extends State<ActiveRouteMapScreen> {
   final List<String> _stopNames = [];
   int _currentStopIndex = 0;
   String _vehicleType = 'motorcycle';
+  String _currentStatus = 'assigned';
+  bool _isUpdatingStatus = false;
 
   @override
   void initState() {
@@ -216,6 +218,8 @@ class _ActiveRouteMapScreenState extends State<ActiveRouteMapScreen> {
     _parseCoordinates();
     _loadVehicleType();
     _initLiveLocation();
+    final latestTracking = widget.delivery['latest_tracking'] as Map<String, dynamic>?;
+    _currentStatus = latestTracking?['status'] ?? 'assigned';
   }
 
   Future<void> _loadVehicleType() async {
@@ -234,6 +238,56 @@ class _ActiveRouteMapScreenState extends State<ActiveRouteMapScreen> {
         }
       }
     } catch (_) {}
+  }
+
+  final List<Map<String, dynamic>> _statusSteps = [
+    {'status': 'heading_to_pickup', 'label': 'Head to Pickup', 'icon': Icons.directions_run_rounded},
+    {'status': 'arrived_pickup', 'label': 'Arrived at Shop', 'icon': Icons.storefront_rounded},
+    {'status': 'picked_up', 'label': 'Picked Up', 'icon': Icons.shopping_bag_rounded},
+    {'status': 'on_the_way', 'label': 'On the Way', 'icon': Icons.sports_motorsports_rounded},
+    {'status': 'arrived_destination', 'label': 'At Destination', 'icon': Icons.location_on_rounded},
+    {'status': 'delivered', 'label': 'Mark Delivered', 'icon': Icons.check_circle_rounded},
+  ];
+
+  Future<void> _updateStatus(String status) async {
+    setState(() => _isUpdatingStatus = true);
+
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+    } catch (_) {}
+
+    final orderId = widget.delivery['order_id'] as int;
+    final result = await ApiService.updateDeliveryStatus(
+      orderId,
+      status: status,
+      latitude: position?.latitude ?? 6.9271,
+      longitude: position?.longitude ?? 79.8612,
+    );
+
+    setState(() => _isUpdatingStatus = false);
+
+    if (mounted) {
+      if (result['success'] == true) {
+        setState(() {
+          _currentStatus = status;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ Status updated: ${status.toUpperCase().replaceAll('_', ' ')}'),
+          backgroundColor: AppTheme.deepLeafGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ ${result['message'] ?? 'Update failed.'}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    }
   }
 
   @override
@@ -868,44 +922,44 @@ class _ActiveRouteMapScreenState extends State<ActiveRouteMapScreen> {
       body: Stack(
         children: [
           // Google Map
-          if (hasRoute)
-            GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _riderLocation!,
-                zoom: 14.5,
-              ),
-              onMapCreated: (c) {
-                _mapController = c;
-                _mapController!.setMapStyle(_customMapStyle);
-                // Trigger initial bounds fit once map is fully laid out
-                Future.delayed(const Duration(milliseconds: 600), () {
-                  _zoomToFitAll();
-                });
-              },
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              markers: _markers,
-              polylines: _polylines,
-            )
-          else
-            const Center(
-              child: CircularProgressIndicator(color: AppTheme.deepLeafGreen),
-            ),
+          hasRoute
+              ? GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _riderLocation!,
+                    zoom: 14.5,
+                  ),
+                  onMapCreated: (c) {
+                    _mapController = c;
+                    _mapController!.setMapStyle(_customMapStyle);
+                    // Trigger initial bounds fit once map is fully laid out
+                    Future.delayed(const Duration(milliseconds: 600), () {
+                      _zoomToFitAll();
+                    });
+                  },
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  markers: _markers,
+                  polylines: _polylines,
+                )
+              : const Center(
+                  child: CircularProgressIndicator(color: AppTheme.deepLeafGreen),
+                ),
 
           // Recenter / Fit Route Floating Button (PickMe/Uber style)
-          if (hasRoute && !_isNavigating)
-            Positioned(
-              bottom: 180,
-              right: 16,
-              child: FloatingActionButton.small(
-                onPressed: _zoomToFitAll,
-                backgroundColor: Colors.white,
-                foregroundColor: AppTheme.deepLeafGreen,
-                elevation: 6,
-                child: const Icon(Icons.center_focus_strong_rounded, size: 20),
-              ),
-            ),
+          hasRoute && !_isNavigating
+              ? Positioned(
+                  bottom: 180,
+                  right: 16,
+                  child: FloatingActionButton.small(
+                    onPressed: _zoomToFitAll,
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.deepLeafGreen,
+                    elevation: 6,
+                    child: const Icon(Icons.center_focus_strong_rounded, size: 20),
+                  ),
+                )
+              : const SizedBox.shrink(),
 
           // Header Bar Overlay
           Positioned(
@@ -998,14 +1052,16 @@ class _ActiveRouteMapScreenState extends State<ActiveRouteMapScreen> {
               ),
             ),
           ),
-
-          // Bottom Navigation Card Panel
+                    // Bottom Navigation Card Panel
           Positioned(
-            bottom: 24,
+            bottom: MediaQuery.of(context).padding.bottom + 12,
             left: 16,
             right: 16,
             child: Container(
-              padding: const EdgeInsets.all(20),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.38,
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
@@ -1017,112 +1073,194 @@ class _ActiveRouteMapScreenState extends State<ActiveRouteMapScreen> {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.lightMint,
-                          shape: BoxShape.circle,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.lightMint,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.navigation_rounded,
+                            color: AppTheme.deepLeafGreen,
+                            size: 20,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.navigation_rounded,
-                          color: AppTheme.deepLeafGreen,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _routeInfo,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppTheme.darkGreen,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _routeInfo,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppTheme.darkGreen,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                ),
                               ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _isLoadingRoute
+                                    ? 'Loading high precision route...'
+                                    : 'Remaining distance: ~${_distanceToNext.toStringAsFixed(2)} km',
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 1,
+                      color: const Color(0xFFF1F5F9),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _isNavigating = !_isNavigating;
+                              });
+                              _updateLiveRoute();
+                            },
+                            icon: Icon(
+                              _isNavigating ? Icons.cancel_rounded : Icons.navigation_rounded,
+                              color: Colors.white,
+                              size: 16,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _isLoadingRoute
-                                  ? 'Loading high precision route...'
-                                  : 'Remaining distance: ~${_distanceToNext.toStringAsFixed(2)} km',
+                            label: Text(
+                              _isNavigating ? 'Stop In-App Navigation' : 'Start Navigation',
                               style: const TextStyle(
-                                color: Color(0xFF64748B),
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    height: 1,
-                    color: const Color(0xFFF1F5F9),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _isNavigating = !_isNavigating;
-                            });
-                            _updateLiveRoute();
-                          },
-                          icon: Icon(
-                            _isNavigating ? Icons.cancel_rounded : Icons.navigation_rounded,
-                            color: Colors.white,
-                          ),
-                          label: Text(
-                            _isNavigating ? 'Stop In-App Navigation' : 'Start Navigation',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _isNavigating ? Colors.red.shade600 : AppTheme.deepLeafGreen,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            elevation: 2,
-                            shadowColor: (_isNavigating ? Colors.red.shade600 : AppTheme.deepLeafGreen).withOpacity(0.3),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _isNavigating ? Colors.red.shade600 : AppTheme.deepLeafGreen,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              elevation: 2,
+                              shadowColor: (_isNavigating ? Colors.red.shade600 : AppTheme.deepLeafGreen).withOpacity(0.3),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: _launchExternalNavigation,
-                      icon: const Icon(Icons.open_in_new_rounded, size: 14, color: AppTheme.deepLeafGreen),
-                      label: const Text(
-                        'Open Google Maps Externally',
-                        style: TextStyle(
-                          color: AppTheme.deepLeafGreen,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          decoration: TextDecoration.underline,
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _launchExternalNavigation,
+                        icon: const Icon(Icons.open_in_new_rounded, size: 12, color: AppTheme.deepLeafGreen),
+                        label: const Text(
+                          'Open Google Maps Externally',
+                          style: TextStyle(
+                            color: AppTheme.deepLeafGreen,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 1,
+                      color: const Color(0xFFF1F5F9),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.circle, size: 6, color: AppTheme.deepLeafGreen),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'CURRENT STATUS: ${_currentStatus.toUpperCase().replaceAll('_', ' ')}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.deepLeafGreen,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    _isUpdatingStatus
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: CircularProgressIndicator(color: AppTheme.deepLeafGreen, strokeWidth: 3),
+                            ),
+                          )
+                        : Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: _statusSteps.map((step) {
+                              final isCurrent = _currentStatus == step['status'];
+                              final isDelivered = step['status'] == 'delivered';
+                              return GestureDetector(
+                                onTap: () => _updateStatus(step['status']),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: isCurrent
+                                        ? AppTheme.deepLeafGreen
+                                        : (isDelivered ? AppTheme.softGray : AppTheme.softGray),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                        color: isCurrent
+                                            ? AppTheme.deepLeafGreen
+                                            : const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        step['icon'],
+                                        size: 11,
+                                        color: isCurrent
+                                            ? Colors.white
+                                            : AppTheme.deepLeafGreen,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        step['label'],
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: isCurrent
+                                              ? Colors.white
+                                              : AppTheme.darkGreen,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                  ],
+                ),
               ),
             ),
           ),

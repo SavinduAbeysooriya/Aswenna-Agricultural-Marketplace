@@ -90,12 +90,6 @@ class _DeliveryDashboardState extends State<DeliveryDashboard>
                 _buildNavItem(0, Icons.explore_rounded, 'Nearby'),
                 _buildNavItem(1, Icons.delivery_dining_rounded, 'Active'),
                 _buildNavItem(2, Icons.account_balance_wallet_rounded, 'Earnings'),
-                _buildNavItemAction(
-                  Icons.logout_rounded,
-                  'Logout',
-                  Colors.red,
-                  _logout,
-                ),
               ],
             ),
           ),
@@ -182,6 +176,7 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
   Position? _currentPosition;
   bool _isSharingLocation = false;
   Timer? _locationTimer;
+  String? _profileImageUrl;
 
   @override
   void initState() {
@@ -198,6 +193,24 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
   Future<void> _initLocationAndLoad() async {
     await _fetchLocation();
     await _loadNearbyOrders();
+    await _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final response = await ApiService.getDeliveryPartnerProfile();
+      if (response['success'] == true && response['profile'] != null) {
+        final profile = response['profile'];
+        final user = profile['user'];
+        if (user != null && user['profile_picture_path'] != null) {
+          if (mounted) {
+            setState(() {
+              _profileImageUrl = ApiService.fileUrl(user['profile_picture_path']);
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchLocation() async {
@@ -318,75 +331,121 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.darkGreen, AppTheme.deepLeafGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: const AssetImage('assets/images/delivery_bg.jpg'),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(
+                  AppTheme.darkGreen.withOpacity(0.55),
+                  BlendMode.srcOver,
+                ),
               ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(28),
+                bottomRight: Radius.circular(28),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.darkGreen.withOpacity(0.2),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.sports_motorsports_rounded,
-                        color: Colors.white, size: 28),
-                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.sports_motorsports_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Delivery Console',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 20)),
-                          Text('Find and accept nearby deliveries',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  color: AppTheme.lightMint, fontSize: 12)),
+                          Text(
+                            'Delivery Console',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Find and accept nearby deliveries',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppTheme.lightMint,
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     IconButton(
                       onPressed: _loadNearbyOrders,
-                      icon: const Icon(Icons.refresh_rounded,
-                          color: Colors.white),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      tooltip: 'Refresh Orders',
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.account_circle_outlined,
-                          color: Colors.white),
-                      onPressed: () {
+                    GestureDetector(
+                      onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const DeliveryProfileScreen()),
                         ).then((_) => _initLocationAndLoad());
                       },
-                    ),
-                    // 🧪 Test button in header
-                    _isCreatingTest
-                        ? const SizedBox(
-                            width: 24, height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                        : Tooltip(
-                            message: 'Create test order',
-                            child: IconButton(
-                              onPressed: _createTestOrder,
-                              icon: const Icon(
-                                Icons.science_rounded,
-                                color: Colors.white70,
-                              ),
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
                             ),
-                          ),
+                          ],
+                        ),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          backgroundImage: _profileImageUrl != null
+                              ? NetworkImage(_profileImageUrl!)
+                              : null,
+                          child: _profileImageUrl == null
+                              ? const Icon(
+                                  Icons.person_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 GestureDetector(
                   onTap: _toggleLocationSharing,
                   child: AnimatedBuilder(
@@ -398,11 +457,20 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
                             horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           color: _isSharingLocation
-                              ? Colors.green.shade400
+                              ? const Color(0xFF10B981) // Emerald Green
                               : Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(40),
+                          borderRadius: BorderRadius.circular(30),
                           border: Border.all(
-                              color: Colors.white.withOpacity(0.3), width: 1),
+                              color: Colors.white.withOpacity(0.25), width: 1),
+                          boxShadow: _isSharingLocation
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF10B981).withOpacity(0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
+                              : null,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -421,7 +489,7 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
                                   : 'Tap to go ONLINE',
                               style: const TextStyle(
                                   color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w800,
                                   fontSize: 13),
                             ),
                           ],

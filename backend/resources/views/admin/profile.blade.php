@@ -214,9 +214,14 @@
                                     </div>
                                     <div class="space-y-1.5 sm:col-span-2">
                                         <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Map Search & Geolocation Location</label>
-                                        <div class="flex space-x-2">
+                                        <div class="flex flex-col sm:flex-row gap-2">
                                             <input type="text" id="map-search-input" placeholder="Type city or area to locate on map..." class="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-500 transition-all">
-                                            <button type="button" onclick="searchMapLocation()" class="px-5 py-3 bg-slate-800 text-white font-bold rounded-xl text-xs hover:bg-slate-900 transition-all active:scale-95">Search Map</button>
+                                            <div class="flex gap-2">
+                                                <button type="button" onclick="searchMapLocation()" class="flex-1 sm:flex-initial px-5 py-3 bg-slate-800 text-white font-bold rounded-xl text-xs hover:bg-slate-900 transition-all active:scale-95 whitespace-nowrap">Search Map</button>
+                                                <button type="button" onclick="getCurrentLocation()" class="flex-1 sm:flex-initial px-5 py-3 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-1.5 shadow-sm">
+                                                    <i class="fa-solid fa-location-crosshairs"></i> Current Location
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="space-y-1.5 sm:col-span-2">
@@ -691,6 +696,72 @@
                     });
                 }
             });
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                Swal.fire({
+                    title: 'Fetching Location...',
+                    text: 'Please allow location access if prompted.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        Swal.close();
+                        var lat = position.coords.latitude;
+                        var lng = position.coords.longitude;
+                        var loc = new google.maps.LatLng(lat, lng);
+                        
+                        map.setCenter(loc);
+                        map.setZoom(16);
+                        marker.setPosition(loc);
+                        updateCoordsInputs(lat, lng);
+
+                        var geocoder = new google.maps.Geocoder();
+                        geocoder.geocode({ location: loc }, function(results, status) {
+                            if (status === 'OK' && results[0]) {
+                                document.getElementById('map-search-input').value = results[0].formatted_address;
+                                document.getElementById('address').value = results[0].formatted_address;
+                            }
+                        });
+                    },
+                    function(error) {
+                        Swal.close();
+                        let msg = 'Failed to retrieve location.';
+                        if (error.code === error.PERMISSION_DENIED) {
+                            msg = 'Location permission denied by user.';
+                        } else if (error.code === error.POSITION_UNAVAILABLE) {
+                            msg = 'Location information is unavailable.';
+                        } else if (error.code === error.TIMEOUT) {
+                            msg = 'Request to get location timed out.';
+                        }
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: msg,
+                            confirmButtonColor: '#10b981',
+                            customClass: {
+                                popup: 'rounded-3xl border border-slate-100 shadow-xl'
+                            }
+                        });
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Not Supported',
+                    text: 'Geolocation is not supported by your browser.',
+                    confirmButtonColor: '#10b981',
+                    customClass: {
+                        popup: 'rounded-3xl border border-slate-100 shadow-xl'
+                    }
+                });
+            }
         }
 
         function toggleBackImageUpload() {

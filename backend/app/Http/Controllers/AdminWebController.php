@@ -2085,15 +2085,34 @@ class AdminWebController extends Controller
                     $backPath = $request->file('verification_back_image')->store('verifications', 'public');
                 }
 
-                DB::table('user_verification_documents')->insert([
-                    'user_id' => $user->id,
-                    'document_type' => $request->input('verification_document_type'),
-                    'front_image_path' => $frontPath,
-                    'back_image_path' => $backPath,
-                    'verification_status' => 'pending',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                $existingDoc = DB::table('user_verification_documents')
+                    ->where('user_id', $user->id)
+                    ->where('document_type', $request->input('verification_document_type'))
+                    ->first();
+
+                if ($existingDoc) {
+                    DB::table('user_verification_documents')
+                        ->where('id', $existingDoc->id)
+                        ->update([
+                            'front_image_path' => $frontPath,
+                            'back_image_path' => $backPath,
+                            'verification_status' => 'pending',
+                            'rejection_reason' => null,
+                            'verified_at' => null,
+                            'verified_by' => null,
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    DB::table('user_verification_documents')->insert([
+                        'user_id' => $user->id,
+                        'document_type' => $request->input('verification_document_type'),
+                        'front_image_path' => $frontPath,
+                        'back_image_path' => $backPath,
+                        'verification_status' => 'pending',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
             } catch (\Exception $e) {
                 logger()->error('Verification document upload failed: ' . $e->getMessage());
             }

@@ -151,7 +151,12 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
           // Personal Details
           _nameController.text = (_userData['full_name'] ?? '').toString();
           _emailController.text = (_userData['email'] ?? '').toString();
-          _phoneController.text = (_userData['phone_number'] ?? '').toString();
+          final rawPhone = (_userData['phone_number'] ?? '').toString();
+          if (rawPhone.startsWith('REG-') || rawPhone.startsWith('G-')) {
+            _phoneController.text = '';
+          } else {
+            _phoneController.text = rawPhone;
+          }
           _phone2Controller.text = (_userData['phone_number_2'] ?? '').toString();
           _nicController.text = (_userData['national_id'] ?? '').toString();
 
@@ -434,7 +439,9 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
     final data = {
       'full_name': _nameController.text.trim(),
       'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-      'phone_number': _phoneController.text.trim(),
+      'phone_number': _phoneController.text.trim().isEmpty
+          ? (_userData['phone_number']?.toString() ?? '')
+          : _phoneController.text.trim(),
       'phone_number_2': _phone2Controller.text.trim().isEmpty ? null : _phone2Controller.text.trim(),
       'national_id': _nicController.text.trim().isEmpty ? null : _nicController.text.trim(),
       'address': _addressController.text.trim(),
@@ -692,7 +699,7 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_phoneController.text} | ${_emailController.text.isNotEmpty ? _emailController.text : "No Email"}',
+                      '${(_phoneController.text.isEmpty || _phoneController.text.startsWith("REG-") || _phoneController.text.startsWith("G-")) ? "No Phone" : _phoneController.text} | ${_emailController.text.isNotEmpty ? _emailController.text : "No Email"}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

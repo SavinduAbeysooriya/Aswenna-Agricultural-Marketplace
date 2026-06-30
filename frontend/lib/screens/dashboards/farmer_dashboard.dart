@@ -4355,7 +4355,12 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
   void _hydrateForm() {
     _fullNameController.text = _value(_user['full_name']);
     _emailController.text = _value(_user['email']);
-    _phoneController.text = _value(_user['phone_number']);
+    final rawPhone = _value(_user['phone_number']);
+    if (rawPhone.startsWith('REG-') || rawPhone.startsWith('G-')) {
+      _phoneController.text = '';
+    } else {
+      _phoneController.text = rawPhone;
+    }
     _phone2Controller.text = _value(_user['phone_number_2']);
     _nationalIdController.text = _value(_user['national_id']);
     _addressController.text = _value(_user['address']);
@@ -5510,7 +5515,9 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
     final data = {
       'full_name': _fullNameController.text.trim(),
       'email': _emptyToNull(_emailController.text),
-      'phone_number': _phoneController.text.trim(),
+      'phone_number': _phoneController.text.trim().isEmpty
+          ? (_user['phone_number']?.toString() ?? '')
+          : _phoneController.text.trim(),
       'phone_number_2': _emptyToNull(_phone2Controller.text),
       'national_id': _emptyToNull(_nationalIdController.text),
       'address': _emptyToNull(_addressController.text),

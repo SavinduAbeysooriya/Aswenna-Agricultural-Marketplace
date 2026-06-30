@@ -328,6 +328,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final otpController = TextEditingController();
     bool isPending = false;
     bool isSending = true;
+    bool otpRequestInitiated = false;
     String errorMessage = '';
     String successMessage = '';
 
@@ -343,7 +344,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             // Auto-send OTP on first build
-            if (isSending) {
+            if (!otpRequestInitiated) {
+              otpRequestInitiated = true;
               Future.microtask(() async {
                 final res = await ApiService.sendOtp(email);
                 if (!context.mounted) return;

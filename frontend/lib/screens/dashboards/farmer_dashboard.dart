@@ -2667,30 +2667,32 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildBottomNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-          _buildBottomNavItem(1, Icons.landscape_rounded, Icons.landscape_outlined, 'Lands'),
-          _buildBottomNavItem(2, Icons.inventory_2_rounded, Icons.inventory_2_outlined, 'Yields'),
-          _buildBottomNavItem(3, Icons.wallet_rounded, Icons.wallet_outlined, 'Wallet'),
-          _buildBottomNavItem(4, Icons.note_alt_rounded, Icons.note_alt_outlined, 'Logs'),
-        ],
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildBottomNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+            _buildBottomNavItem(1, Icons.landscape_rounded, Icons.landscape_outlined, 'Lands'),
+            _buildBottomNavItem(2, Icons.inventory_2_rounded, Icons.inventory_2_outlined, 'Yields'),
+            _buildBottomNavItem(3, Icons.wallet_rounded, Icons.wallet_outlined, 'Wallet'),
+            _buildBottomNavItem(4, Icons.note_alt_rounded, Icons.note_alt_outlined, 'Logs'),
+          ],
+        ),
       ),
     );
   }

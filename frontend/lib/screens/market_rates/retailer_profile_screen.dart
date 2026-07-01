@@ -9,6 +9,7 @@ import 'package:aswenna/screens/map_location_picker.dart';
 import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'dart:io';
+import 'dart:convert';
 
 class RetailerProfileScreen extends StatefulWidget {
   const RetailerProfileScreen({super.key});
@@ -439,6 +440,24 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
   @override
   Widget build(BuildContext context) {
     try {
+      List<String> uploadedPhotos = [];
+      final rawPhotos = _verificationData['shop_photos_urls'];
+      if (rawPhotos is List) {
+        uploadedPhotos = rawPhotos.map((p) => p.toString()).toList();
+      } else {
+        final rawShopPhotos = _verificationData['shop_photos'];
+        if (rawShopPhotos is List) {
+          uploadedPhotos = rawShopPhotos.map((p) => p.toString()).toList();
+        } else if (rawShopPhotos is String && rawShopPhotos.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(rawShopPhotos);
+            if (decoded is List) {
+              uploadedPhotos = decoded.map((p) => p.toString()).toList();
+            }
+          } catch (_) {}
+        }
+      }
+
       final isVerified = _userData is Map ? _userData['is_verified'] == true : false;
       final hasPendingDoc = _documents.any((doc) => doc is Map && doc['verification_status'] == 'pending');
       final hasRejectedDoc = _documents.any((doc) => doc is Map && doc['verification_status'] == 'rejected');
@@ -1131,8 +1150,40 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                           const SizedBox(height: 12),
+                          if (uploadedPhotos.isNotEmpty) ...[
+                            const Text(
+                              'Uploaded Shop Photos',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: uploadedPhotos.map((p) => ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  ApiService.fileUrl(p) ?? '',
+                                  width: 72,
+                                  height: 72,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 72,
+                                    height: 72,
+                                    color: Colors.grey[200],
+                                    child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
+                                  ),
+                                ),
+                              )).toList(),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           if (_shopPhotoPaths.isNotEmpty) ...[
+                            const Text(
+                              'Newly Selected Photos',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                            ),
+                            const SizedBox(height: 8),
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -1603,6 +1654,24 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
   }
 
   void _showBusinessDetailsSheet() {
+    List<String> uploadedPhotos = [];
+    final rawPhotos = _verificationData['shop_photos_urls'];
+    if (rawPhotos is List) {
+      uploadedPhotos = rawPhotos.map((p) => p.toString()).toList();
+    } else {
+      final rawShopPhotos = _verificationData['shop_photos'];
+      if (rawShopPhotos is List) {
+        uploadedPhotos = rawShopPhotos.map((p) => p.toString()).toList();
+      } else if (rawShopPhotos is String && rawShopPhotos.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rawShopPhotos);
+          if (decoded is List) {
+            uploadedPhotos = decoded.map((p) => p.toString()).toList();
+          }
+        } catch (_) {}
+      }
+    }
+
     _showModalSheet(
       title: 'Business & Shop Details',
       children: [
@@ -1640,7 +1709,7 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
           ),
           const SizedBox(height: 16),
         ],
-        if (_verificationData['shop_photos'] != null && _verificationData['shop_photos'] is List && (_verificationData['shop_photos'] as List).isNotEmpty) ...[
+        if (uploadedPhotos.isNotEmpty) ...[
           const Text(
             'Shop Photos',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
@@ -1650,9 +1719,9 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
             height: 100,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: (_verificationData['shop_photos'] as List).length,
+              itemCount: uploadedPhotos.length,
               itemBuilder: (context, index) {
-                final photoPath = (_verificationData['shop_photos'] as List)[index];
+                final photoPath = uploadedPhotos[index];
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: ClipRRect(

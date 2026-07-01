@@ -2050,15 +2050,22 @@ class ApiService {
     path = path.replaceAll('\\/', '/').replaceAll('\\', '/');
 
     if (path.startsWith('http://localhost:8000')) {
-
       return path.replaceFirst('http://localhost:8000', appUrl);
-
     }
-
     if (path.startsWith('http://127.0.0.1:8000')) {
-
       return path.replaceFirst('http://127.0.0.1:8000', appUrl);
-
+    }
+    if (path.startsWith('http://localhost:8001')) {
+      return path.replaceFirst('http://localhost:8001', appUrl);
+    }
+    if (path.startsWith('http://127.0.0.1:8001')) {
+      return path.replaceFirst('http://127.0.0.1:8001', appUrl);
+    }
+    if (path.startsWith('http://localhost') && !path.startsWith('http://localhost:')) {
+      return path.replaceFirst('http://localhost', appUrl);
+    }
+    if (path.startsWith('http://127.0.0.1') && !path.startsWith('http://127.0.0.1:')) {
+      return path.replaceFirst('http://127.0.0.1', appUrl);
     }
 
     if (path.startsWith('http://') || path.startsWith('https://')) {

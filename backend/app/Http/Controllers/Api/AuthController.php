@@ -1072,6 +1072,7 @@ class AuthController extends Controller
                 'province' => $request->province,
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
+                'is_verified' => false,
             ]);
 
             if ($request->hasFile('profile_picture')) {
@@ -1439,6 +1440,7 @@ class AuthController extends Controller
                 'province' => $request->province,
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
+                'is_verified' => false,
             ]);
 
             if ($request->hasFile('profile_picture')) {
@@ -1663,6 +1665,7 @@ class AuthController extends Controller
                 'province' => $request->province,
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
+                'is_verified' => false,
             ]);
 
             if ($request->hasFile('profile_picture')) {

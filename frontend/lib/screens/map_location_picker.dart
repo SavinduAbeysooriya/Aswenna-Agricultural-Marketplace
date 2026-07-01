@@ -571,7 +571,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                   ),
                 ],
               ),
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 24 + MediaQuery.of(context).padding.bottom),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,

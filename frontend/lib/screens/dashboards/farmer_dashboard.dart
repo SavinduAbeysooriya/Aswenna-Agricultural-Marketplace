@@ -2667,30 +2667,32 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildBottomNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-          _buildBottomNavItem(1, Icons.landscape_rounded, Icons.landscape_outlined, 'Lands'),
-          _buildBottomNavItem(2, Icons.inventory_2_rounded, Icons.inventory_2_outlined, 'Yields'),
-          _buildBottomNavItem(3, Icons.wallet_rounded, Icons.wallet_outlined, 'Wallet'),
-          _buildBottomNavItem(4, Icons.note_alt_rounded, Icons.note_alt_outlined, 'Logs'),
-        ],
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildBottomNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+            _buildBottomNavItem(1, Icons.landscape_rounded, Icons.landscape_outlined, 'Lands'),
+            _buildBottomNavItem(2, Icons.inventory_2_rounded, Icons.inventory_2_outlined, 'Yields'),
+            _buildBottomNavItem(3, Icons.wallet_rounded, Icons.wallet_outlined, 'Wallet'),
+            _buildBottomNavItem(4, Icons.note_alt_rounded, Icons.note_alt_outlined, 'Logs'),
+          ],
+        ),
       ),
     );
   }
@@ -3698,6 +3700,152 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   Widget _buildDocSheetRowGeneral(Map<String, dynamic> document) {
     final status = _text(document['verification_status'], fallback: 'pending');
     final type = _text(document['document_type']);
+    final typeLower = type.toLowerCase();
+    final isIdentityDoc = typeLower.contains('national_id') ||
+        typeLower.contains('national id') ||
+        typeLower.contains('driving') ||
+        typeLower.contains('identity');
+
+    if (isIdentityDoc) {
+      Color statusColor = const Color(0xFFB45309); // orange
+      if (status.toLowerCase() == 'verified' || status.toLowerCase() == 'approved') {
+        statusColor = const Color(0xFF15803D); // green
+      } else if (status.toLowerCase() == 'rejected') {
+        statusColor = const Color(0xFFC62828); // red
+      }
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Document Type', style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                Text(
+                  type.toUpperCase().replaceAll('_', ' '),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Status', style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            if (status.toLowerCase() == 'rejected' && document['rejection_reason'] != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                  "Reason: ${document['rejection_reason']}",
+                  style: const TextStyle(fontSize: 11, color: Color(0xFFC62828), fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+            if (document['front_image_path'] != null || document['back_image_path'] != null) ...[
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (document['front_image_path'] != null)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Front Image',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: GestureDetector(
+                              onTap: () => _openDocument(document['front_image_path']),
+                              child: Image.network(
+                                ApiService.fileUrl(document['front_image_path']) ?? '',
+                                height: 110,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  height: 110,
+                                  color: Colors.grey[100],
+                                  child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (document['back_image_path'] != null) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Back Image',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: GestureDetector(
+                              onTap: () => _openDocument(document['back_image_path']),
+                              child: Image.network(
+                                ApiService.fileUrl(document['back_image_path']) ?? '',
+                                height: 110,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  height: 110,
+                                  color: Colors.grey[100],
+                                  child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+            if (status.toLowerCase() == 'pending') ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Your verification documents are under review. You will be notified once the admin completes the review.',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 11, height: 1.4),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
     final isVerified = status.toLowerCase() == 'verified';
 
     return Container(
@@ -4355,7 +4503,12 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
   void _hydrateForm() {
     _fullNameController.text = _value(_user['full_name']);
     _emailController.text = _value(_user['email']);
-    _phoneController.text = _value(_user['phone_number']);
+    final rawPhone = _value(_user['phone_number']);
+    if (rawPhone.startsWith('REG-') || rawPhone.startsWith('G-')) {
+      _phoneController.text = '';
+    } else {
+      _phoneController.text = rawPhone;
+    }
     _phone2Controller.text = _value(_user['phone_number_2']);
     _nationalIdController.text = _value(_user['national_id']);
     _addressController.text = _value(_user['address']);
@@ -4784,6 +4937,69 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
                       "Reason: ${verificationDoc['rejection_reason']}",
                       style: const TextStyle(fontSize: 11, color: Color(0xFFC62828), fontWeight: FontWeight.w700),
                     ),
+                  ),
+                ],
+                if (verificationDoc['front_image_path'] != null || verificationDoc['back_image_path'] != null) ...[
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      if (verificationDoc['front_image_path'] != null)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Front Image',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                              ),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  ApiService.fileUrl(verificationDoc['front_image_path']) ?? '',
+                                  height: 110,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    height: 110,
+                                    color: Colors.grey[100],
+                                    child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (verificationDoc['back_image_path'] != null) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Back Image',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
+                              ),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  ApiService.fileUrl(verificationDoc['back_image_path']) ?? '',
+                                  height: 110,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    height: 110,
+                                    color: Colors.grey[100],
+                                    child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ],
@@ -5510,7 +5726,9 @@ class _FarmerProfileEditScreenState extends State<FarmerProfileEditScreen> {
     final data = {
       'full_name': _fullNameController.text.trim(),
       'email': _emptyToNull(_emailController.text),
-      'phone_number': _phoneController.text.trim(),
+      'phone_number': _phoneController.text.trim().isEmpty
+          ? (_user['phone_number']?.toString() ?? '')
+          : _phoneController.text.trim(),
       'phone_number_2': _emptyToNull(_phone2Controller.text),
       'national_id': _emptyToNull(_nationalIdController.text),
       'address': _emptyToNull(_addressController.text),

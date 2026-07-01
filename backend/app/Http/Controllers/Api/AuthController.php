@@ -1730,22 +1730,26 @@ class AuthController extends Controller
                 ]
             );
 
-            // Save driving license in user_verification_documents (only driving license allowed)
+            // Save/Update driving license in user_verification_documents (only driving license allowed)
             if ($request->hasFile('front_image')) {
                 $frontPath = $request->file('front_image')->store('delivery-partner-license/' . $user->id, 'public');
                 $backPath = $request->hasFile('back_image') 
                     ? $request->file('back_image')->store('delivery-partner-license/' . $user->id, 'public') 
                     : null;
 
-                DB::table('user_verification_documents')->insert([
-                    'user_id' => $user->id,
-                    'document_type' => 'driving_license',
-                    'front_image_path' => $frontPath,
-                    'back_image_path' => $backPath,
-                    'verification_status' => 'pending',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                DB::table('user_verification_documents')->updateOrInsert(
+                    [
+                        'user_id' => $user->id,
+                        'document_type' => 'driving_license',
+                    ],
+                    [
+                        'front_image_path' => $frontPath,
+                        'back_image_path' => $backPath,
+                        'verification_status' => 'pending',
+                        'rejection_reason' => null, // Clear any previous rejection reason
+                        'updated_at' => now(),
+                    ]
+                );
             }
 
             DB::commit();

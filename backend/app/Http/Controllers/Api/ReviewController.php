@@ -67,6 +67,13 @@ class ReviewController extends Controller
                 'reviewed_by'      => $user->id,
             ]);
 
+            // Recalculate farmer's average rating progress
+            try {
+                \App\Services\OfferProgressionService::recalculateRatingProgress($reviewedFarmerId);
+            } catch (\Exception $e) {
+                logger()->error('Progression trigger failed: ' . $e->getMessage());
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Review submitted successfully. Thank you!',
@@ -198,6 +205,13 @@ class ReviewController extends Controller
                 'created_at'  => now(),
                 'updated_at'  => now(),
             ]);
+
+            // Recalculate average rating progress for the reviewed recipient
+            try {
+                \App\Services\OfferProgressionService::recalculateRatingProgress($reviewedToId);
+            } catch (\Exception $e) {
+                logger()->error('Progression trigger failed: ' . $e->getMessage());
+            }
 
             return response()->json([
                 'success' => true,

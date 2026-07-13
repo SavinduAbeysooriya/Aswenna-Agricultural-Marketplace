@@ -54,6 +54,7 @@ class CustomerCartScreen extends StatefulWidget {
 
 class _CustomerCartScreenState extends State<CustomerCartScreen> {
   final _addressController = TextEditingController();
+  final _couponController = TextEditingController();
   bool _isCheckingOut = false;
   bool _isLocating = false;
 
@@ -76,6 +77,7 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
   @override
   void dispose() {
     _addressController.dispose();
+    _couponController.dispose();
     _mapController?.dispose();
     super.dispose();
   }
@@ -241,6 +243,8 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
       'delivery_latitude': _latitude,
       'delivery_longitude': _longitude,
       'cart_items': cartList,
+      if (_couponController.text.trim().isNotEmpty)
+        'coupon_code': _couponController.text.trim(),
     };
 
     try {
@@ -584,6 +588,34 @@ class _CustomerCartScreenState extends State<CustomerCartScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
+
+                      // Coupon Code Input Card
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.pureWhite,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.local_offer_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: _couponController,
+                                decoration: const InputDecoration(
+                                  hintText: 'Have a coupon code? Enter here...',
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                                ),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
 
                       // Order Summary card
                       Container(

@@ -7,7 +7,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:aswenna/theme/app_theme.dart';
 import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
+import 'package:aswenna/screens/my_offers_screen.dart';
 import 'package:aswenna/screens/login_screen.dart';
+import 'dart:io';
 
 class DeliveryProfileScreen extends StatefulWidget {
   const DeliveryProfileScreen({super.key});
@@ -128,7 +130,7 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
   void _redirectToLogin() {
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => LoginScreen()),
         (route) => false,
       );
     }
@@ -709,6 +711,19 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen> {
                     const SizedBox(height: 24),
 
                     // Option tiles
+                    _buildMenuTile(
+                      icon: Icons.card_giftcard_rounded,
+                      iconColor: const Color(0xFFD4A017),
+                      iconBgColor: const Color(0xFFFFF8E1),
+                      title: 'My Offers & Rewards',
+                      subtitle: 'Earn wallet cash and shopping discount coupons',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MyOffersScreen()),
+                        );
+                      },
+                    ),
                     _buildMenuTile(
                       icon: Icons.badge_outlined,
                       iconColor: const Color(0xFF2E7D32),

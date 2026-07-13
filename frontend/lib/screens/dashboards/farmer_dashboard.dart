@@ -16,6 +16,7 @@ import 'package:aswenna/screens/harvest_listings/harvest_listing_form.dart';
 import 'package:aswenna/screens/harvest_listings/harvest_listing_detail_screen.dart';
 import 'package:aswenna/screens/notifications/notifications_screen.dart';
 import 'package:aswenna/services/notification_service.dart';
+import 'package:aswenna/screens/my_offers_screen.dart';
 
 class FarmerDashboard extends StatefulWidget {
   const FarmerDashboard({super.key});
@@ -3036,6 +3037,19 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             const SizedBox(height: 20),
 
             // Custom styled menu list tiles
+            _buildMenuTile(
+              icon: Icons.card_giftcard_rounded,
+              iconColor: const Color(0xFFD4A017),
+              iconBgColor: const Color(0xFFFFF8E1),
+              title: 'My Offers & Rewards',
+              subtitle: 'Earn wallet cash and shopping discount coupons',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyOffersScreen()),
+                );
+              },
+            ),
             _buildMenuTile(
               icon: Icons.home_work_rounded,
               iconColor: const Color(0xFF2E7D32),

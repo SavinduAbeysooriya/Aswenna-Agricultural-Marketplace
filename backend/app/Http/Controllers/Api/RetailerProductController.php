@@ -141,6 +141,13 @@ class RetailerProductController extends Controller
             'image_paths' => $imagePaths,
         ]);
 
+        // Recalculate retailer active products count progress
+        try {
+            \App\Services\OfferProgressionService::recalculateProductsProgress($user->id);
+        } catch (\Exception $e) {
+            logger()->error('Progression trigger failed: ' . $e->getMessage());
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Product created successfully.',
@@ -321,6 +328,13 @@ class RetailerProductController extends Controller
         }
 
         $product->delete();
+
+        // Recalculate retailer active products count progress
+        try {
+            \App\Services\OfferProgressionService::recalculateProductsProgress($request->user()->id);
+        } catch (\Exception $e) {
+            logger()->error('Progression trigger failed: ' . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,

@@ -31,9 +31,9 @@ new class extends Component
     public string $code = '';
     public string $description = '';
     public string $type = 'percentage';
-    public ?float $discount_percentage = null;
-    public ?float $discount_amount = null;
-    public ?float $max_discount_amount = null;
+    public $discount_percentage = null;
+    public $discount_amount = null;
+    public $max_discount_amount = null;
     public int $minimum_completion_count = 1;
     public string $valid_from = '';
     public string $valid_until = '';

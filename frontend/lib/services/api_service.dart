@@ -4220,4 +4220,43 @@ class ApiService {
       return {'success': false, 'message': 'Network error: $e'};
     }
   }
+
+  // ===================================================================
+  // Offers & Gamification API Endpoints
+  // ===================================================================
+
+  static Future<Map<String, dynamic>> getMyOffers() async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/offers');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> claimOfferReward(int progressId) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/offers/$progressId/claim');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
 }

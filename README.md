@@ -107,8 +107,12 @@ flutter run
 ## 🧠 Chatbot Capabilities & Safety Guardrails
 
 - **WhatsApp UI Styling**: High-fidelity, vibrant green chat bubbles with time formatting, dynamically scrolling list view, and smooth typing indicators.
-- **RAG-based Semantic Advisor**: Embeds prompts and matches them against ChromaDB guidelines to formulate rich crop guidance.
 - **Agricultural Safeguards**: Rejects non-farming topics (e.g., politics, coding) with a friendly reminder, and handles friendly user greetings gracefully.
+- **Multi-Stage RAG Fallback Chain**:
+  - **Stage 1 (Groq API)**: Tries to call Groq to synthesize the response.
+  - **Stage 2 (Offline Crop Match - New)**: If Groq fails (e.g. 401/expired key) and the query mentions a crop (like "rice" or "paddy"), it bypasses general advice and immediately serves the specific crop advice (e.g. for rice: "Rice is ready for harvest when grains turn yellow/golden (about 80-85% of the panicles)...").
+  - **Stage 3 (Local DB Match)**: If no specific crop is found, it uses the local TF-IDF database.
+  - **Stage 4 (Generic Intent Match)**: If database similarity is low, it falls back to the clean intent categories.
 - **Failure Tolerant**: Automatically falls back to high-quality instructions if the Python microservice goes offline, preventing mobile app crashes.
 
 ---

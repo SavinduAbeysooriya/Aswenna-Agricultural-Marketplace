@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
 import 'package:aswenna/screens/dashboards/buyer_dashboard.dart';
 import 'package:aswenna/screens/login_screen.dart';
+import 'package:aswenna/screens/my_offers_screen.dart';
 import 'dart:io';
 import 'dart:convert';
 
@@ -659,6 +660,19 @@ class _RetailerProfileScreenState extends State<RetailerProfileScreen> {
                         title: 'Verification Documents',
                         subtitle: 'Manage driving license or national ID uploads',
                         onTap: _showDocumentsSheet,
+                      ),
+                      _buildMenuTile(
+                        icon: Icons.local_offer_rounded,
+                        iconColor: const Color(0xFFC2185B),
+                        iconBgColor: const Color(0xFFFCE4EC),
+                        title: 'My Offers & Rewards',
+                        subtitle: 'Track your campaign progression & claim bonuses',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const MyOffersScreen()),
+                          );
+                        },
                       ),
                       _buildMenuTile(
                         icon: Icons.swap_horiz_rounded,

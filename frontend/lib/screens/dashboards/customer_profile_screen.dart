@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:aswenna/screens/map_location_picker.dart';
 import 'package:aswenna/screens/dashboards/retailer_dashboard.dart';
 import 'package:aswenna/screens/login_screen.dart';
+import 'package:aswenna/screens/my_offers_screen.dart';
 import 'dart:io';
 
 class CustomerProfileScreen extends StatefulWidget {
@@ -549,6 +550,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             ],
                           ),
                         ),
+                      _buildMenuTile(
+                        icon: Icons.card_giftcard_rounded,
+                        iconColor: const Color(0xFFD4A017),
+                        iconBgColor: const Color(0xFFFFF8E1),
+                        title: 'My Offers & Rewards',
+                        subtitle: 'Earn wallet cash and shopping discount coupons',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const MyOffersScreen()),
+                          );
+                        },
+                      ),
                       _buildMenuTile(
                         icon: Icons.badge_outlined,
                         iconColor: const Color(0xFF2E7D32),

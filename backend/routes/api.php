@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\CustomerProductController;
 use App\Http\Controllers\Api\CustomerOrderController;
 use App\Http\Controllers\Api\DeliveryPartnerController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\OfferController;
 
 // ─── Public Auth Routes ────────────────────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
@@ -160,6 +161,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/register-token', [NotificationController::class, 'registerFcmToken']);
+
+    // Offers & Gamification
+    Route::get('/offers', [OfferController::class, 'index']);
+    Route::post('/offers/{id}/claim', [OfferController::class, 'claim']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

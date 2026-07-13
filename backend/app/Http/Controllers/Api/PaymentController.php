@@ -184,6 +184,15 @@ class PaymentController extends Controller
                             'updated_at'        => now(),
                         ]);
 
+                        // Trigger offer progression updates
+                        try {
+                            \App\Services\OfferProgressionService::updateProgress($confirmedBid->buyer_id, 'purchase_count', 1);
+                            \App\Services\OfferProgressionService::updateProgress($confirmedBid->farmer_id, 'total_earnings', $farmerAmount);
+                            \App\Services\OfferProgressionService::updateProgress($confirmedBid->farmer_id, 'total_sales', 1);
+                        } catch (\Exception $e) {
+                            logger()->error('Progression trigger failed: ' . $e->getMessage());
+                        }
+
                         // ─── 1. Update Farmer Wallet ───
                         $farmerWallet = DB::table('user_wallets')->where('user_id', $confirmedBid->farmer_id)->first();
                         if ($farmerWallet) {
@@ -332,6 +341,15 @@ class PaymentController extends Controller
                     'updated_at'        => now(),
                 ]
             );
+
+            // Trigger offer progression updates
+            try {
+                \App\Services\OfferProgressionService::updateProgress($confirmedBid->buyer_id, 'purchase_count', 1);
+                \App\Services\OfferProgressionService::updateProgress($confirmedBid->farmer_id, 'total_earnings', $farmerAmount);
+                \App\Services\OfferProgressionService::updateProgress($confirmedBid->farmer_id, 'total_sales', 1);
+            } catch (\Exception $e) {
+                logger()->error('Progression trigger failed: ' . $e->getMessage());
+            }
 
             // 2. Update Farmer Wallet
             $farmerWallet = DB::table('user_wallets')->where('user_id', $confirmedBid->farmer_id)->first();
@@ -764,6 +782,27 @@ class PaymentController extends Controller
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+                // Trigger offer progression updates for customer, retailer(s), and delivery partner
+                try {
+                    \App\Services\OfferProgressionService::updateProgress($order->customer_id, 'total_orders', 1);
+                    \App\Services\OfferProgressionService::updateProgress($order->customer_id, 'total_spending', $baseAmount);
+                    \App\Services\OfferProgressionService::updateProgress($order->customer_id, 'first_order', 1);
+                    \App\Services\OfferProgressionService::updateProgress($order->customer_id, 'purchase_count', 1);
+
+                    foreach ($retailerAmounts as $rId => $subtotal) {
+                        $commission = round($subtotal * 0.05, 2);
+                        $sellerNet = round($subtotal - $commission, 2);
+                        \App\Services\OfferProgressionService::updateProgress($rId, 'total_earnings', $sellerNet);
+                        \App\Services\OfferProgressionService::updateProgress($rId, 'total_sales', 1);
+                    }
+
+                    if ($order->delivery_partner_id) {
+                        \App\Services\OfferProgressionService::updateProgress($order->delivery_partner_id, 'delivery_completed_orders', 1);
+                    }
+                } catch (\Exception $e) {
+                    logger()->error('Progression trigger failed: ' . $e->getMessage());
+                }
             }
             DB::commit();
 

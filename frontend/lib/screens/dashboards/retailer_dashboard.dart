@@ -7,6 +7,8 @@ import 'package:aswenna/screens/market_rates/retailer_profile_screen.dart';
 import 'package:aswenna/screens/dashboards/retailer_products_screen.dart';
 
 import 'package:aswenna/screens/dashboards/retailer_orders_screen.dart';
+import 'package:aswenna/screens/my_offers_screen.dart';
+import 'package:aswenna/screens/dashboards/retailer_wallet_screen.dart';
 
 class RetailerDashboard extends StatefulWidget {
   const RetailerDashboard({super.key});
@@ -369,6 +371,58 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MyOffersScreen()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFD4A017), Color(0xFF2E7D32)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFD4A017).withOpacity(0.15),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      )
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'My Campaigns & Offers',
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Check milestones and claim rewards',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
+                        child: const Icon(Icons.stars_rounded, color: Colors.white),
+                      )
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 28),
 
               // Recent Customer Orders
@@ -479,6 +533,7 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Console'),
           BottomNavigationBarItem(icon: Icon(Icons.inventory_rounded), label: 'Inventory'),
           BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Orders'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_rounded), label: 'Wallet'),
         ],
         onTap: (index) {
           if (index == 1) {
@@ -487,6 +542,11 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const RetailerOrdersScreen()),
+            ).then((_) => _fetchDashboardData());
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RetailerWalletScreen()),
             ).then((_) => _fetchDashboardData());
           }
         },

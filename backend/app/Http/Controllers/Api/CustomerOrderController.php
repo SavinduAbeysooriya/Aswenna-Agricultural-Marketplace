@@ -72,6 +72,7 @@ class CustomerOrderController extends Controller
             'cart_items' => 'required|array|min:1',
             'cart_items.*.retailer_product_id' => 'required|exists:retailer_products,id',
             'cart_items.*.quantity' => 'required|numeric|min:0.01',
+            'coupon_code' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -195,9 +196,42 @@ class CustomerOrderController extends Controller
             }
 
             $totalDeliveryFee = round($totalDistance * $ratePerKm, 2);
+            $couponDiscount = 0.00;
+            $couponProgress = null;
+
+            if ($request->filled('coupon_code')) {
+                $couponCode = $request->input('coupon_code');
+                $couponProgress = \App\Models\UserOfferProgress::where('user_id', $user->id)
+                    ->where('is_completed', true)
+                    ->where('reward_claimed', false)
+                    ->whereHas('campaign', function ($q) use ($couponCode) {
+                        $q->where('code', $couponCode)->where('is_active', true);
+                    })
+                    ->first();
+
+                if (!$couponProgress) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'The coupon code is invalid, expired, or you have not met the progression requirements.',
+                    ], 422);
+                }
+
+                $campaign = $couponProgress->campaign;
+                if ($campaign->type === 'percentage') {
+                    $couponDiscount = round($subtotal * ((float)$campaign->discount_percentage / 100.0), 2);
+                    if ($campaign->max_discount_amount !== null) {
+                        $couponDiscount = min($couponDiscount, (float)$campaign->max_discount_amount);
+                    }
+                } elseif ($campaign->type === 'fixed_amount') {
+                    $couponDiscount = min($subtotal, (float)$campaign->discount_amount);
+                } elseif ($campaign->type === 'free_shipping') {
+                    $couponDiscount = $totalDeliveryFee;
+                }
+            }
 
             $systemCommission = round(($subtotal * 0.05) + ($totalDeliveryFee * 0.05), 2); // 5% marketplace fee + 5% of delivery fee
-            $totalAmount = $subtotal + $totalDeliveryFee;
+            $totalAmount = max(0.00, $subtotal + $totalDeliveryFee - $couponDiscount);
+            $discountAmount += $couponDiscount;
 
             // 1. Create the Order Record
             $orderNumber = 'ORD-RETAIL-' . strtoupper(Str::random(4)) . '-' . time();
@@ -218,6 +252,17 @@ class CustomerOrderController extends Controller
                 'order_status' => 'pending',
                 'placed_at' => now(),
             ]);
+
+            // 1.1 Mark coupon as claimed if applied
+            if ($couponProgress) {
+                $couponProgress->update([
+                    'reward_claimed' => true,
+                    'reward_claimed_at' => now(),
+                    'reward_claimed_activity_type' => CustomerOrder::class,
+                    'reward_claimed_activity_id' => $order->id,
+                    'notes' => "Applied coupon '{$request->coupon_code}' to retail order {$order->order_number} for LKR {$couponDiscount} discount.",
+                ]);
+            }
 
             // 2. Create Order Items & Deduct Stock
             foreach ($cartReqItems as $item) {

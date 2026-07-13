@@ -110,3 +110,23 @@ flutter run
 - **RAG-based Semantic Advisor**: Embeds prompts and matches them against ChromaDB guidelines to formulate rich crop guidance.
 - **Agricultural Safeguards**: Rejects non-farming topics (e.g., politics, coding) with a friendly reminder, and handles friendly user greetings gracefully.
 - **Failure Tolerant**: Automatically falls back to high-quality instructions if the Python microservice goes offline, preventing mobile app crashes.
+
+---
+
+## 🤖 AI Models & Jupyter Training Notebooks
+
+Aswenna features advanced machine learning models trained on agricultural datasets to provide automated insights and intelligent recommendations. All training processes and exploratory data analyses (EDA) are documented inside Jupyter Notebooks.
+
+### 📊 Tabular Models (`ai_models/tabular/`)
+Trained on crop yields, soil properties, and fertilizer datasets.
+*   **Crop Recommendation (Classification)**: LightGBM model (`crop_recommendation_model.pkl` + Label Encoders) which predicts the optimal crop type to cultivate based on Nitrogen (N), Phosphorus (P), Potassium (K), Temperature, Humidity, pH, and Rainfall metrics.
+*   **Crop Yield Forecasting (Regression)**: XGBoost model (`crop_yield_model.pkl` + Label Encoders) forecasting expected crop yield in hg/ha based on crop type, area, rainfall, pesticides, and average temperature.
+*   **Fertilizer Recommendation (Classification)**: Random Forest model (`fertilizer_recommendation_model.pkl` + Label Encoders) suggesting the best fertilizer name to apply based on soil moisture, temperature, crop type, and soil NPK values.
+*   **Training Notebook**: Refer to [tabular_model.ipynb](file:///c:/Users/Savi%20Aby/Desktop/New%20folder%20(2)/Aswenna%20Agricultural%20Marketplace/jupyter_notebooks/tabular_model/tabular_model.ipynb) to re-run the preprocessing and training pipelines.
+
+### 💬 NLP Chatbot Models (`ai_models/nlp/`)
+Trained on agricultural QA datasets to categorise queries and retrieve verified advisory answers.
+*   **Intent Classifier**: Logistic Regression model (`intent_classifier.pkl` + TF-IDF Vectorizer) to classify user questions into intent groups (`pest_control`, `soil_management`, `fertilizer_scheduling`, `irrigation`, `general_crop_advice`).
+*   **Semantic Knowledge Base Index**: TF-IDF Matrix (`kb_matrix.pkl` + `kb_vectorizer.pkl` + `kb_database.parquet`) indexing English agricultural QA datasets for cosine-similarity semantic retrieval.
+*   **Training Notebook**: Refer to [nlp_model.ipynb](file:///c:/Users/Savi%20Aby/Desktop/New%20folder%20(2)/Aswenna%20Agricultural%20Marketplace/jupyter_notebooks/nlp_model/nlp_model.ipynb) to re-run the text cleaning and knowledge base indexation pipelines.
+

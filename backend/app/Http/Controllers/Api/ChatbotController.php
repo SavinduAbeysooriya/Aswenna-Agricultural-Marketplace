@@ -67,9 +67,15 @@ class ChatbotController extends Controller
 
         // 2. Call Python RAG AI API
         $aiAnswer = null;
+        $absoluteImagePath = null;
+        if ($imagePath) {
+            $absoluteImagePath = storage_path('app/public/' . $imagePath);
+        }
+
         try {
-            $response = Http::timeout(15)->post('http://127.0.0.1:8000/chat', [
-                'question' => $validated['message']
+            $response = Http::timeout(30)->post('http://127.0.0.1:8000/chat', [
+                'question' => $validated['message'],
+                'image_path' => $absoluteImagePath
             ]);
 
             if ($response->successful()) {

@@ -1436,6 +1436,47 @@ class AdminWebController extends Controller
     }
 
     /**
+     * Send custom push notification to a user.
+     */
+    public function sendUserNotification(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'message' => 'required|string',
+        ]);
+
+        $user = User::findOrFail($id);
+
+        // 1. Create database notification record
+        DB::table('notifications')->insert([
+            'user_id' => $user->id,
+            'title' => $request->input('title'),
+            'message' => $request->input('message'),
+            'type' => 'admin_push',
+            'read_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // 2. Send real FCM push if device token is registered
+        if ($user->fcm_token) {
+            $fcm = new \App\Services\FcmService();
+            $fcm->sendPush(
+                $user->fcm_token,
+                $request->input('title'),
+                $request->input('message'),
+                ['type' => 'admin_push']
+            );
+        }
+
+        return redirect()->back()->with('status', 'Notification sent to user successfully.');
+    }
+
+    /**
      * Approve verification status for a user.
      */
     public function approveUserProfile(Request $request, $id)

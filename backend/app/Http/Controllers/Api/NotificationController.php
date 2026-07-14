@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\FcmService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -126,13 +127,20 @@ class NotificationController extends Controller
 
             if (!$exists) {
                 $avgRate = number_format($rate->rate_per_kg_grade_a, 2);
+                $title = "Market Price Update: {$rate->cropname}";
+                $message = "Today's average market rate for Grade A {$rate->cropname} is LKR {$avgRate} per kg. Check the pricing engine for detailed limits.";
                 Notification::create([
                     'user_id' => $user->id,
-                    'title' => "Market Price Update: {$rate->cropname}",
-                    'message' => "Today's average market rate for Grade A {$rate->cropname} is LKR {$avgRate} per kg. Check the pricing engine for detailed limits.",
+                    'title' => $title,
+                    'message' => $message,
                     'type' => 'market_rate',
-                    'created_at' => $rateDate->startOfDay()->addHours(8) // Simulated at 8 AM of the rate date
+                    'created_at' => $rateDate->startOfDay()->addHours(8)
                 ]);
+
+                // Send real FCM push notification
+                if ($user->fcm_token) {
+                    (new FcmService())->sendPush($user->fcm_token, $title, $message, ['type' => 'market_rate']);
+                }
             }
         }
     }
@@ -171,13 +179,20 @@ class NotificationController extends Controller
 
             if (!$exists) {
                 $price = number_format($bid->bid_amount_per_unit, 2);
+                $title = 'New Bid Received!';
+                $message = "{$bid->buyer_name} has placed a bid of LKR {$price} per unit on your {$bid->cropname} listing.";
                 Notification::create([
                     'user_id' => $user->id,
-                    'title' => "New Bid Received!",
-                    'message' => "{$bid->buyer_name} has placed a bid of LKR {$price} per unit on your {$bid->cropname} listing.",
+                    'title' => $title,
+                    'message' => $message,
                     'type' => 'bid',
                     'created_at' => $bid->created_at
                 ]);
+
+                // Send real FCM push notification
+                if ($user->fcm_token) {
+                    (new FcmService())->sendPush($user->fcm_token, $title, $message, ['type' => 'bid']);
+                }
             }
         }
     }

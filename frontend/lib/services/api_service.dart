@@ -1790,6 +1790,68 @@ class ApiService {
 
 
 
+  static Future<Map<String, dynamic>> analyzeCultivationLogs(String prompt) async {
+
+    final token = await getToken();
+
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+
+    final url = Uri.parse('$baseUrl/farmer/cultivation-logs/analyze');
+
+    try {
+
+      final response = await http.post(
+
+        url,
+
+        headers: {
+
+          'Content-Type': 'application/json',
+
+          'Accept': 'application/json',
+
+          'Authorization': 'Bearer $token',
+
+        },
+
+        body: jsonEncode({'prompt': prompt}),
+
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+
+        return {
+
+          'success': true,
+
+          'content': responseData['content'],
+
+        };
+
+      } else {
+
+        return {
+
+          'success': false,
+
+          'message': responseData['message'] ?? 'Failed to analyze logs.',
+
+        };
+
+      }
+
+    } catch (e) {
+
+      return {'success': false, 'message': 'Network error: $e'};
+
+    }
+
+  }
+
+
+
   /**
 
    * Register a new land parcel for the authenticated farmer.

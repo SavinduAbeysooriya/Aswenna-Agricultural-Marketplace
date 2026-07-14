@@ -62,9 +62,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/farmer/lands/{id}', [LandController::class, 'show']);
     Route::put('/farmer/lands/{id}', [LandController::class, 'update']);
 
-    // Cultivation Logs
     Route::get('/farmer/cultivation-logs', [DailyCultivationLogController::class, 'index']);
     Route::post('/farmer/cultivation-logs', [DailyCultivationLogController::class, 'store']);
+    Route::post('/farmer/cultivation-logs/analyze', [DailyCultivationLogController::class, 'analyzeLogs']);
     Route::put('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'update']);
     Route::delete('/farmer/cultivation-logs/{id}', [DailyCultivationLogController::class, 'destroy']);
 

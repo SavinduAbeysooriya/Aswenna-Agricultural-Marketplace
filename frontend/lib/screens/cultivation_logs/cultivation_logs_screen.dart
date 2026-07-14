@@ -139,40 +139,25 @@ Keep the response practical, direct, and structured with bullet points. Limit to
 """;
 
     try {
-      final response = await http.post(
-        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer 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',
-        },
-        body: jsonEncode({
-          'model': 'llama-3.3-70b-versatile',
-          'messages': [
-            {'role': 'user', 'content': prompt}
-          ],
-          'temperature': 0.7,
-        }),
-      );
+      final result = await ApiService.analyzeCultivationLogs(prompt);
       
       if (!mounted) return;
       
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final content = data['choices'][0]['message']['content'];
+      if (result['success'] == true) {
         setState(() {
-          _aiPrediction = content ?? 'No prediction generated.';
+          _aiPrediction = result['content'] ?? 'No prediction generated.';
           _isLoadingAi = false;
         });
       } else {
         setState(() {
-          _aiError = 'Failed to load AI advice. Status: ${response.statusCode}';
+          _aiError = result['message'] ?? 'Failed to load AI advice.';
           _isLoadingAi = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _aiError = 'Network error: Could not contact advisor.';
+        _aiError = 'Error: Could not contact advisor.';
         _isLoadingAi = false;
       });
     }

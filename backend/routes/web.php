@@ -64,6 +64,7 @@ Route::post('/admin/users/profile/{id}/delivery-partner/approve', [AdminWebContr
 Route::post('/admin/users/profile/{id}/delivery-partner/reject', [AdminWebController::class, 'rejectDeliveryPartnerVehicle'])->name('admin.users.profile.delivery-partner.reject');
 Route::post('/admin/users/profile/{id}/delivery-partner/notes', [AdminWebController::class, 'updateDeliveryPartnerNotes'])->name('admin.users.profile.delivery-partner.notes');
 Route::post('/admin/change-password', [AdminWebController::class, 'changePassword'])->name('admin.change-password');
+Route::post('/admin/users/profile/{id}/send-notification', [AdminWebController::class, 'sendUserNotification'])->name('admin.users.profile.send-notification');
 
 
 

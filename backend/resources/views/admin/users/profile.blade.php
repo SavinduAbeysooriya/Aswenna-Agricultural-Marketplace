@@ -361,6 +361,37 @@
                                     </div>
                                 </div>
                             @endif
+
+                            <!-- Custom Push Notification Form -->
+                            <div class="border-t border-slate-100 pt-6 space-y-4">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Push Notifications</span>
+                                <button type="button" onclick="toggleNotificationBox()" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 text-xs font-extrabold transition shadow-sm">
+                                    <i class="fa-regular fa-paper-plane text-sm"></i>
+                                    Send Notification...
+                                </button>
+                                
+                                <div id="notification-box" class="hidden p-4 rounded-2xl bg-slate-50 border border-slate-200 animate-fade-in space-y-3">
+                                    <form action="{{ route('admin.users.profile.send-notification', $user->id) }}" method="POST" id="send-notification-form">
+                                        @csrf
+                                        <div>
+                                            <label for="notif_title" class="text-[10px] font-bold text-slate-500 block mb-1">Notification Title</label>
+                                            <input type="text" name="title" id="notif_title" required class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:border-emerald-400 transition" placeholder="e.g. System Alert">
+                                        </div>
+                                        <div>
+                                            <label for="notif_message" class="text-[10px] font-bold text-slate-500 block mb-1">Message Content</label>
+                                            <textarea name="message" id="notif_message" rows="3" required class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium bg-white focus:outline-none focus:border-emerald-400 transition" placeholder="Enter message to send to user device..."></textarea>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button type="submit" class="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition">
+                                                Send Now
+                                            </button>
+                                            <button type="button" onclick="toggleNotificationBox()" class="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-bold transition">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
 
                     </div>
@@ -3387,6 +3418,15 @@
         // Rejection toggle logic
         function toggleRejectionBox() {
             const box = document.getElementById('rejection-box');
+            if (box.classList.contains('hidden')) {
+                box.classList.remove('hidden');
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        function toggleNotificationBox() {
+            const box = document.getElementById('notification-box');
             if (box.classList.contains('hidden')) {
                 box.classList.remove('hidden');
             } else {

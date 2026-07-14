@@ -210,6 +210,7 @@ class DailyCultivationLogController extends Controller
     {
         $request->validate([
             'prompt' => 'required|string',
+            'land_id' => 'nullable|integer',
         ]);
 
         $groqKey = env('GROQ_API_KEY');
@@ -220,6 +221,110 @@ class DailyCultivationLogController extends Controller
             ], 500);
         }
 
+        $landId = $request->input('land_id');
+        $landSize = 1.0;
+        $cropName = 'Rice';
+        $district = 'Hambantota';
+
+        if ($landId) {
+            $land = DB::table('lands')
+                ->where('id', $landId)
+                ->first();
+            if ($land) {
+                $landSize = (float) $land->size;
+
+                // Get crop name
+                $landCrop = DB::table('land_crops')
+                    ->join('crops', 'land_crops.crop_id', '=', 'crops.id')
+                    ->where('land_crops.land_id', $landId)
+                    ->select('crops.cropname')
+                    ->first();
+                if ($landCrop) {
+                    $cropName = $landCrop->cropname;
+                }
+
+                // Get farmer district
+                $farmer = DB::table('users')->where('id', $land->farmer_id)->first();
+                if ($farmer && !empty($farmer->district)) {
+                    $district = $farmer->district;
+                }
+            }
+        }
+
+        // Typical defaults based on crop name (rice, tomato, potato, banana, chili, carrot)
+        $nitrogen = 50; $phosphorus = 50; $potassium = 50;
+        $temp = 28.0; $humidity = 75.0; $ph = 6.5; $rainfall = 1000.0;
+        $soilMoisture = 45; $soilType = 'Loamy';
+
+        $cropLower = strtolower($cropName);
+        if (str_contains($cropLower, 'rice') || str_contains($cropLower, 'paddy')) {
+            $nitrogen = 80; $phosphorus = 40; $potassium = 40;
+            $temp = 27.0; $humidity = 80.0; $ph = 6.0; $rainfall = 1200.0;
+            $soilMoisture = 60; $soilType = 'Clayey';
+        } elseif (str_contains($cropLower, 'tomato')) {
+            $nitrogen = 60; $phosphorus = 50; $potassium = 80;
+            $temp = 24.0; $humidity = 65.0; $ph = 6.2; $rainfall = 800.0;
+            $soilMoisture = 45; $soilType = 'Loamy';
+        } elseif (str_contains($cropLower, 'potato')) {
+            $nitrogen = 50; $phosphorus = 60; $potassium = 100;
+            $temp = 18.0; $humidity = 70.0; $ph = 5.5; $rainfall = 900.0;
+            $soilMoisture = 50; $soilType = 'Sandy';
+        } elseif (str_contains($cropLower, 'banana')) {
+            $nitrogen = 100; $phosphorus = 30; $potassium = 200;
+            $temp = 28.0; $humidity = 80.0; $ph = 6.5; $rainfall = 1500.0;
+            $soilMoisture = 55; $soilType = 'Loamy';
+        } elseif (str_contains($cropLower, 'carrot')) {
+            $nitrogen = 40; $phosphorus = 50; $potassium = 120;
+            $temp = 17.0; $humidity = 75.0; $ph = 6.0; $rainfall = 1000.0;
+            $soilMoisture = 40; $soilType = 'Sandy';
+        }
+
+        $predictionData = [];
+        try {
+            $predictResponse = Http::timeout(5)->post('http://127.0.0.1:8000/predict', [
+                'nitrogen' => $nitrogen,
+                'phosphorus' => $phosphorus,
+                'potassium' => $potassium,
+                'temperature' => $temp,
+                'humidity' => $humidity,
+                'ph' => $ph,
+                'rainfall' => $rainfall,
+                'area_name' => 'Sri Lanka',
+                'crop_name' => $cropName,
+                'year' => 2026,
+                'pesticide_tonnes' => 8.0,
+                'land_size' => $landSize,
+                'soil_moisture' => $soilMoisture,
+                'soil_temperature' => $temp - 2.0,
+                'soil_type' => $soilType
+            ]);
+
+            if ($predictResponse->successful()) {
+                $predictionData = $predictResponse->json();
+            }
+        } catch (\Exception $e) {
+            // Silently handle fallback if predict fails
+        }
+
+        $predictContext = "";
+        if (!empty($predictionData)) {
+            $predictContext = "\n\n--- TABULAR AI PREDICTIONS FOR THIS LAND ---\n";
+            $predictContext .= "- Cultivated Crop: " . $cropName . "\n";
+            $predictContext .= "- Land Size: " . $landSize . " Acres\n";
+            if (isset($predictionData['yield_forecast'])) {
+                $yf = $predictionData['yield_forecast'];
+                $predictContext .= "- Expected Yield: " . number_format($yf['yield_kg_acre'], 1) . " kg per Acre (Total predicted yield for this land size: " . number_format($yf['total_expected_yield_kg'], 1) . " kg)\n";
+            }
+            if (isset($predictionData['recommended_fertilizer'])) {
+                $predictContext .= "- AI Recommended Fertilizer: " . $predictionData['recommended_fertilizer'] . "\n";
+            }
+            if (isset($predictionData['recommended_crop'])) {
+                $predictContext .= "- AI Recommended Alternative Crop: " . $predictionData['recommended_crop'] . " (based on current NPK/Climate properties)\n";
+            }
+            $predictContext .= "--------------------------------------------\n\n";
+            $predictContext .= "Instructions to AI: Incorporate these Tabular ML model yield forecasts and fertilizer/crop recommendations into your final report to show data-backed analysis.";
+        }
+
         try {
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
@@ -227,7 +332,7 @@ class DailyCultivationLogController extends Controller
             ])->timeout(30)->post('https://api.groq.com/openai/v1/chat/completions', [
                 'model' => 'llama-3.3-70b-versatile',
                 'messages' => [
-                    ['role' => 'user', 'content' => $request->input('prompt')],
+                    ['role' => 'user', 'content' => $request->input('prompt') . $predictContext],
                 ],
                 'temperature' => 0.7,
             ]);

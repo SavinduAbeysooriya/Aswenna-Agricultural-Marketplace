@@ -1790,7 +1790,7 @@ class ApiService {
 
 
 
-  static Future<Map<String, dynamic>> analyzeCultivationLogs(String prompt) async {
+  static Future<Map<String, dynamic>> analyzeCultivationLogs(String prompt, int? landId) async {
 
     final token = await getToken();
 
@@ -1814,7 +1814,13 @@ class ApiService {
 
         },
 
-        body: jsonEncode({'prompt': prompt}),
+        body: jsonEncode({
+
+          'prompt': prompt,
+
+          'land_id': landId,
+
+        }),
 
       );
 

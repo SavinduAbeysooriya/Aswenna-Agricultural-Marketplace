@@ -143,7 +143,7 @@ Keep the response practical, direct, and structured with bullet points. Limit to
         Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer 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',
+          'Authorization': 'Bearer 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',
         },
         body: jsonEncode({
           'model': 'llama-3.3-70b-versatile',

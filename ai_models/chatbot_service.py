@@ -9,12 +9,16 @@ import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sklearn.metrics.pairwise import cosine_similarity
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Paths to the newly trained NLP models
@@ -28,7 +32,8 @@ kb_database = None
 def init_nlp_models():
     global intent_classifier, intent_vectorizer, kb_vectorizer, kb_matrix, kb_database
     try:
-        print("Loading newly trained NLP models...")
+        print("Loading newly trained NLP models...", flush=True)
+        print(f"GROQ_API_KEY loaded: {GROQ_API_KEY is not None} (Length: {len(GROQ_API_KEY) if GROQ_API_KEY else 0})", flush=True)
         intent_classifier = joblib.load(os.path.join(NLP_DIR, "intent_classifier.pkl"))
         intent_vectorizer = joblib.load(os.path.join(NLP_DIR, "intent_vectorizer.pkl"))
         kb_vectorizer = joblib.load(os.path.join(NLP_DIR, "kb_vectorizer.pkl"))
@@ -107,10 +112,12 @@ Output (provide ONLY the optimized keyword phrase, no other text):"""
         response = requests.post(GROQ_URL, headers=headers, json=payload, timeout=5)
         if response.status_code == 200:
             optimized = response.json()['choices'][0]['message']['content'].strip().strip('"')
-            print(f"Original Query: '{raw_query}' -> Optimized: '{optimized}'")
+            print(f"Original Query: '{raw_query}' -> Optimized: '{optimized}'", flush=True)
             return optimized
+        else:
+            print(f"Groq Query Optimization API Error: {response.status_code} - {response.text}", flush=True)
     except Exception as e:
-        print(f"Failed to optimize query: {e}")
+        print(f"Failed to optimize query: {e}", flush=True)
     return raw_query
 
 # Retrieve best matching answer from the local database using TF-IDF similarity
@@ -270,6 +277,56 @@ OFFLINE_KNOWLEDGE = {
             "- **Harvesting Indicators**: Potatoes are ready for harvest when the vines turn yellow and die back. Leave tubers in soil for 1-2 weeks to cure the skins before digging.\n"
             "- **Greening Safety**: Keep tubers covered with soil (hilling) to prevent greening (solanine production)."
         )
+    },
+    "carrot": {
+        "pest_control": (
+            "### Carrot Pest & Disease Management\n\n"
+            "- **Root Knot Nematode**: Practice crop rotation with marigolds and keep soil solarized.\n"
+            "- **Leaf Blight (Alternaria)**: Space plants correctly to allow airflow and avoid overhead watering. Spray copper-based fungicides if leaf spots appear."
+        ),
+        "soil_management": (
+            "### Carrot Soil Requirements\n\n"
+            "- **Soil Type**: Carrots require deep, loose, well-draining sandy loam soils. Stony or heavy clay soils cause root splitting and branching.\n"
+            "- **pH Range**: Optimal soil pH is 5.5 - 6.5. Apply organic compost well in advance of planting."
+        ),
+        "fertilizer_scheduling": (
+            "### Carrot Fertilization\n\n"
+            "- **NPK Balance**: Avoid excessive nitrogen fertilizers as they cause hairy roots and leaf growth instead of root development. Apply balanced Potassium (MOP) to encourage root sweetening."
+        ),
+        "irrigation": (
+            "### Carrot Irrigation\n\n"
+            "- **Consistent Water**: Maintain even soil moisture. Dry soil followed by heavy watering causes root cracking."
+        ),
+        "general_crop_advice": (
+            "### Carrot Cultivation & Climate Guidelines\n\n"
+            "- **Suitable Provinces/Locations**: In Sri Lanka, carrots grow best in the **Central Province (Nuwara Eliya)** and the **Uva Province (Welimada, Badulla)**.\n"
+            "- **Climate & Temperature**: Carrots require a cool climate with optimal temperatures between **15°C to 20°C**.\n"
+            "- **Cultivation Zones**: Upcountry wet and intermediate zones (elevations above 1,000 meters)."
+        )
+    },
+    "chili": {
+        "pest_control": (
+            "### Chili Pest & Disease Management\n\n"
+            "- **Thrips & Mites**: Leaf curling is typically caused by thrips (curls upward) or mites (curls downward). Spray organic neem oil or recommended acaricides/insecticides.\n"
+            "- **Anthracnose (Fruit Rot)**: Use disease-free seeds and remove affected fruits. Apply copper-based fungicides during humid weather."
+        ),
+        "soil_management": (
+            "### Chili Soil Requirements\n\n"
+            "- **Soil Type**: Chilis thrive in well-drained loamy soils rich in organic matter. Waterlogging is highly detrimental to root health."
+        ),
+        "fertilizer_scheduling": (
+            "### Chili Fertilization\n\n"
+            "- **Nitrogen & Potassium**: Apply basal fertilizer during land preparation. Apply top dressing of nitrogen and potassium at flowering to increase fruit set."
+        ),
+        "irrigation": (
+            "### Chili Irrigation\n\n"
+            "- **Moderate Watering**: Chilis require moderate moisture. Irrigate when the topsoil is dry, but avoid over-irrigation."
+        ),
+        "general_crop_advice": (
+            "### Chili Cultivation Guidelines\n\n"
+            "- **Suitable Locations**: Grown extensively in the dry zones of Sri Lanka (Anuradhapura, Puttalam, Jaffna, Vavuniya).\n"
+            "- **Climate**: Requires a hot, warm climate with temperatures between **20°C to 30°C**."
+        )
     }
 }
 
@@ -315,8 +372,12 @@ Instructions:
         response = requests.post(GROQ_URL, headers=headers, json=payload, timeout=20)
         if response.status_code == 200:
             return response.json()['choices'][0]['message']['content']
+        else:
+            print(f"Groq Chat Generation API Error: {response.status_code} - {response.text}", flush=True)
+            raise Exception(f"Groq API Error: {response.status_code} - {response.text}")
     except Exception as e:
-        print(f"Exception during Groq generation: {e}")
+        print(f"Exception during Groq generation: {e}", flush=True)
+        raise e
 
     # --- OFFLINE/FALLBACK MULTI-STAGE LOGIC ---
     # 1. Check offline crop-specific database first
@@ -387,14 +448,20 @@ def chat():
     image_path = data.get('image_path')
     
     image_desc = None
+    debug_info = {}
     if image_path and os.path.exists(image_path):
-        print(f"Processing uploaded image: {image_path}")
-        image_desc = analyze_image_with_groq(image_path)
-        print(f"Image analysis result: {image_desc}")
-        
+        try:
+            image_desc = analyze_image_with_groq(image_path)
+        except Exception as e:
+            debug_info["image_error"] = str(e)
+            
     # Optimize query for database search using Groq
-    optimized_query = optimize_query_with_groq(question)
-    
+    optimized_query = question
+    try:
+        optimized_query = optimize_query_with_groq(question)
+    except Exception as e:
+        debug_info["optimize_error"] = str(e)
+        
     # Combine optimized query and visual details for retrieval lookup
     search_query = f"{optimized_query}. {image_desc}" if image_desc else optimized_query
     
@@ -402,17 +469,47 @@ def chat():
     kb_match, intent = retrieve_kb_context(search_query)
     
     # Generate RAG response
-    answer = generate_response_with_groq(
-        question=question,
-        image_description=image_desc,
-        kb_match=kb_match,
-        intent=intent
-    )
-    
+    answer = None
+    try:
+        answer = generate_response_with_groq(
+            question=question,
+            image_description=image_desc,
+            kb_match=kb_match,
+            intent=intent
+        )
+    except Exception as e:
+        debug_info["generation_error"] = str(e)
+        
+        # --- OFFLINE/FALLBACK MULTI-STAGE LOGIC (Local execution on exception) ---
+        query_lower = question.lower()
+        matched_crop = False
+        for crop_key, crop_intents in OFFLINE_KNOWLEDGE.items():
+            aliases = [crop_key]
+            if crop_key == "rice":
+                aliases.append("paddy")
+            if any(alias in query_lower for alias in aliases):
+                matched_crop = True
+                if intent in crop_intents:
+                    answer = crop_intents[intent]
+                else:
+                    answer = crop_intents.get("general_crop_advice", list(crop_intents.values())[0])
+                break
+                
+        if not matched_crop:
+            if kb_match:
+                answer = f"### {intent.replace('_', ' ').title()}\n\n{kb_match['answer']}"
+            else:
+                if intent == "pest_control":
+                    answer = "### Pest Control & Crop Protection\n\n..."
+                else:
+                    answer = "### Agricultural Advisory Services\n\n..."
+            
     return jsonify({
         "answer": answer,
         "intent": intent,
-        "matched": kb_match is not None
+        "matched": kb_match is not None,
+        "debug_info": debug_info,
+        "optimized_query": optimized_query
     })
 
 if __name__ == '__main__':

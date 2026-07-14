@@ -139,7 +139,7 @@ Keep the response practical, direct, and structured with bullet points. Limit to
 """;
 
     try {
-      final result = await ApiService.analyzeCultivationLogs(prompt);
+      final result = await ApiService.analyzeCultivationLogs(prompt, _selectedLandId);
       
       if (!mounted) return;
       
@@ -410,6 +410,43 @@ Keep the response practical, direct, and structured with bullet points. Limit to
     );
   }
 
+  Widget _buildRichText(String text) {
+    final RegExp regex = RegExp(r'\*\*(.*?)\*\*');
+    final List<TextSpan> spans = [];
+    int start = 0;
+    
+    for (final Match match in regex.allMatches(text)) {
+      if (match.start > start) {
+        spans.add(TextSpan(text: text.substring(start, match.start)));
+      }
+      spans.add(TextSpan(
+        text: match.group(1),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: AppTheme.darkGreen,
+        ),
+      ));
+      start = match.end;
+    }
+    
+    if (start < text.length) {
+      spans.add(TextSpan(text: text.substring(start)));
+    }
+    
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 12.5,
+          height: 1.5,
+          color: Color(0xFF334155),
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Roboto',
+        ),
+        children: spans,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredLogs = _getFilteredLogs();
@@ -431,210 +468,217 @@ Keep the response practical, direct, and structured with bullet points. Limit to
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchAndFilters(),
-          _buildLandSelector(),
-          _buildAiPredictionsCard(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error.isNotEmpty
-                    ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(_error)))
-                    : filteredLogs.isEmpty
-                        ? const Center(child: Text('No logs found matching criteria.'))
-                        : ListView.separated(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-                            itemCount: _visibleCount < filteredLogs.length ? _visibleCount + 1 : filteredLogs.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              if (index == _visibleCount && index < filteredLogs.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  child: Center(
-                                    child: SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.deepLeafGreen),
-                                    ),
-                                  ),
-                                );
-                              }
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 80),
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildSearchAndFilters(),
+                _buildLandSelector(),
+                _buildAiPredictionsCard(),
+                if (_error.isNotEmpty)
+                  Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(_error)))
+                else if (filteredLogs.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Text('No logs found matching criteria.'),
+                    ),
+                  )
+                else
+                  ...List.generate(
+                    _visibleCount < filteredLogs.length ? _visibleCount + 1 : filteredLogs.length,
+                    (index) {
+                      if (index == _visibleCount && index < filteredLogs.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.deepLeafGreen),
+                            ),
+                          ),
+                        );
+                      }
 
-                              final log = Map<String, dynamic>.from(filteredLogs[index] as Map);
-                              final id = int.tryParse(log['id']?.toString() ?? '');
-                              final dateStr = (log['log_date'] ?? '').toString();
-                              final stage = (log['growth_stage_name'] ?? '').toString();
-                              final landReg = (log['land_registration_number'] ?? '').toString();
-                              final disease = log['disease_detected'] == true;
-                              final pest = log['pest_detected'] == true;
-                              final pesticideApplied = log['pesticide_applied'] == true;
+                      final log = Map<String, dynamic>.from(filteredLogs[index] as Map);
+                      final id = int.tryParse(log['id']?.toString() ?? '');
+                      final dateStr = (log['log_date'] ?? '').toString();
+                      final stage = (log['growth_stage_name'] ?? '').toString();
+                      final landReg = (log['land_registration_number'] ?? '').toString();
+                      final disease = log['disease_detected'] == true;
+                      final pest = log['pest_detected'] == true;
+                      final pesticideApplied = log['pesticide_applied'] == true;
 
-                              String diseaseText = 'Disease';
-                              final rawDisease = (log['disease_name_and_damage'] ?? '').toString();
-                              if (rawDisease.isNotEmpty) {
-                                try {
-                                  final decoded = jsonDecode(rawDisease) as Map<String, dynamic>;
-                                  final name = decoded['name'] ?? '';
-                                  if (name.isNotEmpty) {
-                                    diseaseText = 'Disease: $name';
-                                  }
-                                } catch (_) {
-                                  diseaseText = 'Disease: $rawDisease';
-                                }
-                              }
+                      String diseaseText = 'Disease';
+                      final rawDisease = (log['disease_name_and_damage'] ?? '').toString();
+                      if (rawDisease.isNotEmpty) {
+                        try {
+                          final decoded = jsonDecode(rawDisease) as Map<String, dynamic>;
+                          final name = decoded['name'] ?? '';
+                          if (name.isNotEmpty) {
+                            diseaseText = 'Disease: $name';
+                          }
+                        } catch (_) {
+                          diseaseText = 'Disease: $rawDisease';
+                        }
+                      }
 
-                              String pestText = 'Pest';
-                              final rawPest = (log['pest_name_and_damage'] ?? '').toString();
-                              if (rawPest.isNotEmpty) {
-                                try {
-                                  final decoded = jsonDecode(rawPest) as Map<String, dynamic>;
-                                  final name = decoded['name'] ?? '';
-                                  if (name.isNotEmpty) {
-                                    pestText = 'Pest: $name';
-                                  }
-                                } catch (_) {
-                                  pestText = 'Pest: $rawPest';
-                                }
-                              }
+                      String pestText = 'Pest';
+                      final rawPest = (log['pest_name_and_damage'] ?? '').toString();
+                      if (rawPest.isNotEmpty) {
+                        try {
+                          final decoded = jsonDecode(rawPest) as Map<String, dynamic>;
+                          final name = decoded['name'] ?? '';
+                          if (name.isNotEmpty) {
+                            pestText = 'Pest: $name';
+                          }
+                        } catch (_) {
+                          pestText = 'Pest: $rawPest';
+                        }
+                      }
 
-                              final subtitle = <String>[
-                                if (landReg.isNotEmpty && landReg != 'null') 'Land: $landReg',
-                                if (stage.isNotEmpty) 'Stage: $stage',
-                                if (disease) diseaseText,
-                                if (pest) pestText,
-                              ].join(' • ');
+                      final subtitle = <String>[
+                        if (landReg.isNotEmpty && landReg != 'null') 'Land: $landReg',
+                        if (stage.isNotEmpty) 'Stage: $stage',
+                        if (disease) diseaseText,
+                        if (pest) pestText,
+                      ].join(' • ');
 
-                              return Card(
-                                elevation: 0,
-                                margin: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(
-                                    color: AppTheme.deepLeafGreen.withOpacity(0.08),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () => _viewDetails(log),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                    child: Row(
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Card(
+                          elevation: 0,
+                          margin: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: AppTheme.deepLeafGreen.withOpacity(0.08),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _viewDetails(log),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              child: Row(
+                                children: [
+                                  _buildStatusIndicator(disease, pest),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        _buildStatusIndicator(disease, pest),
-                                        const SizedBox(width: 14),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Text(
-                                                    dateStr.isEmpty
-                                                        ? 'Log'
-                                                        : DateFormat('MMMM dd, yyyy').format(DateTime.parse(dateStr)),
-                                                    style: const TextStyle(
-                                                      color: AppTheme.darkGreen,
-                                                      fontSize: 15,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const Spacer(),
-                                                  if (pesticideApplied)
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.lightMint,
-                                                        borderRadius: BorderRadius.circular(8),
-                                                      ),
-                                                      child: const Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Icon(Icons.science_outlined, size: 10, color: AppTheme.deepLeafGreen),
-                                                          SizedBox(width: 2),
-                                                          Text(
-                                                            'Pesticide',
-                                                            style: TextStyle(
-                                                              color: AppTheme.deepLeafGreen,
-                                                              fontSize: 9,
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                ],
+                                        Row(
+                                          children: [
+                                            Text(
+                                              dateStr.isEmpty
+                                                  ? 'Log'
+                                                  : DateFormat('MMMM dd, yyyy').format(DateTime.parse(dateStr)),
+                                              style: const TextStyle(
+                                                color: AppTheme.darkGreen,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
                                               ),
-                                              const SizedBox(height: 5),
-                                              Text(
-                                                subtitle.isEmpty ? 'Tap to view details' : subtitle,
-                                                style: const TextStyle(
-                                                  color: Color(0xFF64748B),
-                                                  fontSize: 12,
+                                            ),
+                                            const Spacer(),
+                                            if (pesticideApplied)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.lightMint,
+                                                  borderRadius: BorderRadius.circular(8),
                                                 ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
+                                                child: const Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.science_outlined, size: 10, color: AppTheme.deepLeafGreen),
+                                                    SizedBox(width: 2),
+                                                    Text(
+                                                      'Pesticide',
+                                                      style: TextStyle(
+                                                        color: AppTheme.deepLeafGreen,
+                                                        fontSize: 9,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        PopupMenuButton<String>(
-                                          icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF64748B)),
-                                          onSelected: (value) {
-                                            if (value == 'view') {
-                                              _viewDetails(log);
-                                            } else if (value == 'edit') {
-                                              _openEditor(log: log);
-                                            } else if (value == 'delete') {
-                                              if (id != null) _deleteLog(id);
-                                            }
-                                          },
-                                          itemBuilder: (BuildContext context) => [
-                                            const PopupMenuItem(
-                                              value: 'view',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.visibility_outlined, size: 20, color: Colors.blue),
-                                                  SizedBox(width: 10),
-                                                  Text('View Details'),
-                                                ],
-                                              ),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'edit',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.edit_outlined, size: 20, color: AppTheme.deepLeafGreen),
-                                                  SizedBox(width: 10),
-                                                  Text('Edit Log'),
-                                                ],
-                                              ),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'delete',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.delete_outline_rounded, size: 20, color: Colors.red),
-                                                  SizedBox(width: 10),
-                                                  Text('Delete Log'),
-                                                ],
-                                              ),
-                                            ),
                                           ],
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          subtitle.isEmpty ? 'Tap to view details' : subtitle,
+                                          style: const TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
-                              );
-                            },
+                                  const SizedBox(width: 8),
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF64748B)),
+                                    onSelected: (value) {
+                                      if (value == 'view') {
+                                        _viewDetails(log);
+                                      } else if (value == 'edit') {
+                                        _openEditor(log: log);
+                                      } else if (value == 'delete') {
+                                        if (id != null) _deleteLog(id);
+                                      }
+                                    },
+                                    itemBuilder: (BuildContext context) => [
+                                      const PopupMenuItem(
+                                        value: 'view',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.visibility_outlined, size: 20, color: Colors.blue),
+                                            SizedBox(width: 10),
+                                            Text('View Details'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'edit',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.edit_outlined, size: 20, color: AppTheme.deepLeafGreen),
+                                            SizedBox(width: 10),
+                                            Text('Edit Log'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete_outline_rounded, size: 20, color: Colors.red),
+                                            SizedBox(width: 10),
+                                            Text('Delete Log'),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-          ),
-        ],
-      ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
     );
   }
 
@@ -759,7 +803,7 @@ Keep the response practical, direct, and structured with bullet points. Limit to
                   const Icon(Icons.smart_toy_rounded, color: AppTheme.deepLeafGreen, size: 22),
                   const SizedBox(width: 10),
                   const Text(
-                    'Grok AI Land Advisor',
+                    'Aswenna AI Advisor',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: AppTheme.darkGreen,
@@ -787,7 +831,7 @@ Keep the response practical, direct, and structured with bullet points. Limit to
                             CircularProgressIndicator(strokeWidth: 2, color: AppTheme.deepLeafGreen),
                             const SizedBox(height: 12),
                             Text(
-                              'Grok is analyzing logsheets...',
+                              'Aswenna is analyzing logsheets...',
                               style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -816,15 +860,7 @@ Keep the response practical, direct, and structured with bullet points. Limit to
                           constraints: const BoxConstraints(maxHeight: 180),
                           child: SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),
-                            child: Text(
-                              _aiPrediction,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                height: 1.5,
-                                color: Color(0xFF334155),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            child: _buildRichText(_aiPrediction),
                           ),
                         ),
             ),

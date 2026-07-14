@@ -30,6 +30,38 @@ kb_vectorizer = None
 kb_matrix = None
 kb_database = None
 
+# Paths to the tabular ML models
+TABULAR_DIR = os.path.join(os.path.dirname(__file__), "tabular")
+crop_rec_model = None
+crop_rec_encoder = None
+crop_yield_model = None
+crop_yield_area_encoder = None
+crop_yield_item_encoder = None
+fertilizer_model = None
+fertilizer_soil_encoder = None
+fertilizer_crop_encoder = None
+fertilizer_name_encoder = None
+
+def init_tabular_models():
+    global crop_rec_model, crop_rec_encoder, crop_yield_model, crop_yield_area_encoder, crop_yield_item_encoder
+    global fertilizer_model, fertilizer_soil_encoder, fertilizer_crop_encoder, fertilizer_name_encoder
+    try:
+        print("Loading Tabular ML Models...", flush=True)
+        crop_rec_model = joblib.load(os.path.join(TABULAR_DIR, "crop_recommendation_model.pkl"))
+        crop_rec_encoder = joblib.load(os.path.join(TABULAR_DIR, "crop_recommendation_encoder.pkl"))
+        
+        crop_yield_model = joblib.load(os.path.join(TABULAR_DIR, "crop_yield_model.pkl"))
+        crop_yield_area_encoder = joblib.load(os.path.join(TABULAR_DIR, "crop_yield_area_encoder.pkl"))
+        crop_yield_item_encoder = joblib.load(os.path.join(TABULAR_DIR, "crop_yield_item_encoder.pkl"))
+        
+        fertilizer_model = joblib.load(os.path.join(TABULAR_DIR, "fertilizer_recommendation_model.pkl"))
+        fertilizer_soil_encoder = joblib.load(os.path.join(TABULAR_DIR, "fertilizer_soil_encoder.pkl"))
+        fertilizer_crop_encoder = joblib.load(os.path.join(TABULAR_DIR, "fertilizer_crop_encoder.pkl"))
+        fertilizer_name_encoder = joblib.load(os.path.join(TABULAR_DIR, "fertilizer_name_encoder.pkl"))
+        print("Tabular ML Models loaded successfully!", flush=True)
+    except Exception as e:
+        print(f"Failed to load tabular models: {e}", flush=True)
+
 def init_nlp_models():
     global intent_classifier, intent_vectorizer, kb_vectorizer, kb_matrix, kb_database
     try:
@@ -513,6 +545,118 @@ def chat():
         "optimized_query": optimized_query
     })
 
+@app.route('/predict', methods=['POST'])
+def predict():
+    # Allow tabular model predictions
+    data = request.get_json() or {}
+    
+    # 1. Crop Recommendation inputs
+    nitrogen = float(data.get("nitrogen", 50))
+    phosphorus = float(data.get("phosphorus", 50))
+    potassium = float(data.get("potassium", 50))
+    temp = float(data.get("temperature", 28.0))
+    humidity = float(data.get("humidity", 75.0))
+    ph = float(data.get("ph", 6.5))
+    rainfall = float(data.get("rainfall", 1000.0))
+    
+    # 2. Crop Yield inputs
+    area_name = data.get("area_name", "Sri Lanka")
+    crop_name = data.get("crop_name", "Rice")
+    year = int(data.get("year", 2026))
+    pesticide_tonnes = float(data.get("pesticide_tonnes", 10.0))
+    land_size = float(data.get("land_size", 1.0)) # in hectares/acres for scaling output
+    
+    # 3. Fertilizer recommendation inputs
+    soil_moisture = float(data.get("soil_moisture", 45))
+    soil_temp = float(data.get("soil_temperature", temp))
+    soil_type = data.get("soil_type", "Loamy")
+    
+    predictions = {}
+    
+    # Crop Recommendation Prediction
+    if crop_rec_model and crop_rec_encoder:
+        try:
+            # Features: ['Nitrogen', 'Phosphorus', 'Potassium', 'Temperature', 'Humidity', 'pH_Value', 'Rainfall']
+            rec_features = [[nitrogen, phosphorus, potassium, temp, humidity, ph, rainfall]]
+            rec_class = crop_rec_model.predict(rec_features)[0]
+            recommended_crop = crop_rec_encoder.inverse_transform([rec_class])[0]
+            predictions["recommended_crop"] = recommended_crop
+        except Exception as e:
+            predictions["recommended_crop_error"] = str(e)
+            
+    # Crop Yield Forecasting Prediction
+    if crop_yield_model and crop_yield_area_encoder and crop_yield_item_encoder:
+        try:
+            def safe_encode(encoder, val, fallback_val="Sri Lanka"):
+                try:
+                    if val not in encoder.classes_:
+                        for c in encoder.classes_:
+                            if c.lower() == val.lower():
+                                return encoder.transform([c])[0]
+                        return encoder.transform([fallback_val])[0]
+                    return encoder.transform([val])[0]
+                except:
+                    return 0
+            
+            enc_area = safe_encode(crop_yield_area_encoder, area_name, "Sri Lanka")
+            mapped_crop = crop_name
+            if crop_name.lower() in ["rice", "paddy"]:
+                mapped_crop = "Rice, paddy"
+            elif crop_name.lower() == "potato":
+                mapped_crop = "Potatoes"
+                
+            enc_item = safe_encode(crop_yield_item_encoder, mapped_crop, "Rice, paddy")
+            
+            # Features: ['Area', 'Item', 'Year', 'average_rain_fall_mm_per_year', 'pesticides_tonnes', 'avg_temp']
+            yield_features = [[enc_area, enc_item, year, rainfall, pesticide_tonnes, temp]]
+            predicted_yield_hg_ha = float(crop_yield_model.predict(yield_features)[0])
+            
+            # Convert yield: hg/ha to kg/acre
+            yield_kg_ha = predicted_yield_hg_ha * 0.1
+            yield_kg_acre = yield_kg_ha * 0.404686
+            total_yield_kg = yield_kg_acre * land_size
+            
+            predictions["yield_forecast"] = {
+                "yield_hg_ha": predicted_yield_hg_ha,
+                "yield_kg_ha": yield_kg_ha,
+                "yield_kg_acre": yield_kg_acre,
+                "total_expected_yield_kg": total_yield_kg
+            }
+        except Exception as e:
+            predictions["yield_forecast_error"] = str(e)
+            
+    # Fertilizer Recommendation Prediction
+    if fertilizer_model and fertilizer_soil_encoder and fertilizer_crop_encoder and fertilizer_name_encoder:
+        try:
+            def safe_encode(encoder, val, default_val):
+                try:
+                    cleaned = val.strip().title()
+                    for c in encoder.classes_:
+                        if c.lower().strip() == cleaned.lower().strip():
+                            return encoder.transform([c])[0]
+                    return encoder.transform([default_val])[0]
+                except:
+                    return 0
+                    
+            mapped_crop_type = crop_name
+            if crop_name.lower() in ["rice", "paddy"]:
+                mapped_crop_type = "Paddy"
+                
+            enc_soil = safe_encode(fertilizer_soil_encoder, soil_type, "Loamy")
+            enc_crop = safe_encode(fertilizer_crop_encoder, mapped_crop_type, "Paddy")
+            
+            # Features: ['Temparature', 'Humidity', 'Moisture', 'Soil Type', 'Crop Type', 'Nitrogen', 'Potassium', 'Phosphorous']
+            fert_features = [[soil_temp, humidity, soil_moisture, enc_soil, enc_crop, nitrogen, potassium, phosphorus]]
+            fert_class = fertilizer_model.predict(fert_features)[0]
+            recommended_fertilizer = fertilizer_name_encoder.inverse_transform([fert_class])[0]
+            
+            predictions["recommended_fertilizer"] = recommended_fertilizer
+        except Exception as e:
+            predictions["recommended_fertilizer_error"] = str(e)
+            
+    return jsonify(predictions)
+
 if __name__ == '__main__':
     init_nlp_models()
+    init_tabular_models()
     app.run(host='127.0.0.1', port=8000, debug=False)

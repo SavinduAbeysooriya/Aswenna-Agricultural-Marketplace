@@ -1,14 +1,15 @@
 <?php
 
 namespace App\Http\Controllers\Api;
-
+ 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 use Exception;
-
+ 
 class DailyCultivationLogController extends Controller
 {
     public function index(Request $request)
@@ -203,6 +204,52 @@ class DailyCultivationLogController extends Controller
 
         DB::table('daily_cultivation_logs')->where('id', $id)->delete();
         return response()->json(['success' => true, 'message' => 'Log deleted.'], 200);
+    }
+
+    public function analyzeLogs(Request $request)
+    {
+        $request->validate([
+            'prompt' => 'required|string',
+        ]);
+
+        $groqKey = env('GROQ_API_KEY');
+        if (empty($groqKey)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Groq API Key is not configured on the server.',
+            ], 500);
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . $groqKey,
+            ])->timeout(30)->post('https://api.groq.com/openai/v1/chat/completions', [
+                'model' => 'llama-3.3-70b-versatile',
+                'messages' => [
+                    ['role' => 'user', 'content' => $request->input('prompt')],
+                ],
+                'temperature' => 0.7,
+            ]);
+
+            if ($response->successful()) {
+                $content = $response->json('choices.0.message.content');
+                return response()->json([
+                    'success' => true,
+                    'content' => $content,
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to obtain AI advice: ' . $response->body(),
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Network error: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
 

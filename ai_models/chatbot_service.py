@@ -11,8 +11,9 @@ from flask_cors import CORS
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from backend directory
+backend_env_path = os.path.join(os.path.dirname(__file__), "..", "backend", ".env")
+load_dotenv(dotenv_path=backend_env_path)
 
 # Initialize Flask app
 app = Flask(__name__)

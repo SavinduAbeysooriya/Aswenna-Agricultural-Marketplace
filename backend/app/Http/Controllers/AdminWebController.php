@@ -820,9 +820,71 @@ class AdminWebController extends Controller
             return $redirect;
         }
 
+        $campaigns = DB::table('offer_campaigns as oc')
+            ->leftJoin('users as u', 'oc.retailer_id', '=', 'u.id')
+            ->select('oc.*', 'u.full_name as retailer_name', 'u.email as retailer_email')
+            ->orderByRaw("FIELD(oc.status, 'pending_admin_approval', 'active', 'rejected', 'expired')")
+            ->orderByDesc('oc.created_at')
+            ->get();
+
         return view('admin.offer-campaigns', [
+            'campaigns' => $campaigns,
             'pendingCropCount' => Crop::where('status', 'pending')->count(),
         ]);
+    }
+
+    /**
+     * Approve a retailer discount campaign (ADM-003).
+     */
+    public function approveCampaign(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        DB::table('offer_campaigns')->where('id', $id)->update([
+            'status' => 'active',
+            'is_active' => true,
+            'updated_at' => now(),
+        ]);
+
+        $campaign = DB::table('offer_campaigns')->where('id', $id)->first();
+
+        if ($campaign && $campaign->retailer_id) {
+            try {
+                DB::table('notifications')->insert([
+                    'user_id' => $campaign->retailer_id,
+                    'title' => 'Campaign Approved! 🎉',
+                    'message' => "Your campaign '{$campaign->title}' has been approved and is now active with a promotional banner on the home feed.",
+                    'type' => 'campaign_approval',
+                    'is_read' => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } catch (\Exception $e) {}
+        }
+
+        return redirect()->back()->with('success', "Campaign '{$campaign?->title}' approved successfully! Banner is now visible on mobile home feed.");
+    }
+
+    /**
+     * Reject a retailer discount campaign.
+     */
+    public function rejectCampaign(Request $request, $id)
+    {
+        if ($redirect = $this->ensureAdminSession($request)) {
+            return $redirect;
+        }
+
+        DB::table('offer_campaigns')->where('id', $id)->update([
+            'status' => 'rejected',
+            'is_active' => false,
+            'updated_at' => now(),
+        ]);
+
+        $campaign = DB::table('offer_campaigns')->where('id', $id)->first();
+
+        return redirect()->back()->with('success', "Campaign '{$campaign?->title}' has been rejected.");
     }
 
     /**

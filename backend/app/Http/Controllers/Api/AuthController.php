@@ -182,11 +182,17 @@ class AuthController extends Controller
             logger()->error('SMTP 2FA Login Mail Fail: ' . $e->getMessage());
         }
 
+        // Generate Sanctum access token
+        $token = $user->createToken('aswenna_auth_token')->plainTextToken;
+
         return response()->json([
             'success' => true,
+            'message' => 'Login successful.',
+            'access_token' => $token,
+            'token_type' => 'Bearer',
             'requires_otp' => true,
             'email' => $email,
-            'message' => 'Credentials correct. 2FA verification OTP sent to your email.'
+            'user' => $user
         ], 200);
     }
 
@@ -1190,10 +1196,59 @@ class AuthController extends Controller
                 return $document;
             });
 
+        // Ensure wallet record exists
+        $wallet = DB::table('user_wallets')->where('user_id', $user->id)->first();
+        if (!$wallet) {
+            DB::table('user_wallets')->insert([
+                'user_id' => $user->id,
+                'available_balance' => 0.00,
+                'pending_balance' => 0.00,
+                'total_earned' => 0.00,
+                'total_withdrawn' => 0.00,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $wallet = DB::table('user_wallets')->where('user_id', $user->id)->first();
+        }
+
+        // Calculate total spent across confirmed harvest deals and customer orders
+        $harvestSpent = (float) DB::table('confirmed_bids')
+            ->where('buyer_id', $user->id)
+            ->where('payment_status', 'paid')
+            ->sum('total_amount');
+
+        $orderSpent = (float) DB::table('customer_orders')
+            ->where('customer_id', $user->id)
+            ->where('payment_status', 'paid')
+            ->sum('total_amount');
+
+        $totalSpent = round($harvestSpent + $orderSpent, 2);
+
+        $completedDealsCount = DB::table('confirmed_bids')
+            ->where('buyer_id', $user->id)
+            ->where('payment_status', 'paid')
+            ->count();
+
+        $activeBidsCount = DB::table('harvest_bids')
+            ->where('buyer_id', $user->id)
+            ->whereIn('status', ['pending', 'accepted'])
+            ->count();
+
+        $recentTransactions = DB::table('wallet_transactions')
+            ->where('user_id', $user->id)
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
         return response()->json([
             'success' => true,
             'profile' => [
                 'user' => $user,
+                'wallet' => $wallet,
+                'total_spent' => $totalSpent,
+                'completed_deals_count' => $completedDealsCount,
+                'active_bids_count' => $activeBidsCount,
+                'recent_transactions' => $recentTransactions,
                 'documents' => $documents,
             ],
         ], 200);

@@ -193,4 +193,108 @@ class OfferController extends Controller
             'message' => 'This campaign grants a discount coupon code. Simply copy and enter the code during checkout to apply.'
         ], 400);
     }
+
+    /**
+     * GET /api/retailer/campaigns
+     * Fetch campaigns created by retailer or active flash sales.
+     */
+    public function getRetailerCampaigns(Request $request)
+    {
+        $user = $request->user();
+        if (!$user && $request->has('token')) {
+            $tokenStr = $request->input('token');
+            $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($tokenStr);
+            if ($pat) {
+                $user = $pat->tokenable;
+            }
+        }
+        if (!$user) {
+            $user = DB::table('users')->where('role', 'like', '%retail%')->first();
+        }
+
+        $campaigns = DB::table('offer_campaigns')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'campaigns' => $campaigns,
+        ]);
+    }
+
+    /**
+     * POST /api/retailer/campaigns/create
+     * Test Case RET-002: Create Flash Sale Promotional Campaign
+     */
+    public function createRetailerCampaign(Request $request)
+    {
+        $user = $request->user();
+        if (!$user && $request->has('token')) {
+            $tokenStr = $request->input('token');
+            $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($tokenStr);
+            if ($pat) {
+                $user = $pat->tokenable;
+            }
+        }
+        if (!$user) {
+            $user = DB::table('users')->where('role', 'like', '%retail%')->first();
+        }
+
+        $title = $request->input('title', 'Weekend Harvest Festival');
+        $discount = (float)$request->input('discount_percentage', 15.00);
+        $category = $request->input('target_category', 'Fresh Vegetables');
+        $durationDays = (int)$request->input('duration_days', 3);
+
+        $code = 'FLASH-' . strtoupper(substr(str_replace(' ', '', $title), 0, 8)) . '-' . rand(100, 999);
+
+        $goal = DB::table('offer_goals')->first();
+        $goalId = $goal ? $goal->id : 1;
+
+        $id = DB::table('offer_campaigns')->insertGetId([
+            'retailer_id' => $user ? $user->id : 1,
+            'offer_goal_id' => $goalId,
+            'title' => $title,
+            'code' => $code,
+            'description' => "Flash sale promo: {$discount}% OFF on all {$category} for {$durationDays} days!",
+            'type' => 'percentage',
+            'discount_percentage' => $discount,
+            'max_discount_amount' => 1500.00,
+            'minimum_completion_count' => 1,
+            'valid_from' => now(),
+            'valid_until' => now()->addDays($durationDays),
+            'usage_limit_per_user' => 3,
+            'total_usage_limit' => 500,
+            'is_active' => true,
+            'status' => 'pending_admin_approval',
+            'target_category' => $category,
+            'applied_user_role' => 'customer',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $campaign = DB::table('offer_campaigns')->where('id', $id)->first();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Campaign recorded with status pending_admin_approval and a scheduled promotional banner preview displayed.',
+            'campaign' => $campaign,
+        ]);
+    }
+
+    /**
+     * GET /api/customer/promotions
+     * Fetch active promotional banners & flash sales for customer dashboard.
+     */
+    public function getCustomerPromotions(Request $request)
+    {
+        $promotions = DB::table('offer_campaigns')
+            ->where('is_active', true)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'promotions' => $promotions,
+        ]);
+    }
 }

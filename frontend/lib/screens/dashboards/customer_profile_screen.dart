@@ -27,7 +27,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   // Profile data state
   Map<String, dynamic> _userData = {};
+  Map<String, dynamic> _walletData = {};
+  double _totalSpent = 0.0;
+  int _completedDealsCount = 0;
+  int _activeBidsCount = 0;
   List<dynamic> _documents = [];
+  List<dynamic> _recentTransactions = [];
 
   // Controllers
   final _nameController = TextEditingController();
@@ -125,6 +130,27 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               _documents = docsVal;
             } else {
               _documents = [];
+            }
+
+            // Extract wallet map and financial stats
+            final walletVal = profile['wallet'];
+            if (walletVal is Map<String, dynamic>) {
+              _walletData = walletVal;
+            } else if (walletVal is Map) {
+              _walletData = Map<String, dynamic>.from(walletVal);
+            } else {
+              _walletData = {};
+            }
+
+            _totalSpent = double.tryParse(profile['total_spent']?.toString() ?? '0') ?? 0.0;
+            _completedDealsCount = int.tryParse(profile['completed_deals_count']?.toString() ?? '0') ?? 0;
+            _activeBidsCount = int.tryParse(profile['active_bids_count']?.toString() ?? '0') ?? 0;
+
+            final txsVal = profile['recent_transactions'];
+            if (txsVal is List) {
+              _recentTransactions = txsVal;
+            } else {
+              _recentTransactions = [];
             }
 
             // Initialize controllers
@@ -520,7 +546,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
+                      _buildWalletCard(),
                       if (_errorMessage != null) _buildAlertCard(_errorMessage!, Colors.red),
                       if (_successMessage != null) _buildAlertCard(_successMessage!, AppTheme.deepLeafGreen),
                       if (uncompletedCount > 0 && !isVerified)
@@ -550,6 +577,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                             ],
                           ),
                         ),
+                      _buildMenuTile(
+                        icon: Icons.account_balance_wallet_rounded,
+                        iconColor: const Color(0xFF1E3A29),
+                        iconBgColor: const Color(0xFFE8F5E9),
+                        title: 'My Wallet & Total Spent',
+                        subtitle: 'Total Spent: LKR ${_totalSpent.toStringAsFixed(2)} | Avail: LKR ${(double.tryParse(_walletData['available_balance']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2)}',
+                        onTap: _showWalletSheet,
+                      ),
                       _buildMenuTile(
                         icon: Icons.card_giftcard_rounded,
                         iconColor: const Color(0xFFD4A017),
@@ -1900,6 +1935,422 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  Widget _buildWalletCard() {
+    final double availBalance = double.tryParse(_walletData['available_balance']?.toString() ?? '0') ?? 0.0;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A29), Color(0xFF15281C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E3A29).withOpacity(0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -20,
+            top: -20,
+            child: Container(
+              width: 130,
+              height: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.04),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -30,
+            bottom: -30,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accentGold.withOpacity(0.05),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentGold.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: AppTheme.accentGold,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Customer Summary',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Wallet',
+                        style: TextStyle(
+                          color: AppTheme.accentGold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'TOTAL RETAIL PURCHASES SPENT',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    const Text(
+                      'LKR ',
+                      style: TextStyle(
+                        color: AppTheme.accentGold,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      _totalSpent.toStringAsFixed(2),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Available Balance',
+                              style: TextStyle(
+                                color: Colors.white60,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'LKR ${availBalance.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 26,
+                        color: Colors.white.withOpacity(0.12),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Purchases Made',
+                                style: TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$_completedDealsCount Orders',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                InkWell(
+                  onTap: _showWalletSheet,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentGold,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.account_balance_wallet_rounded, color: Colors.black87, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          'View Customer Wallet & History',
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.chevron_right_rounded, color: Colors.black87, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWalletSheet() {
+    final double availBalance = double.tryParse(_walletData['available_balance']?.toString() ?? '0') ?? 0.0;
+    final double pendingBalance = double.tryParse(_walletData['pending_balance']?.toString() ?? '0') ?? 0.0;
+
+    _showModalSheet(
+      title: 'Customer Wallet & Spending Analytics',
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E3A29), Color(0xFF2D5A3F)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'TOTAL SPENT ON RETAIL ORDERS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white70,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'LKR ${_totalSpent.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.accentGold,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Available Balance',
+                        style: TextStyle(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        'LKR ${availBalance.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'Pending Balance',
+                        style: TextStyle(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        'LKR ${pendingBalance.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Retail Orders Purchased', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text('$_completedDealsCount Paid Orders', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'Recent Wallet Activity',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (_recentTransactions.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'No recent transactions recorded.',
+              style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+            ),
+          )
+        else
+          ..._recentTransactions.map((tx) {
+            final desc = tx['description']?.toString() ?? 'Transaction';
+            final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
+            final type = tx['transaction_type']?.toString() ?? '';
+            final isCredit = type == 'credit' || type == 'refund' || type == 'offer_cashback';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isCredit ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                      color: isCredit ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          desc,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          tx['created_at']?.toString().split('T').first ?? '',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '${isCredit ? "+" : "-"} LKR ${amount.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isCredit ? const Color(0xFF166534) : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
   void _showModalSheet({
     required String title,
     required List<Widget> children,
@@ -1934,16 +2385,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 ),
               ),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
                     child: Container(

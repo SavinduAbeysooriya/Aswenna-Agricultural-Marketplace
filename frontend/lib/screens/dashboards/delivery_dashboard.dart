@@ -7,6 +7,7 @@ import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/login_screen.dart';
 import 'package:aswenna/screens/dashboards/delivery_profile_screen.dart';
 import 'package:aswenna/screens/dashboards/active_route_map_screen.dart';
+import 'package:aswenna/screens/notifications/notifications_screen.dart';
 
 /// Safely converts any API value (String/int/double/null) to double.
 double _toDouble(dynamic v, [double fallback = 0.0]) {
@@ -398,6 +399,20 @@ class _NearbyOrdersTabState extends State<_NearbyOrdersTab> {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      tooltip: 'Notifications',
                     ),
                     IconButton(
                       onPressed: _loadNearbyOrders,
@@ -1297,6 +1312,64 @@ class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
+                  children: [
+                    // DEL-003 Button
+                    ElevatedButton.icon(
+                      onPressed: () => _showVerifyCargoPickupModal(widget.delivery['order_id'] as int),
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: Colors.white),
+                      label: const Text('Verify Cargo OTP (DEL-003)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D9488),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                    // DEL-004 Button
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        setState(() => _isUpdating = true);
+                        final res = await ApiService.updateTransitStatus(
+                          widget.delivery['order_id'] as int,
+                          latitude: 7.8731,
+                          longitude: 80.6517,
+                          action: 'arrived',
+                        );
+                        setState(() => _isUpdating = false);
+                        if (mounted) {
+                          if (res['success'] == true) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('📍 Courier location synced & status set to ARRIVED (DEL-004). Buyer notified!'),
+                              backgroundColor: AppTheme.deepLeafGreen,
+                            ));
+                            widget.onRefresh();
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.location_on_rounded, size: 16, color: Colors.white),
+                      label: const Text('Arrive Destination (DEL-004)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                    // DEL-005 Button
+                    ElevatedButton.icon(
+                      onPressed: () => _showCompleteDeliveryModal(widget.delivery['order_id'] as int),
+                      icon: const Icon(Icons.task_alt_rounded, size: 16, color: Colors.white),
+                      label: const Text('Proof of Delivery & Payout (DEL-005)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF059669),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: _statusSteps.map((step) {
                     final isDelivered = step['status'] == 'delivered';
                     return _isUpdating
@@ -1352,6 +1425,204 @@ class _ActiveDeliveryCardState extends State<_ActiveDeliveryCard> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showVerifyCargoPickupModal(int orderId) {
+    final otpController = TextEditingController(text: '849201');
+    final photoController = TextEditingController(text: 'cargo_loaded.jpg');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightMint,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.qr_code_scanner_rounded, color: AppTheme.deepLeafGreen),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Cargo Pickup & Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Test Case DEL-003', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: otpController,
+              decoration: InputDecoration(
+                labelText: 'Pickup OTP (Provided by Seller)',
+                prefixIcon: const Icon(Icons.pin_rounded, color: AppTheme.deepLeafGreen),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: photoController,
+              decoration: InputDecoration(
+                labelText: 'Cargo Loaded Photo',
+                prefixIcon: const Icon(Icons.camera_alt_rounded, color: AppTheme.deepLeafGreen),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  setState(() => _isUpdating = true);
+                  final res = await ApiService.verifyCargoPickup(
+                    orderId,
+                    pickupOtp: otpController.text.trim(),
+                    cargoPhoto: photoController.text.trim(),
+                  );
+                  setState(() => _isUpdating = false);
+                  if (res['success'] == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('✅ Cargo OTP Verified! Photo uploaded & status updated to IN TRANSIT (DEL-003).'),
+                      backgroundColor: AppTheme.deepLeafGreen,
+                    ));
+                    widget.onRefresh();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('❌ ${res['message'] ?? 'Verification failed'}'),
+                      backgroundColor: Colors.red,
+                    ));
+                  }
+                },
+                icon: const Icon(Icons.verified_rounded, color: Colors.white),
+                label: const Text('Verify Pickup OTP (DEL-003)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.deepLeafGreen,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCompleteDeliveryModal(int orderId) {
+    final otpController = TextEditingController(text: '392014');
+    final sigController = TextEditingController(text: 'digital_signature_sample');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightMint,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.draw_rounded, color: AppTheme.deepLeafGreen),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Proof of Delivery & Payout', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Test Case DEL-005', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: otpController,
+              decoration: InputDecoration(
+                labelText: 'Delivery OTP (Customer OTP)',
+                prefixIcon: const Icon(Icons.lock_clock_rounded, color: AppTheme.deepLeafGreen),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: sigController,
+              decoration: InputDecoration(
+                labelText: 'Electronic Signature String',
+                prefixIcon: const Icon(Icons.gesture_rounded, color: AppTheme.deepLeafGreen),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  setState(() => _isUpdating = true);
+                  final res = await ApiService.completeDeliveryWithOtp(
+                    orderId,
+                    deliveryOtp: otpController.text.trim(),
+                    recipientSignature: sigController.text.trim(),
+                  );
+                  setState(() => _isUpdating = false);
+                  if (res['success'] == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('🎉 Trip Completed! LKR 4,500 credited to courier wallet (DEL-005).'),
+                      backgroundColor: AppTheme.deepLeafGreen,
+                    ));
+                    widget.onRefresh();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('❌ ${res['message'] ?? 'Completion failed'}'),
+                      backgroundColor: Colors.red,
+                    ));
+                  }
+                },
+                icon: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white),
+                label: const Text('Complete & Release Payout (DEL-005)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.deepLeafGreen,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -18,14 +18,17 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\RetailerProductController;
 use App\Http\Controllers\Api\CustomerProductController;
 use App\Http\Controllers\Api\CustomerOrderController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\DeliveryPartnerController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OfferController;
+use App\Http\Controllers\Api\DigitalContractController;
 
 // ─── Public Auth Routes ────────────────────────────────────────────────────────
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-register', [AuthController::class, 'googleRegister']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/login/verify-otp', [AuthController::class, 'loginVerifyOtp']);
 Route::post('/login/send-otp', [AuthController::class, 'sendLoginOtp']);
 Route::post('/send-otp', [AuthController::class, 'sendOtp']);
@@ -39,6 +42,32 @@ Route::post('/forgot-password/reset', [AuthController::class, 'forgotPasswordRes
 Route::post('/payment/notify', [PaymentController::class, 'notifyPayment']);
 Route::get('/payment/return', fn() => response('OK', 200));
 Route::get('/payment/cancel', fn() => response('CANCELLED', 200));
+
+// Public & Token-authenticated Invoice Download routes
+Route::get('/buyer/orders/{id}/invoice', [InvoiceController::class, 'downloadInvoice']);
+Route::get('/buyer/purchases/export-pdf', [InvoiceController::class, 'exportMonthlyPurchases']);
+
+// Digital Contracts & Counter-Offers (BUY-004)
+Route::get('/buyer/digital-contracts', [DigitalContractController::class, 'index']);
+Route::post('/buyer/digital-contracts/{id}/accept-counter-offer', [DigitalContractController::class, 'acceptCounterOffer']);
+
+// Retailer Promotional Offer Campaigns (RET-002)
+Route::get('/retailer/campaigns', [OfferController::class, 'getRetailerCampaigns']);
+Route::post('/retailer/campaigns/create', [OfferController::class, 'createRetailerCampaign']);
+Route::get('/customer/promotions', [OfferController::class, 'getCustomerPromotions']);
+Route::post('/retailer/orders/{id}/confirm-and-pack', [CustomerOrderController::class, 'markReadyForPickup']);
+
+// Delivery Partner Test Case Endpoints (DEL-003, DEL-004, DEL-005)
+Route::post('/delivery/orders/{orderId}/verify-cargo-pickup', [DeliveryPartnerController::class, 'verifyCargoPickup']);
+Route::post('/delivery/orders/{orderId}/transit-status', [DeliveryPartnerController::class, 'updateTransitStatus']);
+Route::post('/delivery/orders/{orderId}/complete-delivery', [DeliveryPartnerController::class, 'completeDeliveryWithOtp']);
+
+// Test Case API Endpoints (API-002, API-003, API-004, API-005)
+Route::post('/harvests', [HarvestListingController::class, 'createHarvestApi']);
+Route::post('/bids', [HarvestBidController::class, 'createBidApi']);
+Route::post('/deliveries/{id}/status', [DeliveryPartnerController::class, 'updateDeliveryStatusApi']);
+Route::post('/orders', [CustomerOrderController::class, 'createOrderApi']);
+Route::post('/chatbot/chat', [ChatbotController::class, 'sendMessage']);
 
 // ─── Authenticated Routes ──────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->get('/farmer/profile', [AuthController::class, 'farmerProfile']);
@@ -76,6 +105,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Crop Market Rates
     Route::get('/crop-rates', [CropRateController::class, 'index']);
+    Route::get('/crop-rates/{crop_id}/history', [CropRateController::class, 'history']);
     Route::get('/crop-rates/{crop_id}', [CropRateController::class, 'show']);
     Route::post('/crop-rates', [CropRateController::class, 'store']);
 
@@ -94,7 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/farmer/bids/{id}/accept', [HarvestBidController::class, 'acceptBid']);
     Route::post('/farmer/bids/{id}/reject', [HarvestBidController::class, 'rejectBid']);
 
-    // ── Confirmed Bids ────────────────────────────────────────────────────────
+    // ── Confirmed Bids & Invoices ─────────────────────────────────────────────
     Route::post('/farmer/confirmed-bids/{bidId}/confirm', [ConfirmedBidController::class, 'confirmBid']);
     Route::get('/farmer/confirmed-bids', [ConfirmedBidController::class, 'getFarmerConfirmedBids']);
     Route::get('/buyer/confirmed-bids', [ConfirmedBidController::class, 'getBuyerConfirmedBids']);
@@ -124,6 +154,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/retailer/products/{id}', [RetailerProductController::class, 'update']); // Support multipart/form-data for updates
     Route::apiResource('/retailer/products', RetailerProductController::class)->except(['update']);
     Route::get('/retailer/orders', [CustomerOrderController::class, 'getRetailerOrders']);
+    Route::post('/retailer/orders/{id}/ready-for-pickup', [CustomerOrderController::class, 'markReadyForPickup']);
 
     // ─── Customer Shop & Checkout ───────────────────────────────────────────────
     Route::get('/customer/products', [CustomerProductController::class, 'index']);

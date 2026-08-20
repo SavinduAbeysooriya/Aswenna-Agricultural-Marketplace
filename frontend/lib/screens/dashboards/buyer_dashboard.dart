@@ -10,6 +10,8 @@ import 'package:aswenna/screens/payment/payment_screen.dart';
 import 'package:aswenna/screens/review/review_screen.dart';
 import 'package:aswenna/screens/dashboards/buyer_bidding_marketplace.dart';
 import 'package:aswenna/screens/market_rates/buyer_farmer_profile_view_screen.dart';
+import 'package:aswenna/screens/notifications/notifications_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BuyerDashboard extends StatefulWidget {
   const BuyerDashboard({super.key});
@@ -42,10 +44,10 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     });
   }
 
-  Future<void> _loadConfirmedBids() async {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _isLoadingPurchases = true);
-    });
+  Future<void> _loadConfirmedBids({bool showLoading = false}) async {
+    if (showLoading && mounted) {
+      setState(() => _isLoadingPurchases = true);
+    }
     try {
       final result = await ApiService.getBuyerConfirmedBids();
       if (mounted) {
@@ -95,10 +97,10 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     }
   }
 
-  Future<void> _loadHarvestListings() async {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _isLoadingHarvests = true);
-    });
+  Future<void> _loadHarvestListings({bool showLoading = false}) async {
+    if (showLoading && mounted) {
+      setState(() => _isLoadingHarvests = true);
+    }
     try {
       final result = await ApiService.getBuyerHarvestListings();
       if (mounted) {
@@ -178,6 +180,16 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               : (_currentNavIndex == 1 ? 'Bidding Marketplace' : 'My Purchases'),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: AppTheme.deepLeafGreen),
+            tooltip: 'Notifications',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
+            },
+          ),
           GestureDetector(
             onTap: () async {
               await Navigator.push(
@@ -1017,259 +1029,312 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       );
     }
 
-    return SizedBox.expand(
-      child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-          const SizedBox(height: 12),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _loadConfirmedBids,
-              color: AppTheme.deepLeafGreen,
-              child: ListView.separated(
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
-              itemCount: _confirmedBids.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                try {
-                  final item = _confirmedBids[index];
-                  if (item == null) return const SizedBox.shrink();
-                  final bid = Map<String, dynamic>.from(item as Map);
-                  
-                  final id = int.tryParse(bid['id']?.toString() ?? '') ?? 0;
-                  final harvestListingId = int.tryParse(bid['harvest_listing_id']?.toString() ?? '');
-                  final farmerId = int.tryParse(bid['farmer_id']?.toString() ?? '');
-                  
-                  final cropName = bid['cropname']?.toString() ?? 'Crop';
-                  final qty = bid['bid_quantity_unit']?.toString() ?? '0';
-                  final unit = bid['unit']?.toString() ?? 'kg';
-                  final rate = double.tryParse(bid['bid_amount_per_unit']?.toString() ?? '0') ?? 0;
-                  final total = double.tryParse(bid['total_amount']?.toString() ?? '0') ?? 0;
-                  final farmerName = bid['farmer_name']?.toString() ?? 'Farmer';
-                  final paymentStatus = (bid['payment_status'] ?? 'unpaid').toString().toLowerCase();
-                  final isPaid = paymentStatus == 'paid';
-                  final hasReview = bid['has_review'] == true;
-                  final cropImage = bid['crop_image']?.toString();
+    return RefreshIndicator(
+      onRefresh: _loadConfirmedBids,
+      color: AppTheme.deepLeafGreen,
+      child: ListView.separated(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
+        itemCount: _confirmedBids.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        itemBuilder: (context, index) {
+          try {
+            final item = _confirmedBids[index];
+            if (item == null) return const SizedBox.shrink();
+            final bid = Map<String, dynamic>.from(item as Map);
+            
+            final id = int.tryParse(bid['id']?.toString() ?? '') ?? 0;
+            final harvestListingId = int.tryParse(bid['harvest_listing_id']?.toString() ?? '');
+            final farmerId = int.tryParse(bid['farmer_id']?.toString() ?? '');
+            
+            final cropName = bid['cropname']?.toString() ?? 'Crop';
+            final qty = bid['bid_quantity_unit']?.toString() ?? '0';
+            final unit = bid['unit']?.toString() ?? 'kg';
+            final rate = double.tryParse(bid['bid_amount_per_unit']?.toString() ?? '0') ?? 0;
+            final total = double.tryParse(bid['total_amount']?.toString() ?? '0') ?? 0;
+            final farmerName = bid['farmer_name']?.toString() ?? 'Farmer';
+            final paymentStatus = (bid['payment_status'] ?? 'unpaid').toString().toLowerCase();
+            final isPaid = paymentStatus == 'paid';
+            final hasReview = bid['has_review'] == true;
+            final cropImage = bid['crop_image']?.toString();
 
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.pureWhite,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.deepLeafGreen.withOpacity(0.04),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(24),
-                      onTap: () {
-                        _showPurchaseActionsBottomSheet(
-                          context: context,
-                          id: id,
-                          harvestListingId: harvestListingId,
-                          farmerId: farmerId,
-                          farmerName: farmerName,
-                          isPaid: isPaid,
-                          hasReview: hasReview,
-                          bid: bid,
-                        );
-                      },
-                      child: Padding(
-                         padding: const EdgeInsets.all(16),
-                         child: Column(
-                           crossAxisAlignment: CrossAxisAlignment.start,
-                           children: [
-                             // Top section: Image & details
-                             Row(
+            return Container(
+              decoration: BoxDecoration(
+                color: AppTheme.pureWhite,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.deepLeafGreen.withOpacity(0.04),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () {
+                  _showPurchaseActionsBottomSheet(
+                    context: context,
+                    id: id,
+                    harvestListingId: harvestListingId,
+                    farmerId: farmerId,
+                    farmerName: farmerName,
+                    isPaid: isPaid,
+                    hasReview: hasReview,
+                    bid: bid,
+                  );
+                },
+                child: Padding(
+                   padding: const EdgeInsets.all(16),
+                   child: Column(
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+                       // Top section: Image & details
+                       Row(
+                         crossAxisAlignment: CrossAxisAlignment.start,
+                         children: [
+                           // Crop image thumbnail
+                           Container(
+                             width: 72,
+                             height: 72,
+                             decoration: BoxDecoration(
+                               color: AppTheme.lightMint,
+                               borderRadius: BorderRadius.circular(16),
+                             ),
+                             child: cropImage != null
+                                 ? ClipRRect(
+                                     borderRadius: BorderRadius.circular(16),
+                                     child: Image.network(
+                                       ApiService.fileUrl(cropImage) ?? '',
+                                       fit: BoxFit.cover,
+                                       errorBuilder: (_, __, ___) => const Icon(
+                                         Icons.shopping_bag_outlined,
+                                         color: AppTheme.deepLeafGreen,
+                                         size: 28,
+                                       ),
+                                     ),
+                                   )
+                                 : const Icon(
+                                     Icons.shopping_bag_outlined,
+                                     color: AppTheme.deepLeafGreen,
+                                     size: 28,
+                                   ),
+                           ),
+                           const SizedBox(width: 16),
+                           // Details
+                           Expanded(
+                             child: Column(
                                crossAxisAlignment: CrossAxisAlignment.start,
                                children: [
-                                 // Crop image thumbnail
-                                 Container(
-                                   width: 72,
-                                   height: 72,
-                                   decoration: BoxDecoration(
-                                     color: AppTheme.lightMint,
-                                     borderRadius: BorderRadius.circular(16),
-                                   ),
-                                   child: cropImage != null
-                                       ? ClipRRect(
-                                           borderRadius: BorderRadius.circular(16),
-                                           child: Image.network(
-                                             ApiService.fileUrl(cropImage) ?? '',
-                                             fit: BoxFit.cover,
-                                             errorBuilder: (_, __, ___) => const Icon(
-                                               Icons.shopping_bag_outlined,
-                                               color: AppTheme.deepLeafGreen,
-                                               size: 28,
+                                 Row(
+                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                   children: [
+                                     Expanded(
+                                       child: Text(
+                                         cropName,
+                                         style: const TextStyle(
+                                           fontSize: 16,
+                                           fontWeight: FontWeight.bold,
+                                           color: Color(0xFF0F172A),
+                                         ),
+                                         maxLines: 1,
+                                         overflow: TextOverflow.ellipsis,
+                                       ),
+                                     ),
+                                     const SizedBox(width: 8),
+                                     // Status Badge
+                                     Container(
+                                       padding: const EdgeInsets.symmetric(
+                                         horizontal: 10,
+                                         vertical: 4,
+                                       ),
+                                       decoration: BoxDecoration(
+                                         color: isPaid
+                                             ? const Color(0xFFE8F5E9)
+                                             : const Color(0xFFFFF8E1),
+                                         borderRadius: BorderRadius.circular(30),
+                                       ),
+                                       child: Row(
+                                         mainAxisSize: MainAxisSize.min,
+                                         children: [
+                                           Icon(
+                                             isPaid
+                                                 ? Icons.check_circle_rounded
+                                                 : Icons.hourglass_full_rounded,
+                                             color: isPaid
+                                                 ? const Color(0xFF2E7D32)
+                                                 : const Color(0xFFF57F17),
+                                             size: 12,
+                                           ),
+                                           const SizedBox(width: 4),
+                                           Text(
+                                             isPaid ? 'Paid' : 'Unpaid',
+                                             style: TextStyle(
+                                               fontSize: 10,
+                                               fontWeight: FontWeight.w800,
+                                               color: isPaid
+                                                   ? const Color(0xFF2E7D32)
+                                                   : const Color(0xFFF57F17),
                                              ),
                                            ),
-                                         )
-                                       : const Icon(
-                                           Icons.shopping_bag_outlined,
-                                           color: AppTheme.deepLeafGreen,
-                                           size: 28,
-                                         ),
+                                         ],
+                                       ),
+                                     ),
+                                   ],
                                  ),
-                                 const SizedBox(width: 16),
-                                 // Details
-                                 Expanded(
-                                   child: Column(
-                                     crossAxisAlignment: CrossAxisAlignment.start,
-                                     children: [
-                                       Row(
-                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                 const SizedBox(height: 4),
+                                 Text(
+                                   'Farmer: $farmerName',
+                                   style: const TextStyle(
+                                     fontSize: 12,
+                                     color: Color(0xFF64748B),
+                                     fontWeight: FontWeight.w500,
+                                   ),
+                                 ),
+                                 const SizedBox(height: 8),
+                                 Divider(color: Colors.grey[100], height: 1),
+                                 const SizedBox(height: 8),
+                                 Row(
+                                   crossAxisAlignment: CrossAxisAlignment.end,
+                                   children: [
+                                     Expanded(
+                                       child: Column(
                                          crossAxisAlignment: CrossAxisAlignment.start,
                                          children: [
-                                           Expanded(
-                                             child: Text(
-                                               cropName,
-                                               style: const TextStyle(
-                                                 fontSize: 16,
-                                                 fontWeight: FontWeight.bold,
-                                                 color: Color(0xFF0F172A),
-                                               ),
-                                               maxLines: 1,
-                                               overflow: TextOverflow.ellipsis,
+                                           Text(
+                                             'Qty: $qty $unit',
+                                             style: const TextStyle(
+                                               fontSize: 11,
+                                               color: Color(0xFF64748B),
+                                               fontWeight: FontWeight.bold,
                                              ),
                                            ),
-                                           const SizedBox(width: 8),
-                                           // Status Badge
-                                           Container(
-                                             padding: const EdgeInsets.symmetric(
-                                               horizontal: 10,
-                                               vertical: 4,
-                                             ),
-                                             decoration: BoxDecoration(
-                                               color: isPaid
-                                                   ? const Color(0xFFE8F5E9)
-                                                   : const Color(0xFFFFF8E1),
-                                               borderRadius: BorderRadius.circular(30),
-                                             ),
-                                             child: Row(
-                                               mainAxisSize: MainAxisSize.min,
-                                               children: [
-                                                 Icon(
-                                                   isPaid
-                                                       ? Icons.check_circle_rounded
-                                                       : Icons.hourglass_full_rounded,
-                                                   color: isPaid
-                                                       ? const Color(0xFF2E7D32)
-                                                       : const Color(0xFFF57F17),
-                                                   size: 12,
-                                                 ),
-                                                 const SizedBox(width: 4),
-                                                 Text(
-                                                   isPaid ? 'Paid' : 'Unpaid',
-                                                   style: TextStyle(
-                                                     fontSize: 10,
-                                                     fontWeight: FontWeight.w800,
-                                                     color: isPaid
-                                                         ? const Color(0xFF2E7D32)
-                                                         : const Color(0xFFF57F17),
-                                                   ),
-                                                 ),
-                                               ],
+                                           const SizedBox(height: 2),
+                                           Text(
+                                             'Rate: LKR ${rate.toStringAsFixed(0)}/$unit',
+                                             style: const TextStyle(
+                                               fontSize: 11,
+                                               color: Color(0xFF64748B),
+                                               fontWeight: FontWeight.w500,
                                              ),
                                            ),
                                          ],
                                        ),
-                                       const SizedBox(height: 4),
-                                       Text(
-                                         'Farmer: $farmerName',
-                                         style: const TextStyle(
-                                           fontSize: 12,
-                                           color: Color(0xFF64748B),
-                                           fontWeight: FontWeight.w500,
+                                     ),
+                                     Column(
+                                       crossAxisAlignment: CrossAxisAlignment.end,
+                                       children: [
+                                         const Text(
+                                           'TOTAL AMOUNT',
+                                           style: TextStyle(
+                                             fontSize: 8,
+                                             fontWeight: FontWeight.bold,
+                                             color: Color(0xFF94A3B8),
+                                             letterSpacing: 0.5,
+                                           ),
                                          ),
-                                       ),
-                                       const SizedBox(height: 8),
-                                       Divider(color: Colors.grey[100], height: 1),
-                                       const SizedBox(height: 8),
-                                       Row(
-                                         crossAxisAlignment: CrossAxisAlignment.end,
-                                         children: [
-                                           Expanded(
-                                             child: Column(
-                                               crossAxisAlignment: CrossAxisAlignment.start,
-                                               children: [
-                                                 Text(
-                                                   'Qty: $qty $unit',
-                                                   style: const TextStyle(
-                                                     fontSize: 11,
-                                                     color: Color(0xFF64748B),
-                                                     fontWeight: FontWeight.bold,
-                                                   ),
-                                                 ),
-                                                 const SizedBox(height: 2),
-                                                 Text(
-                                                   'Rate: LKR ${rate.toStringAsFixed(0)}/$unit',
-                                                   style: const TextStyle(
-                                                     fontSize: 11,
-                                                     color: Color(0xFF64748B),
-                                                     fontWeight: FontWeight.w500,
-                                                   ),
-                                                 ),
-                                               ],
-                                             ),
+                                         const SizedBox(height: 2),
+                                         Text(
+                                           'LKR ${total.toStringAsFixed(0)}',
+                                           style: const TextStyle(
+                                             fontSize: 14,
+                                             fontWeight: FontWeight.w900,
+                                             color: AppTheme.deepLeafGreen,
                                            ),
-                                           Column(
-                                             crossAxisAlignment: CrossAxisAlignment.end,
-                                             children: [
-                                               const Text(
-                                                 'TOTAL AMOUNT',
-                                                 style: TextStyle(
-                                                   fontSize: 8,
-                                                   fontWeight: FontWeight.bold,
-                                                   color: Color(0xFF94A3B8),
-                                                   letterSpacing: 0.5,
-                                                 ),
-                                               ),
-                                               const SizedBox(height: 2),
-                                               Text(
-                                                 'LKR ${total.toStringAsFixed(0)}',
-                                                 style: const TextStyle(
-                                                   fontSize: 14,
-                                                   fontWeight: FontWeight.w900,
-                                                   color: AppTheme.deepLeafGreen,
-                                                 ),
-                                               ),
-                                             ],
-                                           ),
-                                         ],
-                                       ),
-                                     ],
-                                   ),
+                                         ),
+                                       ],
+                                     ),
+                                   ],
                                  ),
                                ],
                              ),
-                             /* Buttons commented out and moved to premium Bottom Sheet actions */
-                            ],
-                          ),
+                           ),
+                         ],
                        ),
-                     ),
-                   );
-                } catch (e, stack) {
-                  debugPrint("Error rendering purchase card: $e\n$stack");
-                  return Card(
-                    color: Colors.red[50],
-                    margin: const EdgeInsets.all(8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text("Error rendering card: $e\nRaw item: ${_confirmedBids[index]}"),
-                    ),
-                  );
-                }
-              },
-            ),
-          ),
-        ),
-      ],
-    ),
+                     ],
+                   ),
+                ),
+              ),
+            );
+          } catch (e, stack) {
+            debugPrint("Error rendering purchase card: $e\n$stack");
+            return Card(
+              color: Colors.red[50],
+              margin: const EdgeInsets.all(8),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text("Error rendering card: $e\nRaw item: ${_confirmedBids[index]}"),
+              ),
+            );
+          }
+        },
+      ),
     );
+  }
+
+  Future<void> _downloadOrderInvoice(int orderId) async {
+    final token = await ApiService.getToken();
+    final path = '/api/buyer/orders/$orderId/invoice${token != null ? '?token=$token' : ''}';
+    final url = ApiService.fileUrl(path);
+    if (url != null) {
+      try {
+        final uri = Uri.parse(url);
+        bool launched = false;
+        try {
+          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (_) {}
+        if (!launched) {
+          try {
+            launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+          } catch (_) {}
+        }
+        if (!launched && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open PDF invoice link.')),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error launching invoice URL: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open PDF invoice: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _exportMonthlyPdfSummary() async {
+    final token = await ApiService.getToken();
+    final path = '/api/buyer/purchases/export-pdf?month=current${token != null ? '&token=$token' : ''}';
+    final url = ApiService.fileUrl(path);
+    if (url != null) {
+      try {
+        final uri = Uri.parse(url);
+        bool launched = false;
+        try {
+          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (_) {}
+        if (!launched) {
+          try {
+            launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+          } catch (_) {}
+        }
+        if (!launched && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open PDF summary report link.')),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error launching summary URL: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open PDF summary: $e')),
+          );
+        }
+      }
+    }
   }
 
   void _showPurchaseActionsBottomSheet({
@@ -1324,6 +1389,58 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               ),
               const SizedBox(height: 20),
               
+              // Download PDF Invoice Action Item
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                ),
+                title: const Text(
+                  'Download Tax Invoice (PDF)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Itemized receipt with tax & payment reference',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                onTap: () {
+                  Navigator.pop(context);
+                  _downloadOrderInvoice(id);
+                },
+              ),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+              // Export Monthly Purchase Summary (PDF) Action Item
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.summarize_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                ),
+                title: const Text(
+                  'Export Monthly Summary (PDF)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Current month purchase history & expenditure export',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                onTap: () {
+                  Navigator.pop(context);
+                  _exportMonthlyPdfSummary();
+                },
+              ),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
               // View Harvest Details
               if (harvestListingId != null) ...[
                 ListTile(

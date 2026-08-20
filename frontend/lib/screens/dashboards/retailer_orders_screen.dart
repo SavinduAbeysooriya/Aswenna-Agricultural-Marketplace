@@ -939,6 +939,134 @@ class _RetailerOrderDetailSheetState extends State<RetailerOrderDetailSheet> {
                       ],
                     ),
                   ),
+
+                  // RET-003 Action: Confirm Order & Pack / Ready for Pickup Barcode
+                  if (status == 'paid' || status == 'confirmed' || status == 'processing' || status == 'pending') ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppTheme.deepLeafGreen.withOpacity(0.3)),
+                        boxShadow: [
+                          BoxShadow(color: AppTheme.deepLeafGreen.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4)),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.inventory_2_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                              SizedBox(width: 8),
+                              Text('Order Packing & Pickup (RET-003)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.darkGreen)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              const Text('Assigned Pickup Slot: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(color: AppTheme.lightMint, borderRadius: BorderRadius.circular(8)),
+                                child: const Text('14:00 Slot', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Confirming order & generating pickup barcode...')),
+                                );
+
+                                final res = await ApiService.markReadyForPickup(
+                                  widget.order['id'] ?? widget.order['order_number'] ?? 'ORD-9912',
+                                  pickupSlot: '14:00',
+                                );
+
+                                if (res['success'] == true) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(res['message'] ?? 'Order state updated successfully; pickup barcode generated for courier scanning.'),
+                                      backgroundColor: AppTheme.deepLeafGreen,
+                                    ),
+                                  );
+                                  widget.onReviewSubmitted();
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(res['message'] ?? 'Failed to update order status.')),
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.deepLeafGreen,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.check_circle_rounded, size: 18),
+                              label: const Text('Confirm Order & Pack (RET-003)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (status == 'ready_for_pickup') ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppTheme.deepLeafGreen),
+                      ),
+                      child: Column(
+                        children: [
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.qr_code_2_rounded, color: AppTheme.deepLeafGreen, size: 20),
+                              SizedBox(width: 8),
+                              Text('Pickup Barcode for Courier Scanning', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.darkGreen)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[300]!)),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: List.generate(24, (i) => Container(
+                                    width: i % 3 == 0 ? 4 : 2,
+                                    height: 38,
+                                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                                    color: i % 5 == 0 ? Colors.transparent : Colors.black87,
+                                  )),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  widget.order['pickup_barcode']?.toString() ?? 'PKUP-${widget.order['order_number'] ?? 'ORD-9912'}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 2, color: Colors.black87),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Status: READY FOR PICKUP • Slot: ${widget.order['pickup_slot'] ?? '14:00'}',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
 
                   // Items sold

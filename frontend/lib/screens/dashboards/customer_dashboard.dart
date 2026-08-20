@@ -5,6 +5,7 @@ import 'package:aswenna/services/api_service.dart';
 import 'package:aswenna/screens/dashboards/customer_cart_screen.dart';
 import 'package:aswenna/screens/dashboards/customer_profile_screen.dart';
 import 'package:aswenna/screens/dashboards/customer_orders_screen.dart';
+import 'package:aswenna/screens/notifications/notifications_screen.dart';
 import 'package:aswenna/screens/login_screen.dart';
 
 class CustomerDashboard extends StatefulWidget {
@@ -324,9 +325,11 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined, color: Color(0xFF475569)),
+            tooltip: 'Notifications',
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new notifications.')),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
               );
             },
           ),
@@ -607,6 +610,12 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
 
   Widget _buildPromoBannerCarousel() {
     final List<Map<String, String>> banners = [
+      {
+        'title': 'Weekend Harvest Festival',
+        'subtitle': '15% OFF on Fresh Vegetables (RET-002)',
+        'discount': '15% OFF • Scheduled Flash Promo',
+        'asset': 'assets/images/welcome_bg1.jpg',
+      },
       {
         'title': 'Fresh Organic Harvest',
         'subtitle': 'Direct from Nuwara Eliya Farms',

@@ -134,21 +134,26 @@ Output: "rice plant harvesting yellow color maturity"
 Input: "{raw_query}"
 Output (provide ONLY the optimized keyword phrase, no other text):"""
         
-        payload = {
-            "model": "llama-3.3-70b-versatile",
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.1,
-            "max_tokens": 20
-        }
-        response = requests.post(GROQ_URL, headers=headers, json=payload, timeout=5)
-        if response.status_code == 200:
-            optimized = response.json()['choices'][0]['message']['content'].strip().strip('"')
-            print(f"Original Query: '{raw_query}' -> Optimized: '{optimized}'", flush=True)
-            return optimized
-        else:
-            print(f"Groq Query Optimization API Error: {response.status_code} - {response.text}", flush=True)
+        models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
+        for m in models:
+            payload = {
+                "model": m,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.1,
+                "max_tokens": 20
+            }
+            response = requests.post(GROQ_URL, headers=headers, json=payload, timeout=5)
+            if response.status_code == 200:
+                optimized = response.json()['choices'][0]['message']['content']
+                if "<think>" in optimized:
+                    optimized = re.sub(r'<think>.*?</think>', '', optimized, flags=re.DOTALL)
+                optimized = optimized.strip().strip('"')
+                print(f"Original Query: '{raw_query}' -> Optimized: '{optimized}'", flush=True)
+                return optimized
+            else:
+                print(f"Groq Query Optimization API Error ({m}): {response.status_code} - {response.text}", flush=True)
     except Exception as e:
         print(f"Failed to optimize query: {e}", flush=True)
     return raw_query
@@ -393,21 +398,29 @@ Instructions:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {GROQ_API_KEY}"
         }
-        payload = {
-            "model": "llama-3.3-70b-versatile",
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.5,
-            "max_tokens": 800
-        }
+        models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
+        last_err = None
+        for m in models:
+            payload = {
+                "model": m,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.5,
+                "max_tokens": 800
+            }
+            response = requests.post(GROQ_URL, headers=headers, json=payload, timeout=20)
+            if response.status_code == 200:
+                res_content = response.json()['choices'][0]['message']['content']
+                if "<think>" in res_content:
+                    res_content = re.sub(r'<think>.*?</think>', '', res_content, flags=re.DOTALL)
+                return res_content.strip()
+            else:
+                last_err = f"Groq API Error ({m}): {response.status_code} - {response.text}"
+                print(last_err, flush=True)
         
-        response = requests.post(GROQ_URL, headers=headers, json=payload, timeout=20)
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content']
-        else:
-            print(f"Groq Chat Generation API Error: {response.status_code} - {response.text}", flush=True)
-            raise Exception(f"Groq API Error: {response.status_code} - {response.text}")
+        if last_err:
+            raise Exception(last_err)
     except Exception as e:
         print(f"Exception during Groq generation: {e}", flush=True)
         raise e
@@ -473,11 +486,10 @@ Instructions:
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    data = request.get_json()
-    if not data or 'question' not in data:
-        return jsonify({"error": "Missing 'question' in request body"}), 400
-        
-    question = data['question']
+    data = request.get_json() or {}
+    question = data.get('question') or data.get('message')
+    if not question:
+        return jsonify({"error": "Missing 'message' or 'question' in request body"}), 400
     image_path = data.get('image_path')
     
     image_desc = None
@@ -577,8 +589,9 @@ def predict():
     if crop_rec_model and crop_rec_encoder:
         try:
             # Features: ['Nitrogen', 'Phosphorus', 'Potassium', 'Temperature', 'Humidity', 'pH_Value', 'Rainfall']
-            rec_features = [[nitrogen, phosphorus, potassium, temp, humidity, ph, rainfall]]
-            rec_class = crop_rec_model.predict(rec_features)[0]
+            rec_cols = ['Nitrogen', 'Phosphorus', 'Potassium', 'Temperature', 'Humidity', 'pH_Value', 'Rainfall']
+            rec_df = pd.DataFrame([[nitrogen, phosphorus, potassium, temp, humidity, ph, rainfall]], columns=rec_cols)
+            rec_class = crop_rec_model.predict(rec_df)[0]
             recommended_crop = crop_rec_encoder.inverse_transform([rec_class])[0]
             predictions["recommended_crop"] = recommended_crop
         except Exception as e:
@@ -608,8 +621,9 @@ def predict():
             enc_item = safe_encode(crop_yield_item_encoder, mapped_crop, "Rice, paddy")
             
             # Features: ['Area', 'Item', 'Year', 'average_rain_fall_mm_per_year', 'pesticides_tonnes', 'avg_temp']
-            yield_features = [[enc_area, enc_item, year, rainfall, pesticide_tonnes, temp]]
-            predicted_yield_hg_ha = float(crop_yield_model.predict(yield_features)[0])
+            yield_cols = ['Area', 'Item', 'Year', 'average_rain_fall_mm_per_year', 'pesticides_tonnes', 'avg_temp']
+            yield_df = pd.DataFrame([[enc_area, enc_item, year, rainfall, pesticide_tonnes, temp]], columns=yield_cols)
+            predicted_yield_hg_ha = float(crop_yield_model.predict(yield_df)[0])
             
             # Convert yield: hg/ha to kg/acre
             yield_kg_ha = predicted_yield_hg_ha * 0.1
@@ -646,8 +660,9 @@ def predict():
             enc_crop = safe_encode(fertilizer_crop_encoder, mapped_crop_type, "Paddy")
             
             # Features: ['Temparature', 'Humidity', 'Moisture', 'Soil Type', 'Crop Type', 'Nitrogen', 'Potassium', 'Phosphorous']
-            fert_features = [[soil_temp, humidity, soil_moisture, enc_soil, enc_crop, nitrogen, potassium, phosphorus]]
-            fert_class = fertilizer_model.predict(fert_features)[0]
+            fert_cols = ['Temparature', 'Humidity', 'Moisture', 'Soil Type', 'Crop Type', 'Nitrogen', 'Potassium', 'Phosphorous']
+            fert_df = pd.DataFrame([[soil_temp, humidity, soil_moisture, enc_soil, enc_crop, nitrogen, potassium, phosphorus]], columns=fert_cols)
+            fert_class = fertilizer_model.predict(fert_df)[0]
             recommended_fertilizer = fertilizer_name_encoder.inverse_transform([fert_class])[0]
             
             predictions["recommended_fertilizer"] = recommended_fertilizer

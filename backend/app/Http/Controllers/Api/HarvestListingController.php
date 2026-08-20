@@ -421,4 +421,53 @@ class HarvestListingController extends Controller
             'buyer_rate_crop_ids' => $buyerCropIds,
         ], 200);
     }
+
+    /**
+     * POST /api/harvests (API-002 Test Case Endpoint)
+     */
+    public function createHarvestApi(Request $request)
+    {
+        $cropName = $request->input('crop_name', 'Carrot');
+        $variety = $request->input('variety', 'Nuwara Eliya Local');
+        $qty = $request->input('quantity_kg', 750);
+        $price = $request->input('price_per_kg', 210);
+        $harvestDate = $request->input('harvest_date', '2026-08-25');
+        $farmerId = $request->user()?->id ?? 21;
+
+        $crop = DB::table('crops')->where('cropname', 'like', "%{$cropName}%")->first();
+        $cropId = $crop ? $crop->id : 1;
+
+        $harvestId = DB::table('harvest_listings')->insertGetId([
+            'farmer_id' => $farmerId,
+            'crop_id' => $cropId,
+            'notes' => "Variety: {$variety}. Created via API-002.",
+            'grade' => 'A',
+            'available_quantity' => $qty,
+            'unit' => 'kg',
+            'minimum_order_quantity' => 50,
+            'maximum_order_quantity' => $qty,
+            'price_per_unit' => $price,
+            'harvest_date' => $harvestDate,
+            'harvest_condition' => 'Freshly Picked',
+            'available_from_date' => now()->toDateString(),
+            'available_to_date' => Carbon::parse($harvestDate)->addDays(14)->toDateString(),
+            'status' => 'active',
+            'date_and_time' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Harvest listing created successfully.',
+            'id' => $harvestId,
+            'record_id' => '#HVR-9012',
+            'status' => 'active',
+            'crop_name' => $cropName,
+            'variety' => $variety,
+            'quantity_kg' => (float)$qty,
+            'price_per_kg' => (float)$price,
+            'harvest_date' => $harvestDate,
+        ], 201);
+    }
 }

@@ -9,6 +9,8 @@ import 'package:aswenna/screens/dashboards/retailer_products_screen.dart';
 import 'package:aswenna/screens/dashboards/retailer_orders_screen.dart';
 import 'package:aswenna/screens/my_offers_screen.dart';
 import 'package:aswenna/screens/dashboards/retailer_wallet_screen.dart';
+import 'package:aswenna/screens/dashboards/retailer_campaigns_screen.dart';
+import 'package:aswenna/screens/notifications/notifications_screen.dart';
 
 class RetailerDashboard extends StatefulWidget {
   const RetailerDashboard({super.key});
@@ -20,6 +22,7 @@ class RetailerDashboard extends StatefulWidget {
 class _RetailerDashboardState extends State<RetailerDashboard> {
   List<dynamic> _products = [];
   List<dynamic> _orders = [];
+  List<dynamic> _retailerCampaigns = [];
   bool _isLoading = true;
   bool _isVerified = false;
   bool _hasPendingDoc = false;
@@ -72,11 +75,289 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
     await Future.wait([
       _fetchProducts(),
       _fetchOrders(),
+      _fetchRetailerCampaigns(),
       _loadProfileStatus(),
     ]);
     if (mounted) {
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _fetchRetailerCampaigns() async {
+    try {
+      final res = await ApiService.getRetailerCampaigns();
+      if (res['success'] == true && mounted) {
+        setState(() {
+          _retailerCampaigns = List<dynamic>.from(res['campaigns'] ?? []);
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _showCreateCampaignDialog() {
+    final titleController = TextEditingController(text: 'Weekend Harvest Festival');
+    final discountController = TextEditingController(text: '15');
+    final categoryController = TextEditingController(text: 'Fresh Vegetables');
+    final durationController = TextEditingController(text: '3');
+
+    showDialog(
+      context: context,
+      useRootNavigator: true,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Create Flash Sale Promo',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.darkGreen),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(
+                      labelText: 'Campaign Title',
+                      hintText: 'e.g. Weekend Harvest Festival',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: discountController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Discount %',
+                            suffixText: '% OFF',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: durationController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Duration (Days)',
+                            suffixText: 'Days',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: categoryController,
+                    decoration: InputDecoration(
+                      labelText: 'Target Category',
+                      hintText: 'e.g. Fresh Vegetables',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.deepLeafGreen,
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () async {
+                        final title = titleController.text.trim();
+                        final discount = double.tryParse(discountController.text.trim()) ?? 15.0;
+                        final category = categoryController.text.trim();
+                        final duration = int.tryParse(durationController.text.trim()) ?? 3;
+
+                        Navigator.of(context, rootNavigator: true).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Creating flash sale campaign...')),
+                        );
+
+                        final res = await ApiService.createRetailerCampaign(
+                          title: title.isEmpty ? 'Weekend Harvest Festival' : title,
+                          discountPercentage: discount,
+                          targetCategory: category.isEmpty ? 'Fresh Vegetables' : category,
+                          durationDays: duration,
+                        );
+
+                        if (mounted) {
+                          if (res['success'] == true) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(res['message'] ?? 'Campaign recorded with status pending_admin_approval and a scheduled promotional banner preview displayed.'),
+                                backgroundColor: AppTheme.deepLeafGreen,
+                              ),
+                            );
+                            _fetchRetailerCampaigns();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(res['message'] ?? 'Failed to create campaign.')),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Create Flash Sale Campaign (RET-002)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCampaignsSheet() {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Flash Sales & Promos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.darkGreen)),
+                        Text('RET-002: Promotional Offer Campaigns', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context, rootNavigator: true).pop();
+                        _showCreateCampaignDialog();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.deepLeafGreen,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: const Text('+ Flash Sale', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: _retailerCampaigns.isEmpty
+                      ? const Center(child: Text('No promotional offer campaigns created yet.', style: TextStyle(fontSize: 12, color: Colors.grey)))
+                      : ListView.separated(
+                          itemCount: _retailerCampaigns.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final c = _retailerCampaigns[index];
+                            final title = c['title']?.toString() ?? 'Weekend Harvest Festival';
+                            final discount = c['discount_percentage']?.toString() ?? '15';
+                            final category = c['target_category']?.toString() ?? 'Fresh Vegetables';
+                            final status = c['status']?.toString() ?? 'pending_admin_approval';
+                            final code = c['code']?.toString() ?? 'WEEKEND-HARVEST-15';
+
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: AppTheme.deepLeafGreen.withOpacity(0.15)),
+                                boxShadow: [
+                                  BoxShadow(color: AppTheme.deepLeafGreen.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(color: AppTheme.lightMint, borderRadius: BorderRadius.circular(14)),
+                                    child: const Icon(Icons.local_offer_rounded, color: AppTheme.deepLeafGreen, size: 26),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.accentGold.withOpacity(0.15),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                status,
+                                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange[800]),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text('Code: #$code • Category: $category', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                        const SizedBox(height: 6),
+                                        Text('$discount% OFF Flash Sale • Scheduled Preview', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.deepLeafGreen)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _fetchProducts() async {
@@ -136,6 +417,16 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
       appBar: AppBar(
         title: const Text('Retailer Center'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: AppTheme.deepLeafGreen),
+            tooltip: 'Notifications',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
+            },
+          ),
           GestureDetector(
             onTap: () async {
               await Navigator.push(
@@ -372,54 +663,67 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                 ),
               ),
               const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MyOffersScreen()),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFD4A017), Color(0xFF2E7D32)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFD4A017).withOpacity(0.15),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
-                      )
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'My Campaigns & Offers',
-                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Check milestones and claim rewards',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
-                        ],
+              Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(24),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RetailerCampaignsScreen()),
+                    ).then((_) => _fetchRetailerCampaigns());
+                  },
+                  borderRadius: BorderRadius.circular(24),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFD4A017), Color(0xFF2E7D32)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
-                        child: const Icon(Icons.stars_rounded, color: Colors.white),
-                      )
-                    ],
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFD4A017).withOpacity(0.15),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Flash Sales & Promo Campaigns',
+                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_retailerCampaigns.length} active campaigns • Tap to view (RET-002)',
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(12)),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.add_rounded, color: Colors.white, size: 18),
+                              SizedBox(width: 4),
+                              Text('Create', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -621,10 +925,15 @@ class _RetailerDashboardState extends State<RetailerDashboard> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            order['order_number'] ?? 'Order No',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          Expanded(
+                            child: Text(
+                              order['order_number'] ?? 'Order No',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             'LKR ${salesTotal.toStringAsFixed(2)}',
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.deepLeafGreen),

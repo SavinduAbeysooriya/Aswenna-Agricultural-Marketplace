@@ -14,6 +14,11 @@ use App\Http\Controllers\AdminWebController;
 |
 */
 
+// Named route fallback for Sanctum unauthenticated redirects
+Route::get('/login', function () {
+    return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+})->name('login');
+
 // Public Organic Landing Page
 Route::get('/', [AdminWebController::class, 'landing'])->name('landing');
 
@@ -43,9 +48,12 @@ Route::get('/admin/crops', [AdminWebController::class, 'crops'])->name('admin.cr
 Route::get('/admin/crop-rates', [AdminWebController::class, 'cropRates'])->name('admin.crop-rates');
 Route::get('/admin/crop-growth-stages', [AdminWebController::class, 'cropGrowthStages'])->name('admin.crop-growth-stages');
 Route::get('/admin/offer-campaigns', [AdminWebController::class, 'offerCampaigns'])->name('admin.offer-campaigns');
+Route::post('/admin/offer-campaigns/{id}/approve', [AdminWebController::class, 'approveCampaign'])->name('admin.offer-campaigns.approve');
+Route::post('/admin/offer-campaigns/{id}/reject', [AdminWebController::class, 'rejectCampaign'])->name('admin.offer-campaigns.reject');
 Route::get('/admin/user-offer-progress', [AdminWebController::class, 'userOfferProgress'])->name('admin.user-offer-progress');
 Route::get('/admin/escrow-commissions', [AdminWebController::class, 'escrowCommissions'])->name('admin.escrow-commissions');
 Route::get('/admin/withdrawals', [AdminWebController::class, 'withdrawals'])->name('admin.withdrawals');
+Route::get('/admin/users', [AdminWebController::class, 'userRoles'])->name('admin.users');
 Route::get('/admin/users/roles', [AdminWebController::class, 'userRoles'])->name('admin.users.roles');
 Route::get('/admin/users/{role}', [AdminWebController::class, 'usersList'])->name('admin.users.index');
 Route::get('/admin/users/profile/{id}', [AdminWebController::class, 'userProfile'])->name('admin.users.profile');

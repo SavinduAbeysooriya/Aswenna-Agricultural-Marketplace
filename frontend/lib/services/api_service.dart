@@ -2706,6 +2706,28 @@ class ApiService {
 
   }
 
+  /// Fetch 30-day historical market rate analytics for chart rendering.
+  static Future<Map<String, dynamic>> getCropRateHistory(int cropId, {int days = 30}) async {
+    final token = await getToken();
+    if (token == null) return {'success': false, 'message': 'Session expired.'};
+    final url = Uri.parse('$baseUrl/crop-rates/$cropId/history?days=$days');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) return data;
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Failed to load historical analytics.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
 
 
   /// Submit or update buyer's today rate for a crop.
@@ -4321,6 +4343,192 @@ class ApiService {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // ===================================================================
+  // Digital Contracts & Counter Offers (BUY-004)
+  // ===================================================================
+
+  static Future<Map<String, dynamic>> getDigitalContracts() async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/buyer/digital-contracts${token != null ? '?token=$token' : ''}');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      });
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> acceptCounterOffer(int contractId) async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/buyer/digital-contracts/$contractId/accept-counter-offer${token != null ? '?token=$token' : ''}');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // ===================================================================
+  // Retailer Flash Sale Promotional Campaigns (RET-002)
+  // ===================================================================
+
+  static Future<Map<String, dynamic>> getRetailerCampaigns() async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/retailer/campaigns${token != null ? '?token=$token' : ''}');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      });
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> createRetailerCampaign({
+    required String title,
+    required double discountPercentage,
+    required String targetCategory,
+    required int durationDays,
+  }) async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/retailer/campaigns/create${token != null ? '?token=$token' : ''}');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'title': title,
+          'discount_percentage': discountPercentage,
+          'target_category': targetCategory,
+          'duration_days': durationDays,
+        }),
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCustomerPromotions() async {
+    final url = Uri.parse('$baseUrl/customer/promotions');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      });
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> markReadyForPickup(dynamic orderId, {String pickupSlot = '14:00'}) async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/retailer/orders/$orderId/confirm-and-pack${token != null ? '?token=$token' : ''}');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'assigned_pickup_slot': pickupSlot,
+        }),
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> verifyCargoPickup(dynamic orderId, {String pickupOtp = '849201', String cargoPhoto = 'cargo_loaded.jpg'}) async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/delivery/orders/$orderId/verify-cargo-pickup${token != null ? '?token=$token' : ''}');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'pickup_otp': pickupOtp,
+          'cargo_photo': cargoPhoto,
+        }),
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateTransitStatus(dynamic orderId, {double latitude = 7.8731, double longitude = 80.6517, String action = 'arrived'}) async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/delivery/orders/$orderId/transit-status${token != null ? '?token=$token' : ''}');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'latitude': latitude,
+          'longitude': longitude,
+          'action': action,
+        }),
+      );
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> completeDeliveryWithOtp(dynamic orderId, {String deliveryOtp = '392014', String recipientSignature = 'digital_signature_sample'}) async {
+    final token = await getToken();
+    final url = Uri.parse('$baseUrl/delivery/orders/$orderId/complete-delivery${token != null ? '?token=$token' : ''}');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'delivery_otp': deliveryOtp,
+          'recipient_signature': recipientSignature,
+        }),
       );
       return jsonDecode(response.body) as Map<String, dynamic>;
     } catch (e) {

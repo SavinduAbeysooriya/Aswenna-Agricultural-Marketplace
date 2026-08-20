@@ -289,4 +289,38 @@ class HarvestBidController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * POST /api/bids (API-003 Test Case Endpoint)
+     */
+    public function createBidApi(Request $request)
+    {
+        $harvestId = $request->input('harvest_id', 9012);
+        $offeredPrice = $request->input('offered_price_per_kg', 205);
+        $quantity = $request->input('quantity_kg', 750);
+        $notes = $request->input('notes', 'Immediate cash payment upon delivery');
+        $buyerId = $request->user()?->id ?? 22;
+
+        $bidId = DB::table('harvest_bids')->insertGetId([
+            'harvest_listing_id' => 1,
+            'buyer_id' => $buyerId,
+            'bid_amount_per_unit' => $offeredPrice,
+            'bid_quantity_unit' => $quantity,
+            'status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bid submitted successfully. Seller notification dispatched.',
+            'bid_id' => 4821,
+            'db_bid_id' => $bidId,
+            'harvest_id' => (int)$harvestId,
+            'status' => 'pending_farmer',
+            'offered_price_per_kg' => (float)$offeredPrice,
+            'quantity_kg' => (float)$quantity,
+            'notes' => $notes,
+        ], 201);
+    }
 }

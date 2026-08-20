@@ -325,34 +325,48 @@ class DailyCultivationLogController extends Controller
             $predictContext .= "Instructions to AI: Incorporate these Tabular ML model yield forecasts and fertilizer/crop recommendations into your final report to show data-backed analysis.";
         }
 
-        try {
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-                'Authorization' => 'Bearer ' . $groqKey,
-            ])->timeout(30)->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model' => 'llama-3.3-70b-versatile',
-                'messages' => [
-                    ['role' => 'user', 'content' => $request->input('prompt') . $predictContext],
-                ],
-                'temperature' => 0.7,
-            ]);
+        $models = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+        $lastError = null;
+        $content = null;
 
-            if ($response->successful()) {
-                $content = $response->json('choices.0.message.content');
-                return response()->json([
-                    'success' => true,
-                    'content' => $content,
+        foreach ($models as $model) {
+            try {
+                $response = Http::withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Authorization' => 'Bearer ' . $groqKey,
+                ])->timeout(30)->post('https://api.groq.com/openai/v1/chat/completions', [
+                    'model' => $model,
+                    'messages' => [
+                        ['role' => 'user', 'content' => $request->input('prompt') . $predictContext],
+                    ],
+                    'temperature' => 0.7,
                 ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to obtain AI advice: ' . $response->body(),
-                ], 500);
+
+                if ($response->successful()) {
+                    $content = $response->json('choices.0.message.content');
+                    // Remove <think>...</think> tag if present
+                    if (str_contains($content, '<think>')) {
+                        $content = preg_replace('/<think>[\s\S]*?<\/think>/', '', $content);
+                    }
+                    $content = trim($content);
+                    break;
+                } else {
+                    $lastError = $response->body();
+                }
+            } catch (\Exception $e) {
+                $lastError = $e->getMessage();
             }
-        } catch (\Exception $e) {
+        }
+
+        if ($content !== null) {
+            return response()->json([
+                'success' => true,
+                'content' => $content,
+            ]);
+        } else {
             return response()->json([
                 'success' => false,
-                'message' => 'Network error: ' . $e->getMessage(),
+                'message' => 'Failed to obtain AI advice: ' . $lastError,
             ], 500);
         }
     }

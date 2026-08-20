@@ -676,7 +676,7 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _showUpdateRateSheet(crop),
+          onTap: () => _showPriceAnalyticsModal(context, crop),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -820,11 +820,60 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showPriceAnalyticsModal(context, crop),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.deepLeafGreen,
+                          side: BorderSide(color: AppTheme.deepLeafGreen.withOpacity(0.4)),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.show_chart_rounded, size: 16),
+                        label: const Text(
+                          '30-Day Price Analytics',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    if (_userRole == 'buyer') ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showUpdateRateSheet(crop),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.deepLeafGreen,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: Icon(hasSubmitted ? Icons.edit_rounded : Icons.add_rounded, color: Colors.white, size: 16),
+                          label: Text(
+                            hasSubmitted ? 'Edit Rate' : 'Submit Rate',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showPriceAnalyticsModal(BuildContext context, Map<String, dynamic> crop) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PriceAnalyticsSheet(crop: crop, userRole: _userRole, onUpdateRate: () => _showUpdateRateSheet(crop)),
     );
   }
 
@@ -1868,3 +1917,646 @@ class _RateUpdateSheetState extends State<_RateUpdateSheet>
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 📈 30-DAY HISTORICAL MARKET PRICE ANALYTICS SHEET & CHART PAINTER
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PriceAnalyticsSheet extends StatefulWidget {
+  final Map<String, dynamic> crop;
+  final String? userRole;
+  final VoidCallback? onUpdateRate;
+
+  const _PriceAnalyticsSheet({
+    Key? key,
+    required this.crop,
+    this.userRole,
+    this.onUpdateRate,
+  }) : super(key: key);
+
+  @override
+  State<_PriceAnalyticsSheet> createState() => _PriceAnalyticsSheetState();
+}
+
+class _PriceAnalyticsSheetState extends State<_PriceAnalyticsSheet> {
+  int _selectedDays = 30;
+  bool _isLoading = true;
+  String? _error;
+  List<dynamic> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final cropId = widget.crop['id'];
+    final res = await ApiService.getCropRateHistory(cropId, days: _selectedDays);
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        if (res['success'] == true) {
+          _history = res['history'] ?? [];
+        } else {
+          _error = res['message'] ?? 'Failed to load price history.';
+        }
+      });
+    }
+  }
+
+  double _parse(dynamic val) {
+    if (val == null) return 0.0;
+    if (val is double) return val;
+    if (val is int) return val.toDouble();
+    return double.tryParse(val.toString()) ?? 0.0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cropName = widget.crop['cropname'] ?? 'Crop';
+
+    double overallAvgA = 0.0;
+    double highestA = 0.0;
+    double lowestA = 0.0;
+    double trendPct = 0.0;
+
+    if (_history.isNotEmpty) {
+      final validAvgA = _history.map((h) => _parse(h['avg_rate_a'])).where((v) => v > 0).toList();
+      final validMaxA = _history.map((h) => _parse(h['max_rate_a'])).where((v) => v > 0).toList();
+      final validMinA = _history.map((h) => _parse(h['min_rate_a'])).where((v) => v > 0).toList();
+
+      if (validAvgA.isNotEmpty) {
+        overallAvgA = validAvgA.reduce((a, b) => a + b) / validAvgA.length;
+      }
+      if (validMaxA.isNotEmpty) {
+        highestA = validMaxA.reduce((a, b) => a > b ? a : b);
+      }
+      if (validMinA.isNotEmpty) {
+        lowestA = validMinA.reduce((a, b) => a < b ? a : b);
+      }
+
+      if (_history.length >= 2) {
+        final firstVal = _parse(_history.first['avg_rate_a']);
+        final lastVal = _parse(_history.last['avg_rate_a']);
+        if (firstVal > 0) {
+          trendPct = ((lastVal - firstVal) / firstVal) * 100;
+        }
+      }
+    }
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Header Section
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.analytics_rounded, color: AppTheme.deepLeafGreen, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$cropName Price Analytics',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Nuwara Eliya Wholesale Market • Fluctuation Trajectory',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Time Horizon Segmented Control
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'TIME HORIZON',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF94A3B8),
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                Row(
+                  children: [7, 14, 30].map((d) {
+                    final isSelected = _selectedDays == d;
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: InkWell(
+                        onTap: () {
+                          if (_selectedDays != d) {
+                            setState(() {
+                              _selectedDays = d;
+                            });
+                            _loadHistory();
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.deepLeafGreen : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$d Days',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? Colors.white : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Main Scrollable Content
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.deepLeafGreen),
+                      ),
+                    )
+                  : _error != null
+                      ? Center(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      : ListView(
+                          physics: const BouncingScrollPhysics(),
+                          children: [
+                            // Hero Line Chart Card
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0F172A).withOpacity(0.2),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'WHOLESALE AVERAGE (GRADE A)',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1.0,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'LKR ${overallAvgA.toStringAsFixed(2)} / kg',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: trendPct >= 0
+                                              ? const Color(0xFF2E7D32).withOpacity(0.3)
+                                              : Colors.red.withOpacity(0.3),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: trendPct >= 0 ? const Color(0xFF81C784) : Colors.redAccent,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              trendPct >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                                              color: trendPct >= 0 ? const Color(0xFF81C784) : Colors.redAccent,
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${trendPct >= 0 ? '+' : ''}${trendPct.toStringAsFixed(1)}%',
+                                              style: TextStyle(
+                                                color: trendPct >= 0 ? const Color(0xFF81C784) : Colors.redAccent,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 20),
+
+                                  // Vector Line Chart
+                                  SizedBox(
+                                    height: 140,
+                                    width: double.infinity,
+                                    child: CustomPaint(
+                                      painter: _PriceTrendChartPainter(
+                                        history: _history,
+                                        lineColor: const Color(0xFF81C784),
+                                        areaColor: const Color(0xFF2E7D32).withOpacity(0.25),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        _history.isNotEmpty ? _history.first['date'] ?? '' : '',
+                                        style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                      const Text(
+                                        'Daily Moving Trajectory',
+                                        style: TextStyle(color: Colors.white38, fontSize: 10, fontStyle: FontStyle.italic),
+                                      ),
+                                      Text(
+                                        _history.isNotEmpty ? _history.last['date'] ?? '' : '',
+                                        style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Metrics Summary Cards Row
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricMiniCard(
+                                    '30-DAY HIGHEST',
+                                    'LKR ${highestA.toStringAsFixed(0)}',
+                                    Icons.arrow_upward_rounded,
+                                    const Color(0xFF2E7D32),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildMetricMiniCard(
+                                    '30-DAY LOWEST',
+                                    'LKR ${lowestA.toStringAsFixed(0)}',
+                                    Icons.arrow_downward_rounded,
+                                    const Color(0xFFE65100),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildMetricMiniCard(
+                                    'DATA POINTS',
+                                    '${_history.length} Days',
+                                    Icons.calendar_month_rounded,
+                                    const Color(0xFF0284C7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Daily Fluctuation Ledger Title
+                            const Text(
+                              'Daily Price Fluctuation Trajectory',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Consolidated daily minimum, maximum, and average wholesale prices submitted by buyers.',
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // List of 30 Daily Trajectory Rows
+                            ..._history.reversed.map((h) {
+                              final String dateStr = h['date'] ?? '';
+                              final double minA = _parse(h['min_rate_a']);
+                              final double maxA = _parse(h['max_rate_a']);
+                              final double avgA = _parse(h['avg_rate_a']);
+                              final int subs = (h['total_submissions'] as num?)?.toInt() ?? 0;
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.02),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE8F5E9),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.calendar_today_rounded, color: AppTheme.deepLeafGreen, size: 16),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            dateStr,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Min LKR ${minA.toStringAsFixed(0)} - Max LKR ${maxA.toStringAsFixed(0)} ($subs buyers)',
+                                            style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      'LKR ${avgA.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 14,
+                                        color: AppTheme.deepLeafGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ],
+                        ),
+            ),
+
+            if (widget.userRole == 'buyer' && widget.onUpdateRate != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    widget.onUpdateRate!();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.deepLeafGreen,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: const Icon(Icons.edit_note_rounded, color: Colors.white),
+                  label: const Text('Update Today\'s Wholesale Rate', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricMiniCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 12),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🎨 CUSTOM PAINTER FOR DYNAMIC 30-DAY SMOOTH PRICE LINE CHART
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PriceTrendChartPainter extends CustomPainter {
+  final List<dynamic> history;
+  final Color lineColor;
+  final Color areaColor;
+
+  _PriceTrendChartPainter({
+    required this.history,
+    required this.lineColor,
+    required this.areaColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (history.isEmpty) return;
+
+    final double width = size.width;
+    final double height = size.height;
+
+    // Extract Grade A averages
+    final List<double> values = history.map((h) {
+      final val = h['avg_rate_a'];
+      if (val == null) return 0.0;
+      if (val is double) return val;
+      if (val is int) return val.toDouble();
+      return double.tryParse(val.toString()) ?? 0.0;
+    }).toList();
+
+    double minVal = values.reduce((a, b) => a < b ? a : b);
+    double maxVal = values.reduce((a, b) => a > b ? a : b);
+
+    // Padding range to prevent line sticking to boundaries
+    if (maxVal == minVal) {
+      maxVal += 10;
+      minVal -= 10;
+    } else {
+      final diff = maxVal - minVal;
+      minVal -= diff * 0.1;
+      maxVal += diff * 0.1;
+    }
+
+    // Grid baseline
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.08)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    for (int i = 1; i <= 3; i++) {
+      final y = (height / 4) * i;
+      canvas.drawLine(Offset(0, y), Offset(width, y), gridPaint);
+    }
+
+    // Map points to canvas coordinates
+    final List<Offset> points = [];
+    final double dx = history.length > 1 ? width / (history.length - 1) : width;
+
+    for (int i = 0; i < history.length; i++) {
+      final x = i * dx;
+      final normY = (values[i] - minVal) / (maxVal - minVal);
+      final y = height - (normY * height);
+      points.add(Offset(x, y));
+    }
+
+    // Construct smooth path
+    final path = Path();
+    final areaPath = Path();
+
+    if (points.isNotEmpty) {
+      path.moveTo(points.first.dx, points.first.dy);
+      areaPath.moveTo(points.first.dx, height);
+      areaPath.lineTo(points.first.dx, points.first.dy);
+
+      for (int i = 0; i < points.length - 1; i++) {
+        final p0 = points[i];
+        final p1 = points[i + 1];
+        final controlX = (p0.dx + p1.dx) / 2;
+        path.cubicTo(controlX, p0.dy, controlX, p1.dy, p1.dx, p1.dy);
+        areaPath.cubicTo(controlX, p0.dy, controlX, p1.dy, p1.dx, p1.dy);
+      }
+
+      areaPath.lineTo(points.last.dx, height);
+      areaPath.close();
+    }
+
+    // Draw shaded area
+    final areaPaint = Paint()..color = areaColor;
+    canvas.drawPath(areaPath, areaPaint);
+
+    // Draw main line
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(path, linePaint);
+
+    // Draw endpoint glowing dot
+    if (points.isNotEmpty) {
+      final lastPoint = points.last;
+      final dotBgPaint = Paint()..color = lineColor.withOpacity(0.4);
+      canvas.drawCircle(lastPoint, 7, dotBgPaint);
+
+      final dotPaint = Paint()..color = Colors.white;
+      canvas.drawCircle(lastPoint, 3.5, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+

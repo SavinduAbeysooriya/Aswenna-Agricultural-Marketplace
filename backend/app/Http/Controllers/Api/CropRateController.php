@@ -108,6 +108,27 @@ class CropRateController extends Controller
             $maxAllowedC = round($avgC * 1.10, 2);
         }
 
+        // Fetch 30-day price fluctuation history for chart analytics
+        $history = DB::table('crop_rates')
+            ->where('crop_id', $cropId)
+            ->where('date_and_time', '>=', Carbon::today()->subDays(29)->startOfDay())
+            ->select(
+                DB::raw('DATE(date_and_time) as date'),
+                DB::raw('ROUND(MIN(rate_per_kg_grade_a), 2) as min_rate_a'),
+                DB::raw('ROUND(MAX(rate_per_kg_grade_a), 2) as max_rate_a'),
+                DB::raw('ROUND(AVG(rate_per_kg_grade_a), 2) as avg_rate_a'),
+                DB::raw('ROUND(MIN(rate_per_kg_grade_b), 2) as min_rate_b'),
+                DB::raw('ROUND(MAX(rate_per_kg_grade_b), 2) as max_rate_b'),
+                DB::raw('ROUND(AVG(rate_per_kg_grade_b), 2) as avg_rate_b'),
+                DB::raw('ROUND(MIN(rate_per_kg_grade_c), 2) as min_rate_c'),
+                DB::raw('ROUND(MAX(rate_per_kg_grade_c), 2) as max_rate_c'),
+                DB::raw('ROUND(AVG(rate_per_kg_grade_c), 2) as avg_rate_c'),
+                DB::raw('COUNT(DISTINCT buyer_id) as total_submissions')
+            )
+            ->groupBy(DB::raw('DATE(date_and_time)'))
+            ->orderBy('date', 'asc')
+            ->get();
+
         return response()->json([
             'success' => true,
             'crop' => $crop,
@@ -125,6 +146,52 @@ class CropRateController extends Controller
                 'max_allowed_rate_c' => $maxAllowedC,
             ],
             'buyer_rate' => $buyerRate,
+            'history' => $history,
+        ], 200);
+    }
+
+    /**
+     * GET /api/crop-rates/{crop_id}/history
+     * Get historical daily wholesale market price analytics for chart rendering.
+     */
+    public function history(Request $request, $cropId)
+    {
+        $days = (int) $request->input('days', 30);
+        $startDate = Carbon::today()->subDays($days - 1)->startOfDay();
+
+        $crop = DB::table('crops')->where('id', $cropId)->first();
+        if (!$crop) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Crop not found.',
+            ], 404);
+        }
+
+        $history = DB::table('crop_rates')
+            ->where('crop_id', $cropId)
+            ->where('date_and_time', '>=', $startDate)
+            ->select(
+                DB::raw('DATE(date_and_time) as date'),
+                DB::raw('ROUND(MIN(rate_per_kg_grade_a), 2) as min_rate_a'),
+                DB::raw('ROUND(MAX(rate_per_kg_grade_a), 2) as max_rate_a'),
+                DB::raw('ROUND(AVG(rate_per_kg_grade_a), 2) as avg_rate_a'),
+                DB::raw('ROUND(MIN(rate_per_kg_grade_b), 2) as min_rate_b'),
+                DB::raw('ROUND(MAX(rate_per_kg_grade_b), 2) as max_rate_b'),
+                DB::raw('ROUND(AVG(rate_per_kg_grade_b), 2) as avg_rate_b'),
+                DB::raw('ROUND(MIN(rate_per_kg_grade_c), 2) as min_rate_c'),
+                DB::raw('ROUND(MAX(rate_per_kg_grade_c), 2) as max_rate_c'),
+                DB::raw('ROUND(AVG(rate_per_kg_grade_c), 2) as avg_rate_c'),
+                DB::raw('COUNT(DISTINCT buyer_id) as total_submissions')
+            )
+            ->groupBy(DB::raw('DATE(date_and_time)'))
+            ->orderBy('date', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'crop' => $crop,
+            'days' => $days,
+            'history' => $history,
         ], 200);
     }
 

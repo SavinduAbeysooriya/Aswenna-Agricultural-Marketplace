@@ -41,8 +41,10 @@ class ChatbotController extends Controller
      */
     public function sendMessage(Request $request)
     {
+        $sessionId = $request->input('session_id') ?? ('sess_' . Str::random(8));
+
         $validated = $request->validate([
-            'session_id' => 'required|string',
+            'session_id' => 'nullable|string',
             'message' => 'required|string',
             'image' => 'nullable|image|max:10240',
         ]);
@@ -58,7 +60,7 @@ class ChatbotController extends Controller
         // 1. Save user message into chatbot_sessions
         ChatbotSession::create([
             'user_id' => $userId,
-            'session_id' => $validated['session_id'],
+            'session_id' => $sessionId,
             'message' => $validated['message'],
             'image_path' => $imagePath,
             'response' => null,
@@ -93,16 +95,17 @@ class ChatbotController extends Controller
         // 3. Save AI response into chatbot_sessions
         ChatbotSession::create([
             'user_id' => $userId,
-            'session_id' => $validated['session_id'],
+            'session_id' => $sessionId,
             'message' => null,
             'response' => $aiAnswer,
             'role' => 'assistant',
         ]);
 
-        // 4. Return the full updated session conversation
         return response()->json([
-            'session_id' => $validated['session_id'],
-            'messages' => $this->formatSessionMessages($validated['session_id']),
+            'success' => true,
+            'session_id' => $sessionId,
+            'reply' => $aiAnswer,
+            'messages' => $this->formatSessionMessages($sessionId),
         ]);
     }
 

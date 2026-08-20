@@ -480,9 +480,34 @@ class PaymentController extends Controller
             ->orderBy('id', 'desc')
             ->get();
 
+        $harvestSpent = (float) DB::table('confirmed_bids')
+            ->where('buyer_id', $user->id)
+            ->where('payment_status', 'paid')
+            ->sum('total_amount');
+
+        $orderSpent = (float) DB::table('customer_orders')
+            ->where('customer_id', $user->id)
+            ->where('payment_status', 'paid')
+            ->sum('total_amount');
+
+        $totalSpent = round($harvestSpent + $orderSpent, 2);
+
+        $completedDealsCount = DB::table('confirmed_bids')
+            ->where('buyer_id', $user->id)
+            ->where('payment_status', 'paid')
+            ->count();
+
+        $activeBidsCount = DB::table('harvest_bids')
+            ->where('buyer_id', $user->id)
+            ->whereIn('status', ['pending', 'accepted'])
+            ->count();
+
         return response()->json([
             'success' => true,
             'wallet' => $wallet,
+            'total_spent' => $totalSpent,
+            'completed_deals_count' => $completedDealsCount,
+            'active_bids_count' => $activeBidsCount,
             'transactions' => $transactions,
         ], 200);
     }

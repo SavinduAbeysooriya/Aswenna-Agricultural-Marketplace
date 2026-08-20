@@ -376,32 +376,16 @@
 
                 <!-- Tab visual mockups (6 cols) -->
                 <div class="lg:col-span-6 flex justify-center">
-                    <div class="relative w-full max-w-[360px] aspect-[9/16] bg-slate-900 rounded-[44px] shadow-2xl p-3 border-4 border-slate-850 flex items-center justify-center overflow-hidden">
+                    <div class="relative w-full max-w-[340px] aspect-[9/18] bg-slate-900 rounded-[44px] shadow-2xl p-2 border-4 border-slate-800 flex items-center justify-center overflow-hidden">
                         <!-- Camera notch -->
-                        <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-slate-850 rounded-b-2xl z-20 flex items-center justify-center">
-                            <div class="w-3 h-3 rounded-full bg-slate-900 mr-2"></div>
-                            <div class="w-10 h-1 bg-slate-900 rounded-full"></div>
+                        <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-5 bg-slate-800 rounded-b-xl z-20 flex items-center justify-center">
+                            <div class="w-2.5 h-2.5 rounded-full bg-slate-900 mr-2"></div>
+                            <div class="w-8 h-1 bg-slate-900 rounded-full"></div>
                         </div>
 
                         <!-- Device viewport content -->
-                        <div class="w-full h-full bg-slate-50 rounded-[36px] overflow-hidden flex flex-col justify-between relative pt-8 p-4 font-sans text-xs">
-                            <!-- Custom mockup components depending on Alpine role state -->
-                            <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-                                <span class="font-extrabold text-[#2E7D32]">Aswenna Mart</span>
-                                <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[8px] font-bold uppercase tracking-wider" x-text="activeTab">farmers</span>
-                            </div>
-
-                            <div class="flex-1 flex flex-col justify-center items-center py-4 space-y-3 text-center">
-                                <i class="fa-solid fa-laptop-code text-5xl text-slate-300"></i>
-                                <span class="font-bold text-slate-800 leading-none">Interactive Preview Area</span>
-                                <p class="text-[10px] text-slate-400">Sign in to the Aswenna app to utilize the custom features designed for this profile.</p>
-                            </div>
-
-                            <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-400">
-                                <span><i class="fa-solid fa-house"></i> Home</span>
-                                <span><i class="fa-solid fa-chart-simple"></i> Stats</span>
-                                <span><i class="fa-solid fa-wallet"></i> Wallet</span>
-                            </div>
+                        <div class="w-full h-full bg-white rounded-[36px] overflow-hidden relative flex items-center justify-center">
+                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Mobile App Interface" class="w-full h-full object-contain bg-white">
                         </div>
                     </div>
                 </div>
@@ -438,72 +422,30 @@
 
             <!-- Phone mockup display slider (7 cols) -->
             <div class="lg:col-span-7 flex justify-center">
-                <div class="relative w-full max-w-[340px] aspect-[9/16] bg-slate-900 rounded-[44px] shadow-2xl p-3 border-4 border-slate-850 flex items-center justify-center overflow-hidden">
+                <div class="relative w-full max-w-[340px] aspect-[9/18] bg-slate-900 rounded-[44px] shadow-2xl p-2 border-4 border-slate-800 flex items-center justify-center overflow-hidden">
                     
+                    <!-- Camera notch -->
+                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-5 bg-slate-800 rounded-b-xl z-20 flex items-center justify-center">
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-900 mr-2"></div>
+                        <div class="w-8 h-1 bg-slate-900 rounded-full"></div>
+                    </div>
+
                     <!-- Viewport Mockup Area -->
-                    <div class="w-full h-full bg-slate-50 rounded-[36px] overflow-hidden flex flex-col justify-between relative pt-8 p-4 font-sans text-xs">
+                    <div class="w-full h-full bg-white rounded-[36px] overflow-hidden relative">
                         
                         <!-- Slide 1: Crop Bidding Portal -->
-                        <div x-show="activeSlide === 1" class="flex-1 flex flex-col justify-between" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4">
-                            <div class="space-y-3">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Bids</span>
-                                <h4 class="text-sm font-bold text-slate-800 leading-none">Fresh Nuwara Eliya Carrot</h4>
-                                <span class="inline-flex px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[8px] font-bold uppercase">Auction Active</span>
-                                
-                                <div class="bg-white p-3 rounded-2xl border border-slate-100 space-y-2 mt-2">
-                                    <div class="flex justify-between text-[10px]">
-                                        <span class="text-slate-400">Current Bid</span>
-                                        <span class="font-extrabold text-[#2E7D32]">LKR 240/kg</span>
-                                    </div>
-                                    <div class="flex justify-between text-[10px]">
-                                        <span class="text-slate-400">Available Quantity</span>
-                                        <span class="font-bold text-slate-800">350 kg</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <button class="w-full py-3 bg-[#2E7D32] text-white rounded-xl font-bold text-[10px]">Place Custom Bid</button>
+                        <div x-show="activeSlide === 1" class="w-full h-full flex items-center justify-center bg-white" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Direct Crop Bidding Portal" class="w-full h-full object-contain bg-white">
                         </div>
 
                         <!-- Slide 2: Courier Route Maps -->
-                        <div x-show="activeSlide === 2" class="flex-1 flex flex-col justify-between" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4">
-                            <div class="space-y-3">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Courier Dispatch</span>
-                                <h4 class="text-sm font-bold text-slate-800 leading-none">Route Tracking: #ORD892</h4>
-                                <span class="inline-flex px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[8px] font-bold uppercase">On The Way</span>
-                                
-                                <div class="bg-white p-3 rounded-2xl border border-slate-100 space-y-2 mt-2">
-                                    <div class="flex justify-between text-[10px]">
-                                        <span class="text-slate-400">Current Location</span>
-                                        <span class="font-bold text-slate-800">Kandy Road, Kiribathgoda</span>
-                                    </div>
-                                    <div class="flex justify-between text-[10px]">
-                                        <span class="text-slate-400">ETA</span>
-                                        <span class="font-bold text-[#2E7D32]">45 mins</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <button class="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-[10px]">Contact Delivery Partner</button>
+                        <div x-show="activeSlide === 2" class="w-full h-full flex items-center justify-center bg-white" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+                            <img src="{{ asset('images/5.png') }}" alt="Aswenna Live Courier Route Maps" class="w-full h-full object-contain bg-white">
                         </div>
 
                         <!-- Slide 3: Comprehensive Farmer Wallet -->
-                        <div x-show="activeSlide === 3" class="flex-1 flex flex-col justify-between" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4">
-                            <div class="space-y-3">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Wallet Balance</span>
-                                <h4 class="text-sm font-bold text-slate-800 leading-none">Earnings Treasury Overview</h4>
-                                <span class="inline-flex px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[8px] font-bold uppercase">Escrow Secure</span>
-                                
-                                <div class="bg-white p-3 rounded-2xl border border-slate-100 space-y-2 mt-2">
-                                    <div class="flex justify-between text-[10px]">
-                                        <span class="text-slate-400">Available Balance</span>
-                                        <span class="font-extrabold text-[#2E7D32]">LKR 84,500</span>
-                                    </div>
-                                    <div class="flex justify-between text-[10px]">
-                                        <span class="text-slate-400">Pending Balance</span>
-                                        <span class="font-bold text-slate-800">LKR 12,000</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <button class="w-full py-3 bg-[#D4A017] text-slate-950 rounded-xl font-bold text-[10px]">Request Fast Withdrawal</button>
+                        <div x-show="activeSlide === 3" class="w-full h-full flex items-center justify-center bg-white" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Comprehensive Farmer Wallet" class="w-full h-full object-contain bg-white">
                         </div>
 
                     </div>

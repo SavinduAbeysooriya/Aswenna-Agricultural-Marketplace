@@ -376,16 +376,16 @@
 
                 <!-- Tab visual mockups (6 cols) -->
                 <div class="lg:col-span-6 flex justify-center">
-                    <div class="relative w-full max-w-[360px] aspect-[9/16] bg-slate-900 rounded-[44px] shadow-2xl p-3 border-4 border-slate-850 flex items-center justify-center overflow-hidden">
+                    <div class="relative w-full max-w-[340px] aspect-[9/18] bg-slate-900 rounded-[44px] shadow-2xl p-2 border-4 border-slate-800 flex items-center justify-center overflow-hidden">
                         <!-- Camera notch -->
-                        <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-slate-850 rounded-b-2xl z-20 flex items-center justify-center">
-                            <div class="w-3 h-3 rounded-full bg-slate-900 mr-2"></div>
-                            <div class="w-10 h-1 bg-slate-900 rounded-full"></div>
+                        <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-5 bg-slate-800 rounded-b-xl z-20 flex items-center justify-center">
+                            <div class="w-2.5 h-2.5 rounded-full bg-slate-900 mr-2"></div>
+                            <div class="w-8 h-1 bg-slate-900 rounded-full"></div>
                         </div>
 
                         <!-- Device viewport content -->
-                        <div class="w-full h-full bg-slate-900 rounded-[36px] overflow-hidden relative">
-                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Mobile App Interface" class="w-full h-full object-cover rounded-[36px]">
+                        <div class="w-full h-full bg-white rounded-[36px] overflow-hidden relative flex items-center justify-center">
+                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Mobile App Interface" class="w-full h-full object-contain bg-white">
                         </div>
                     </div>
                 </div>
@@ -422,30 +422,30 @@
 
             <!-- Phone mockup display slider (7 cols) -->
             <div class="lg:col-span-7 flex justify-center">
-                <div class="relative w-full max-w-[340px] aspect-[9/16] bg-slate-900 rounded-[44px] shadow-2xl p-3 border-4 border-slate-850 flex items-center justify-center overflow-hidden">
+                <div class="relative w-full max-w-[340px] aspect-[9/18] bg-slate-900 rounded-[44px] shadow-2xl p-2 border-4 border-slate-800 flex items-center justify-center overflow-hidden">
                     
                     <!-- Camera notch -->
-                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-slate-850 rounded-b-2xl z-20 flex items-center justify-center">
-                        <div class="w-3 h-3 rounded-full bg-slate-900 mr-2"></div>
-                        <div class="w-10 h-1 bg-slate-900 rounded-full"></div>
+                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-5 bg-slate-800 rounded-b-xl z-20 flex items-center justify-center">
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-900 mr-2"></div>
+                        <div class="w-8 h-1 bg-slate-900 rounded-full"></div>
                     </div>
 
                     <!-- Viewport Mockup Area -->
-                    <div class="w-full h-full bg-slate-900 rounded-[36px] overflow-hidden relative">
+                    <div class="w-full h-full bg-white rounded-[36px] overflow-hidden relative">
                         
                         <!-- Slide 1: Crop Bidding Portal -->
-                        <div x-show="activeSlide === 1" class="w-full h-full" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
-                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Direct Crop Bidding Portal" class="w-full h-full object-cover rounded-[36px]">
+                        <div x-show="activeSlide === 1" class="w-full h-full flex items-center justify-center bg-white" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Direct Crop Bidding Portal" class="w-full h-full object-contain bg-white">
                         </div>
 
                         <!-- Slide 2: Courier Route Maps -->
-                        <div x-show="activeSlide === 2" class="w-full h-full" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
-                            <img src="{{ asset('images/5.png') }}" alt="Aswenna Live Courier Route Maps" class="w-full h-full object-cover rounded-[36px]">
+                        <div x-show="activeSlide === 2" class="w-full h-full flex items-center justify-center bg-white" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+                            <img src="{{ asset('images/5.png') }}" alt="Aswenna Live Courier Route Maps" class="w-full h-full object-contain bg-white">
                         </div>
 
                         <!-- Slide 3: Comprehensive Farmer Wallet -->
-                        <div x-show="activeSlide === 3" class="w-full h-full" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
-                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Comprehensive Farmer Wallet" class="w-full h-full object-cover rounded-[36px]">
+                        <div x-show="activeSlide === 3" class="w-full h-full flex items-center justify-center bg-white" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+                            <img src="{{ asset('images/1.png') }}" alt="Aswenna Comprehensive Farmer Wallet" class="w-full h-full object-contain bg-white">
                         </div>
 
                     </div>
